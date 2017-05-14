@@ -1,9 +1,6 @@
 package fakestorage
 
-import (
-	"fmt"
-	"sort"
-)
+import "sort"
 
 type listResponse struct {
 	Kind  string        `json:"kind"`
@@ -52,17 +49,14 @@ type objectResponse struct {
 	Name   string `json:"name"`
 	ID     string `json:"id"`
 	Bucket string `json:"bucket"`
-	Link   string `json:"selfLink"`
 }
 
 func newObjectResponse(obj Object, server *Server) objectResponse {
-	link := fmt.Sprintf("%s/download/%s", server.URL(), obj.id())
 	return objectResponse{
 		Kind:   "storage#object",
 		ID:     obj.id(),
 		Bucket: obj.BucketName,
 		Name:   obj.Name,
-		Link:   link,
 	}
 }
 
