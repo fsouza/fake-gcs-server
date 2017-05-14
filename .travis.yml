@@ -1,0 +1,13 @@
+language: go
+sudo: false
+install:
+  - go get github.com/alecthomas/gometalinter
+  - gometalinter --install
+  - go get ./...
+script:
+  - gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --deadline=10m ./...
+  - go test ./...
+go:
+  - 1.7.x
+  - 1.8.x
+  - tip
