@@ -122,6 +122,63 @@ func TestServerClientObjectReader(t *testing.T) {
 	}
 }
 
+func TestServerClientObjectRangeReader(t *testing.T) {
+	const bucketName = "some-bucket"
+	const objectName = "items/data.txt"
+	const content = "some really nice but long content stored in my object"
+	server := NewServer([]Object{
+		{
+			BucketName: bucketName,
+			Name:       objectName,
+			Content:    []byte(content),
+		},
+	})
+	defer server.Stop()
+	var tests = []struct {
+		testCase string
+		offset   int64
+		length   int64
+	}{
+		{
+			"no length, just offset",
+			2,
+			-1,
+		},
+		{
+			"zero offset, length",
+			0,
+			10,
+		},
+		{
+			"offset and length",
+			4,
+			10,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.testCase, func(t *testing.T) {
+			if test.length == -1 {
+				test.length = int64(len(content)) - test.offset
+			}
+			expectedData := content[test.offset : test.offset+test.length-1]
+			client := server.Client()
+			objHandle := client.Bucket(bucketName).Object(objectName)
+			reader, err := objHandle.NewRangeReader(context.Background(), test.offset, test.length)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer reader.Close()
+			data, err := ioutil.ReadAll(reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != expectedData {
+				t.Errorf("wrong data returned\nwant %q\ngot  %q", expectedData, string(data))
+			}
+		})
+	}
+}
+
 func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 	const bucketName = "staging-bucket"
 	const objectName = "items/data-overwritten.txt"

@@ -7,6 +7,7 @@ package fakestorage
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -117,6 +118,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		encoder.Encode(errResp)
 		return
 	}
+	w.Header().Set("Accept-Ranges", "bytes")
 	encoder.Encode(newObjectResponse(obj, s))
 }
 
@@ -127,7 +129,31 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	w.Header().Set("Content-Length", strconv.Itoa(len(obj.Content)))
-	w.WriteHeader(http.StatusOK)
-	w.Write(obj.Content)
+	status := http.StatusOK
+	start, end, content := s.handleRange(obj, r)
+	if len(content) != len(obj.Content) {
+		status = http.StatusPartialContent
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(obj.Content)))
+	}
+	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	w.WriteHeader(status)
+	w.Write(content)
+}
+
+func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, content []byte) {
+	if reqRange := r.Header.Get("Range"); reqRange != "" {
+		parts := strings.SplitN(reqRange, "=", 2)
+		if len(parts) == 2 && parts[0] == "bytes" {
+			rangeParts := strings.SplitN(parts[1], "-", 2)
+			if len(rangeParts) == 2 {
+				start, _ = strconv.Atoi(rangeParts[0])
+				end, _ = strconv.Atoi(rangeParts[1])
+				if end < 0 {
+					end = len(obj.Content)
+				}
+				return start, end, obj.Content[start:end]
+			}
+		}
+	}
+	return 0, 0, obj.Content
 }
