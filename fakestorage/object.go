@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -126,6 +127,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	w.Header().Set("Content-Length", strconv.Itoa(len(obj.Content)))
 	w.WriteHeader(http.StatusOK)
 	w.Write(obj.Content)
 }

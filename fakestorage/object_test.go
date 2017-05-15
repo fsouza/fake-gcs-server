@@ -17,8 +17,9 @@ import (
 func TestServerClientObjectAttrs(t *testing.T) {
 	const bucketName = "some-bucket"
 	const objectName = "img/hi-res/party-01.jpg"
+	const content = "some nice content"
 	server := NewServer([]Object{
-		{BucketName: bucketName, Name: objectName},
+		{BucketName: bucketName, Name: objectName, Content: []byte(content)},
 	})
 	defer server.Stop()
 	client := server.Client()
@@ -31,7 +32,10 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, attrs.Bucket)
 	}
 	if attrs.Name != objectName {
-		t.Errorf("wrong object name\n want %q\ngot  %q", objectName, attrs.Name)
+		t.Errorf("wrong object name\nwant %q\ngot  %q", objectName, attrs.Name)
+	}
+	if attrs.Size != int64(len(content)) {
+		t.Errorf("wrong size returned\nwant %d\ngot  %d", len(content), attrs.Size)
 	}
 }
 

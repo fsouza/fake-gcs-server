@@ -49,6 +49,7 @@ type objectResponse struct {
 	Name   string `json:"name"`
 	ID     string `json:"id"`
 	Bucket string `json:"bucket"`
+	Size   int64  `json:"size,string"`
 }
 
 func newObjectResponse(obj Object, server *Server) objectResponse {
@@ -57,6 +58,7 @@ func newObjectResponse(obj Object, server *Server) objectResponse {
 		ID:     obj.id(),
 		Bucket: obj.BucketName,
 		Name:   obj.Name,
+		Size:   int64(len(obj.Content)),
 	}
 }
 
