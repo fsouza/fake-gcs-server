@@ -148,7 +148,7 @@ func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, conte
 			if len(rangeParts) == 2 {
 				start, _ = strconv.Atoi(rangeParts[0])
 				end, _ = strconv.Atoi(rangeParts[1])
-				if end < 0 {
+				if end < 1 {
 					end = len(obj.Content)
 				}
 				return start, end, obj.Content[start:end]

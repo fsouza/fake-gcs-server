@@ -157,10 +157,11 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.testCase, func(t *testing.T) {
-			if test.length == -1 {
-				test.length = int64(len(content)) - test.offset
+			length := test.length
+			if length == -1 {
+				length = int64(len(content)) - test.offset + 1
 			}
-			expectedData := content[test.offset : test.offset+test.length-1]
+			expectedData := content[test.offset : test.offset+length-1]
 			client := server.Client()
 			objHandle := client.Bucket(bucketName).Object(objectName)
 			reader, err := objHandle.NewRangeReader(context.Background(), test.offset, test.length)
