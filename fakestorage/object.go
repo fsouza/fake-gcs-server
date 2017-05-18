@@ -27,6 +27,21 @@ func (o *Object) id() string {
 	return o.BucketName + "/" + o.Name
 }
 
+type objectList []Object
+
+func (o objectList) Len() int {
+	return len(o)
+}
+
+func (o objectList) Less(i int, j int) bool {
+	return o[i].Name < o[j].Name
+}
+
+func (o *objectList) Swap(i int, j int) {
+	d := *o
+	d[i], d[j] = d[j], d[i]
+}
+
 // CreateObject stores the given object internally.
 //
 // If the bucket within the object doesn't exist, it also creates it. If the
@@ -51,11 +66,10 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, er
 	if !ok {
 		return nil, errors.New("bucket not found")
 	}
-	sort.Slice(objects, func(i, j int) bool {
-		return objects[i].Name < objects[j].Name
-	})
+	olist := objectList(objects)
+	sort.Sort(&olist)
 	var respObjects []Object
-	for _, obj := range objects {
+	for _, obj := range olist {
 		if strings.HasPrefix(obj.Name, prefix) {
 			objName := strings.Replace(obj.Name, prefix, "", 1)
 			if delimiter == "" || !strings.Contains(objName, delimiter) {
