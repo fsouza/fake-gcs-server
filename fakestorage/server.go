@@ -22,6 +22,7 @@ import (
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
 	buckets   map[string][]Object
+	uploads   map[string]Object
 	transport *http.Transport
 	ts        *httptest.Server
 	mux       *mux.Router
@@ -31,7 +32,7 @@ type Server struct {
 // NewServer creates a new instance of the server, pre-loaded with the given
 // objects.
 func NewServer(objects []Object) *Server {
-	s := Server{buckets: make(map[string][]Object)}
+	s := Server{buckets: make(map[string][]Object), uploads: make(map[string]Object)}
 	tlsConfig := tls.Config{InsecureSkipVerify: true}
 	s.buildMuxer()
 	s.ts = httptest.NewTLSServer(s.mux)
@@ -54,7 +55,10 @@ func (s *Server) buildMuxer() {
 	r.Path("/b").Methods("GET").HandlerFunc(s.listBuckets)
 	r.Path("/b/{bucketName}").Methods("GET").HandlerFunc(s.getBucket)
 	r.Path("/b/{bucketName}/o").Methods("GET").HandlerFunc(s.listObjects)
+	r.Path("/b/{bucketName}/o").Methods("POST").HandlerFunc(s.insertObject)
 	r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.getObject)
+	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods("POST").HandlerFunc(s.insertObject)
+	s.mux.Path("/upload/resumable/{uploadId}").Methods("PUT", "POST").HandlerFunc(s.uploadFileContent)
 }
 
 // Stop stops the server, closing all connections.

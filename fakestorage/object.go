@@ -18,9 +18,9 @@ import (
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName string
-	Name       string
-	Content    []byte
+	BucketName string `json:"-"`
+	Name       string `json:"name"`
+	Content    []byte `json:"-"`
 }
 
 func (o *Object) id() string {
