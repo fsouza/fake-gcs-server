@@ -3,6 +3,7 @@ sudo: false
 install:
   - go get github.com/alecthomas/gometalinter
   - gometalinter --install
+  - go get honnef.co/go/tools/staticcheck
   - go get ./...
 script:
   - gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --deadline=10m ./...
