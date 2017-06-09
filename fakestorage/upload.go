@@ -83,6 +83,9 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		} else {
 			content, err = loadContent(part)
 		}
+		if err != nil {
+			break
+		}
 	}
 	if err != io.EOF {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
