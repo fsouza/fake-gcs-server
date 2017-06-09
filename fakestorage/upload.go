@@ -148,12 +148,8 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 		delete(s.uploads, uploadID)
 		s.buckets[obj.BucketName] = append(s.buckets[obj.BucketName], obj)
 	} else {
-		if fake308 := r.Header.Get("X-GUploader-No-308"); fake308 != "" {
-			status = http.StatusOK
-			w.Header().Set("X-Http-Status-Code-Override", "308")
-		} else {
-			status = 308
-		}
+		status = http.StatusOK
+		w.Header().Set("X-Http-Status-Code-Override", "308")
 		s.uploads[uploadID] = obj
 	}
 	data, _ := json.Marshal(obj)
