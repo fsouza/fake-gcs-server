@@ -302,6 +302,12 @@ func TestServiceClientListObjects(t *testing.T) {
 			},
 		},
 		{
+			"full prefix",
+			"some-bucket",
+			&storage.Query{Prefix: "img/brand.jpg"},
+			[]string{"img/brand.jpg"},
+		},
+		{
 			"filtering prefix and delimiter",
 			"some-bucket",
 			&storage.Query{Prefix: "img/", Delimiter: "/"},
