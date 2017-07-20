@@ -119,7 +119,7 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 		encoder.Encode(errResp)
 		return
 	}
-	encoder.Encode(newListObjectsResponse(objs, s))
+	encoder.Encode(newListObjectsResponse(objs))
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +133,25 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Accept-Ranges", "bytes")
-	encoder.Encode(newObjectResponse(obj, s))
+	encoder.Encode(newObjectResponse(obj))
+}
+
+func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	obj, err := s.GetObject(vars["sourceBucket"], vars["sourceObject"])
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	dstBucket := vars["destinationBucket"]
+	newObject := Object{
+		BucketName: dstBucket,
+		Name:       vars["destinationObject"],
+		Content:    append([]byte(nil), obj.Content...),
+	}
+	s.CreateObject(newObject)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(newObjectRewriteResponse(newObject))
 }
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {

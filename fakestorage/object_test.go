@@ -351,3 +351,55 @@ func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 		t.Errorf("got unexpected non-nil obj: %#v", obj)
 	}
 }
+
+func TestServiceClientRewriteObject(t *testing.T) {
+	const content = "some content"
+	server := NewServer([]Object{
+		{BucketName: "first-bucket", Name: "files/some-file.txt", Content: []byte(content)},
+	})
+	defer server.Stop()
+	server.CreateBucket("empty-bucket")
+	var tests = []struct {
+		testCase   string
+		bucketName string
+		objectName string
+	}{
+		{
+			"same bucket",
+			"first-bucket",
+			"files/other-file.txt",
+		},
+		{
+			"different bucket",
+			"empty-bucket",
+			"some/interesting/file.txt",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.testCase, func(t *testing.T) {
+			client := server.Client()
+			sourceObject := client.Bucket("first-bucket").Object("files/some-file.txt")
+			dstObject := client.Bucket(test.bucketName).Object(test.objectName)
+			attrs, err := dstObject.CopierFrom(sourceObject).Run(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if attrs.Bucket != test.bucketName {
+				t.Errorf("wrong bucket in copied object attrs\nwant %q\ngot  %q", test.bucketName, attrs.Bucket)
+			}
+			if attrs.Name != test.objectName {
+				t.Errorf("wrong name in copied object attrs\nwant %q\ngot  %q", test.objectName, attrs.Name)
+			}
+			if attrs.Size != int64(len(content)) {
+				t.Errorf("wrong size in copied object attrs\nwant %d\ngot  %d", len(content), attrs.Size)
+			}
+			obj, err := server.GetObject(test.bucketName, test.objectName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(obj.Content) != content {
+				t.Errorf("wrong content on object\nwant %q\ngot  %q", content, string(obj.Content))
+			}
+		})
+	}
+}

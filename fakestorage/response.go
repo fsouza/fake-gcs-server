@@ -33,13 +33,13 @@ func newBucketResponse(bucketName string) bucketResponse {
 	}
 }
 
-func newListObjectsResponse(objs []Object, server *Server) listResponse {
+func newListObjectsResponse(objs []Object) listResponse {
 	resp := listResponse{
 		Kind:  "storage#objects",
 		Items: make([]interface{}, len(objs)),
 	}
 	for i, obj := range objs {
-		resp.Items[i] = newObjectResponse(obj, server)
+		resp.Items[i] = newObjectResponse(obj)
 	}
 	return resp
 }
@@ -52,13 +52,33 @@ type objectResponse struct {
 	Size   int64  `json:"size,string"`
 }
 
-func newObjectResponse(obj Object, server *Server) objectResponse {
+func newObjectResponse(obj Object) objectResponse {
 	return objectResponse{
 		Kind:   "storage#object",
 		ID:     obj.id(),
 		Bucket: obj.BucketName,
 		Name:   obj.Name,
 		Size:   int64(len(obj.Content)),
+	}
+}
+
+type rewriteResponse struct {
+	Kind                string         `json:"kind"`
+	TotalBytesRewritten int64          `json:"totalBytesRewritten,string"`
+	ObjectSize          int64          `json:"objectSize,string"`
+	Done                bool           `json:"done"`
+	RewriteToken        string         `json:"rewriteToken"`
+	Resource            objectResponse `json:"resource"`
+}
+
+func newObjectRewriteResponse(obj Object) rewriteResponse {
+	return rewriteResponse{
+		Kind:                "storage#rewriteResponse",
+		TotalBytesRewritten: int64(len(obj.Content)),
+		ObjectSize:          int64(len(obj.Content)),
+		Done:                true,
+		RewriteToken:        "",
+		Resource:            newObjectResponse(obj),
 	}
 }
 
