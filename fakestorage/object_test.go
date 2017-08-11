@@ -403,3 +403,55 @@ func TestServiceClientRewriteObject(t *testing.T) {
 		})
 	}
 }
+
+func TestServerClientObjectDelete(t *testing.T) {
+	const bucketName = "some-bucket"
+	const objectName = "img/hi-res/party-01.jpg"
+	const content = "some nice content"
+	server := NewServer([]Object{
+		{BucketName: bucketName, Name: objectName, Content: []byte(content)},
+	})
+	defer server.Stop()
+	client := server.Client()
+	objHandle := client.Bucket(bucketName).Object(objectName)
+	err := objHandle.Delete(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+	obj, err := server.GetObject(bucketName, objectName)
+	if err == nil {
+		t.Fatalf("unexpected nil error. obj: %#v", obj)
+	}
+}
+
+func TestServerClientObjectDeleteErrors(t *testing.T) {
+	server := NewServer([]Object{
+		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
+	})
+	defer server.Stop()
+	var tests = []struct {
+		testCase   string
+		bucketName string
+		objectName string
+	}{
+		{
+			"bucket not found",
+			"other-bucket",
+			"whatever-object",
+		},
+		{
+			"object not found",
+			"some-bucket",
+			"img/low-res/party-01.jpg",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.testCase, func(t *testing.T) {
+			objHandle := server.Client().Bucket(test.bucketName).Object(test.objectName)
+			err := objHandle.Delete(context.TODO())
+			if err == nil {
+				t.Error("unexpected <nil> error")
+			}
+		})
+	}
+}

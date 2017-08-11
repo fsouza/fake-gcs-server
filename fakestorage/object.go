@@ -136,6 +136,24 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(newObjectResponse(obj))
 }
 
+func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	vars := mux.Vars(r)
+	obj := Object{BucketName: vars["bucketName"], Name: vars["objectName"]}
+	index := s.findObject(obj)
+	if index < 0 {
+		errResp := newErrorResponse(http.StatusNotFound, "Not Found", nil)
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(errResp)
+		return
+	}
+	bucket := s.buckets[obj.BucketName]
+	bucket[index] = bucket[len(bucket)-1]
+	s.buckets[obj.BucketName] = bucket[:len(bucket)-1]
+	w.WriteHeader(http.StatusOK)
+}
+
 func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	obj, err := s.GetObject(vars["sourceBucket"], vars["sourceObject"])
