@@ -255,10 +255,11 @@ func TestServiceClientListObjects(t *testing.T) {
 	defer server.Stop()
 	server.CreateBucket("empty-bucket")
 	var tests = []struct {
-		testCase      string
-		bucketName    string
-		query         *storage.Query
-		expectedNames []string
+		testCase         string
+		bucketName       string
+		query            *storage.Query
+		expectedNames    []string
+		expectedPrefixes []string
 	}{
 		{
 			"no prefix, no delimiter, multiple objects",
@@ -274,18 +275,21 @@ func TestServiceClientListObjects(t *testing.T) {
 				"img/low-res/party-03.jpg",
 				"video/hi-res/some_video_1080p.mp4",
 			},
+			nil,
 		},
 		{
 			"no prefix, no delimiter, single object",
 			"other-bucket",
 			nil,
 			[]string{"static/css/style.css"},
+			nil,
 		},
 		{
 			"no prefix, no delimiter, no objects",
 			"empty-bucket",
 			nil,
 			[]string{},
+			nil,
 		},
 		{
 			"filtering prefix only",
@@ -300,40 +304,53 @@ func TestServiceClientListObjects(t *testing.T) {
 				"img/low-res/party-02.jpg",
 				"img/low-res/party-03.jpg",
 			},
+			nil,
 		},
 		{
 			"full prefix",
 			"some-bucket",
 			&storage.Query{Prefix: "img/brand.jpg"},
 			[]string{"img/brand.jpg"},
+			nil,
 		},
 		{
 			"filtering prefix and delimiter",
 			"some-bucket",
 			&storage.Query{Prefix: "img/", Delimiter: "/"},
 			[]string{"img/brand.jpg"},
+			[]string{"img/hi-res/", "img/low-res/"},
 		},
 		{
 			"filtering prefix, no objects",
 			"some-bucket",
 			&storage.Query{Prefix: "static/"},
 			[]string{},
+			nil,
 		},
 	}
 	client := server.Client()
 	for _, test := range tests {
 		t.Run(test.testCase, func(t *testing.T) {
 			iter := client.Bucket(test.bucketName).Objects(context.Background(), test.query)
+			var prefixes []string
 			names := []string{}
 			obj, err := iter.Next()
 			for ; err == nil; obj, err = iter.Next() {
-				names = append(names, obj.Name)
+				if obj.Name != "" {
+					names = append(names, obj.Name)
+				}
+				if obj.Prefix != "" {
+					prefixes = append(prefixes, obj.Prefix)
+				}
 			}
 			if err != iterator.Done {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(names, test.expectedNames) {
 				t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
+			}
+			if !reflect.DeepEqual(prefixes, test.expectedPrefixes) {
+				t.Errorf("wrong prefixes returned\nwant %#v\ngot  %#v", test.expectedPrefixes, prefixes)
 			}
 		})
 	}

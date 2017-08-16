@@ -3,8 +3,9 @@ package fakestorage
 import "sort"
 
 type listResponse struct {
-	Kind  string        `json:"kind"`
-	Items []interface{} `json:"items"`
+	Kind     string        `json:"kind"`
+	Items    []interface{} `json:"items"`
+	Prefixes []string      `json:"prefixes"`
 }
 
 func newListBucketsResponse(bucketNames []string) listResponse {
@@ -33,10 +34,11 @@ func newBucketResponse(bucketName string) bucketResponse {
 	}
 }
 
-func newListObjectsResponse(objs []Object) listResponse {
+func newListObjectsResponse(objs []Object, prefixes []string) listResponse {
 	resp := listResponse{
-		Kind:  "storage#objects",
-		Items: make([]interface{}, len(objs)),
+		Kind:     "storage#objects",
+		Items:    make([]interface{}, len(objs)),
+		Prefixes: prefixes,
 	}
 	for i, obj := range objs {
 		resp.Items[i] = newObjectResponse(obj)

@@ -59,25 +59,36 @@ func (s *Server) CreateObject(obj Object) {
 
 // ListObjects returns a sorted list of objects that match the given criteria,
 // or an error if the bucket doesn't exist.
-func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, error) {
+func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []string, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	objects, ok := s.buckets[bucketName]
 	if !ok {
-		return nil, errors.New("bucket not found")
+		return nil, nil, errors.New("bucket not found")
 	}
 	olist := objectList(objects)
 	sort.Sort(&olist)
-	var respObjects []Object
+	var (
+		respObjects  []Object
+		respPrefixes []string
+	)
+	prefixes := make(map[string]bool)
 	for _, obj := range olist {
 		if strings.HasPrefix(obj.Name, prefix) {
 			objName := strings.Replace(obj.Name, prefix, "", 1)
-			if delimiter == "" || !strings.Contains(objName, delimiter) {
+			delimPos := strings.Index(objName, delimiter)
+			if delimiter != "" && delimPos > -1 {
+				prefixes[obj.Name[:len(prefix)+delimPos+1]] = true
+			} else {
 				respObjects = append(respObjects, obj)
 			}
 		}
 	}
-	return respObjects, nil
+	for p := range prefixes {
+		respPrefixes = append(respPrefixes, p)
+	}
+	sort.Strings(respPrefixes)
+	return respObjects, respPrefixes, nil
 }
 
 // GetObject returns the object with the given name in the given bucket, or an
@@ -111,7 +122,7 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	bucketName := mux.Vars(r)["bucketName"]
 	prefix := r.URL.Query().Get("prefix")
 	delimiter := r.URL.Query().Get("delimiter")
-	objs, err := s.ListObjects(bucketName, prefix, delimiter)
+	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter)
 	encoder := json.NewEncoder(w)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -119,7 +130,7 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 		encoder.Encode(errResp)
 		return
 	}
-	encoder.Encode(newListObjectsResponse(objs))
+	encoder.Encode(newListObjectsResponse(objs, prefixes))
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
