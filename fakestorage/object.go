@@ -49,6 +49,10 @@ func (o *objectList) Swap(i int, j int) {
 func (s *Server) CreateObject(obj Object) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
+	s.createObject(obj)
+}
+
+func (s *Server) createObject(obj Object) {
 	index := s.findObject(obj)
 	if index < 0 {
 		s.buckets[obj.BucketName] = append(s.buckets[obj.BucketName], obj)

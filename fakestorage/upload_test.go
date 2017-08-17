@@ -62,6 +62,31 @@ func TestServerClientObjectWriter(t *testing.T) {
 	}
 }
 
+func TestServerClientObjectWriterOverwrite(t *testing.T) {
+	const content = "other content"
+	server := NewServer(nil)
+	defer server.Stop()
+	server.CreateObject(Object{
+		BucketName: "some-bucket",
+		Name:       "some-object.txt",
+		Content:    []byte("some content"),
+	})
+	objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
+	w := objHandle.NewWriter(context.Background())
+	w.Write([]byte(content))
+	err := w.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	obj, err := server.GetObject("some-bucket", "some-object.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(obj.Content) != content {
+		t.Errorf("wrong content in the object\nwant %q\ngot  %q", content, string(obj.Content))
+	}
+}
+
 func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()

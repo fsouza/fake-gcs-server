@@ -59,7 +59,7 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		return
 	}
 	obj := Object{BucketName: bucketName, Name: name, Content: data}
-	s.buckets[bucketName] = append(s.buckets[bucketName], obj)
+	s.createObject(obj)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
 }
@@ -92,7 +92,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		return
 	}
 	obj := Object{BucketName: bucketName, Name: metadata.Name, Content: content}
-	s.buckets[bucketName] = append(s.buckets[bucketName], obj)
+	s.createObject(obj)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
 }
@@ -146,7 +146,7 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 	if commit {
 		delete(s.uploads, uploadID)
-		s.buckets[obj.BucketName] = append(s.buckets[obj.BucketName], obj)
+		s.createObject(obj)
 	} else {
 		status = http.StatusOK
 		w.Header().Set("X-Http-Status-Code-Override", "308")
