@@ -1,7 +1,6 @@
 language: go
 sudo: false
 install:
-  - export GOROOT=$(go env GOROOT)
   - go get github.com/alecthomas/gometalinter
   - gometalinter --install
   - go get ./...
