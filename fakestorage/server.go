@@ -6,6 +6,7 @@ package fakestorage
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -32,20 +33,45 @@ type Server struct {
 // NewServer creates a new instance of the server, pre-loaded with the given
 // objects.
 func NewServer(objects []Object) *Server {
-	s := Server{buckets: make(map[string][]Object), uploads: make(map[string]Object)}
-	tlsConfig := tls.Config{InsecureSkipVerify: true}
-	s.buildMuxer()
-	s.ts = httptest.NewTLSServer(s.mux)
-	s.transport = &http.Transport{
-		TLSClientConfig: &tlsConfig,
-		DialTLS: func(string, string) (net.Conn, error) {
-			return tls.Dial("tcp", s.ts.Listener.Addr().String(), &tlsConfig)
-		},
+	s := newUnstartedServer(objects)
+	s.setTransportToAddr(s.ts.Listener.Addr().String())
+	s.ts.StartTLS()
+	return s
+}
+
+// NewServerWithHostPort creates a new server that listens on a custom host and port
+func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server, error) {
+	s := newUnstartedServer(objects)
+	addr := fmt.Sprintf("%s:%d", host, port)
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
 	}
+	s.ts.Listener.Close()
+	s.ts.Listener = l
+	s.ts.StartTLS()
+	s.setTransportToAddr(addr)
+	return s, nil
+}
+
+func newUnstartedServer(objects []Object) *Server {
+	s := Server{buckets: make(map[string][]Object), uploads: make(map[string]Object)}
+	s.buildMuxer()
+	s.ts = httptest.NewUnstartedServer(s.mux)
 	for _, o := range objects {
 		s.buckets[o.BucketName] = append(s.buckets[o.BucketName], o)
 	}
 	return &s
+}
+
+func (s *Server) setTransportToAddr(addr string) {
+	tlsConfig := tls.Config{InsecureSkipVerify: true}
+	s.transport = &http.Transport{
+		TLSClientConfig: &tlsConfig,
+		DialTLS: func(string, string) (net.Conn, error) {
+			return tls.Dial("tcp", addr, &tlsConfig)
+		},
+	}
 }
 
 func (s *Server) buildMuxer() {
