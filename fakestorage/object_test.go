@@ -12,14 +12,29 @@ import (
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
+	"hash/crc32"
+	"encoding/binary"
 )
+
+func uint32ToBytes(ui uint32) []byte {
+	res := make([]byte, 4)
+	binary.BigEndian.PutUint32(res, ui)
+	return res
+}
+
+func uint32Checksum(b []byte) uint32 {
+	checksummer := crc32.New(crc32cTable)
+	checksummer.Write([]byte(b))
+	return checksummer.Sum32()
+}
 
 func TestServerClientObjectAttrs(t *testing.T) {
 	const bucketName = "some-bucket"
 	const objectName = "img/hi-res/party-01.jpg"
 	const content = "some nice content"
+	checksum := uint32Checksum([]byte(content))
 	server := NewServer([]Object{
-		{BucketName: bucketName, Name: objectName, Content: []byte(content)},
+		{BucketName: bucketName, Name: objectName, Content: []byte(content), Crc32c: encodedChecksum(uint32ToBytes(checksum))},
 	})
 	defer server.Stop()
 	client := server.Client()
@@ -36,6 +51,9 @@ func TestServerClientObjectAttrs(t *testing.T) {
 	}
 	if attrs.Size != int64(len(content)) {
 		t.Errorf("wrong size returned\nwant %d\ngot  %d", len(content), attrs.Size)
+	}
+	if attrs.CRC32C != checksum {
+		t.Errorf("wrong checksum returned\nwant %d\ngot   %d", checksum, attrs.CRC32C)
 	}
 }
 
@@ -371,8 +389,10 @@ func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 
 func TestServiceClientRewriteObject(t *testing.T) {
 	const content = "some content"
+	checksum := uint32Checksum([]byte(content))
+
 	server := NewServer([]Object{
-		{BucketName: "first-bucket", Name: "files/some-file.txt", Content: []byte(content)},
+		{BucketName: "first-bucket", Name: "files/some-file.txt", Content: []byte(content), Crc32c: encodedChecksum(uint32ToBytes(checksum))},
 	})
 	defer server.Stop()
 	server.CreateBucket("empty-bucket")
@@ -380,16 +400,19 @@ func TestServiceClientRewriteObject(t *testing.T) {
 		testCase   string
 		bucketName string
 		objectName string
+		crc32c	   uint32
 	}{
 		{
 			"same bucket",
 			"first-bucket",
 			"files/other-file.txt",
+			checksum,
 		},
 		{
 			"different bucket",
 			"empty-bucket",
 			"some/interesting/file.txt",
+			checksum,
 		},
 	}
 	for _, test := range tests {
@@ -410,12 +433,18 @@ func TestServiceClientRewriteObject(t *testing.T) {
 			if attrs.Size != int64(len(content)) {
 				t.Errorf("wrong size in copied object attrs\nwant %d\ngot  %d", len(content), attrs.Size)
 			}
+			if attrs.CRC32C != checksum {
+				t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", checksum, attrs.CRC32C)
+			}
 			obj, err := server.GetObject(test.bucketName, test.objectName)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if string(obj.Content) != content {
 				t.Errorf("wrong content on object\nwant %q\ngot  %q", content, string(obj.Content))
+			}
+			if expect := encodedChecksum(uint32ToBytes(checksum)); expect != obj.Crc32c {
+				t.Errorf("wrong checksum on object\nwant %s\ngot  %s", expect, obj.Crc32c)
 			}
 		})
 	}

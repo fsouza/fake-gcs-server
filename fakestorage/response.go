@@ -1,6 +1,8 @@
 package fakestorage
 
-import "sort"
+import (
+	"sort"
+)
 
 type listResponse struct {
 	Kind     string        `json:"kind"`
@@ -52,7 +54,11 @@ type objectResponse struct {
 	ID     string `json:"id"`
 	Bucket string `json:"bucket"`
 	Size   int64  `json:"size,string"`
+	// Crc32c: CRC32c checksum, same as in google storage client code
+	Crc32c string `json:"crc32c,omitempty"`
+
 }
+
 
 func newObjectResponse(obj Object) objectResponse {
 	return objectResponse{
@@ -61,6 +67,7 @@ func newObjectResponse(obj Object) objectResponse {
 		Bucket: obj.BucketName,
 		Name:   obj.Name,
 		Size:   int64(len(obj.Content)),
+		Crc32c: obj.Crc32c,
 	}
 }
 

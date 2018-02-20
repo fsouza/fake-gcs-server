@@ -17,6 +17,7 @@ import (
 func TestServerClientObjectWriter(t *testing.T) {
 	const baseContent = "some nice content"
 	content := strings.Repeat(baseContent+"\n", googleapi.MinUploadChunkSize)
+	checksum := uint32Checksum([]byte(content))
 
 	var tests = []struct {
 		testCase  string
@@ -58,7 +59,21 @@ func TestServerClientObjectWriter(t *testing.T) {
 					googleapi.MinUploadChunkSize, baseContent,
 					n, baseContent)
 			}
+
+			if returnedChecksum := w.Attrs().CRC32C; returnedChecksum != checksum {
+				t.Errorf("wrong writer.Attrs() checksum returned\nwant %d\ngot  %d", checksum, returnedChecksum)
+			}
+			if base64Checksum := encodedChecksum(uint32ToBytes(checksum)); obj.Crc32c != base64Checksum {
+				t.Errorf("wrong obj.Crc32c returned\nwant %s\ngot %s", base64Checksum, obj.Crc32c)
+			}
 		})
+	}
+}
+
+func checkChecksum(t *testing.T, content []byte, obj Object) {
+	t.Helper()
+	if expect := encodedCrc32cChecksum(content); expect != obj.Crc32c {
+		t.Errorf("wrong checksum in the object\nwant %s\ngot  %s", expect, obj.Crc32c)
 	}
 }
 
@@ -85,6 +100,7 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 	if string(obj.Content) != content {
 		t.Errorf("wrong content in the object\nwant %q\ngot  %q", content, string(obj.Content))
 	}
+	checkChecksum(t, []byte(content), obj)
 }
 
 func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
@@ -132,6 +148,7 @@ func TestServerClientSimpleUpload(t *testing.T) {
 	if string(obj.Content) != data {
 		t.Errorf("wrong content\nwant %q\ngot  %q", string(obj.Content), data)
 	}
+	checkChecksum(t, []byte(data), obj)
 }
 
 func TestServerClientSimpleUploadNoName(t *testing.T) {
