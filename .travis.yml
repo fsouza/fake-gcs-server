@@ -1,14 +1,14 @@
 language: go
 sudo: false
 install:
-  - go get github.com/alecthomas/gometalinter
+  - go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep
   - gometalinter --install
-  - go get ./...
+  - dep ensure -v
+  - go install ./...
 script:
   - gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --deadline=10m ./...
   - go test -race ./...
 go:
-  - 1.8.x
   - 1.9.x
-  - 1.10rc2
+  - 1.10.x
   - tip
