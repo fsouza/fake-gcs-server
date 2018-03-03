@@ -5,12 +5,12 @@
 package fakestorage
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"strings"
 	"testing"
 
-	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 )
 

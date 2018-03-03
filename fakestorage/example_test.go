@@ -5,11 +5,11 @@
 package fakestorage_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
-	"golang.org/x/net/context"
 )
 
 func ExampleServer_Client() {

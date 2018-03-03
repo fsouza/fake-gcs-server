@@ -5,6 +5,7 @@
 package fakestorage
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -14,7 +15,6 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
-	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 )
 

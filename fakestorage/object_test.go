@@ -5,12 +5,12 @@
 package fakestorage
 
 import (
+	"context"
 	"io/ioutil"
 	"reflect"
 	"testing"
 
 	"cloud.google.com/go/storage"
-	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
 )
 
