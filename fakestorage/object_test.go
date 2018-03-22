@@ -10,10 +10,11 @@ import (
 	"reflect"
 	"testing"
 
-	"cloud.google.com/go/storage"
 	"encoding/binary"
-	"google.golang.org/api/iterator"
 	"hash/crc32"
+
+	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 )
 
 func uint32ToBytes(ui uint32) []byte {

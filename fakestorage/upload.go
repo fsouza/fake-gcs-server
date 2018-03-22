@@ -17,8 +17,9 @@ import (
 	"strings"
 
 	"encoding/base64"
-	"github.com/gorilla/mux"
 	"hash/crc32"
+
+	"github.com/gorilla/mux"
 )
 
 type multipartMetadata struct {
