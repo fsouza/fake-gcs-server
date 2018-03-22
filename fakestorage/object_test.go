@@ -6,12 +6,11 @@ package fakestorage
 
 import (
 	"context"
+	"encoding/binary"
+	"hash/crc32"
 	"io/ioutil"
 	"reflect"
 	"testing"
-
-	"encoding/binary"
-	"hash/crc32"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
