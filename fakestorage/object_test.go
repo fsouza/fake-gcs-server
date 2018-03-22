@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	"cloud.google.com/go/storage"
+	"encoding/binary"
 	"google.golang.org/api/iterator"
 	"hash/crc32"
-	"encoding/binary"
 )
 
 func uint32ToBytes(ui uint32) []byte {
@@ -400,7 +400,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 		testCase   string
 		bucketName string
 		objectName string
-		crc32c	   uint32
+		crc32c     uint32
 	}{
 		{
 			"same bucket",

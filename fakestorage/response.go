@@ -56,9 +56,7 @@ type objectResponse struct {
 	Size   int64  `json:"size,string"`
 	// Crc32c: CRC32c checksum, same as in google storage client code
 	Crc32c string `json:"crc32c,omitempty"`
-
 }
-
 
 func newObjectResponse(obj Object) objectResponse {
 	return objectResponse{
