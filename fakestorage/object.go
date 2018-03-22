@@ -21,6 +21,8 @@ type Object struct {
 	BucketName string `json:"-"`
 	Name       string `json:"name"`
 	Content    []byte `json:"-"`
+	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
+	Crc32c string `json:"crc32c,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -181,6 +183,7 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 		BucketName: dstBucket,
 		Name:       vars["destinationObject"],
 		Content:    append([]byte(nil), obj.Content...),
+		Crc32c:     obj.Crc32c,
 	}
 	s.CreateObject(newObject)
 	w.Header().Set("Content-Type", "application/json")

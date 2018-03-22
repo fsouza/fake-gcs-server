@@ -16,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 
+	"encoding/base64"
+	"hash/crc32"
+
 	"github.com/gorilla/mux"
 )
 
@@ -58,10 +61,26 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	obj := Object{BucketName: bucketName, Name: name, Content: data}
+	obj := Object{BucketName: bucketName, Name: name, Content: data, Crc32c: encodedCrc32cChecksum(data)}
 	s.createObject(obj)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
+}
+
+var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
+
+func crc32cChecksum(content []byte) []byte {
+	checksummer := crc32.New(crc32cTable)
+	checksummer.Write(content)
+	return checksummer.Sum(make([]byte, 0, 4))
+}
+
+func encodedChecksum(checksum []byte) string {
+	return base64.StdEncoding.EncodeToString(checksum)
+}
+
+func encodedCrc32cChecksum(content []byte) string {
+	return encodedChecksum(crc32cChecksum(content))
 }
 
 func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
@@ -91,7 +110,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	obj := Object{BucketName: bucketName, Name: metadata.Name, Content: content}
+	obj := Object{BucketName: bucketName, Name: metadata.Name, Content: content, Crc32c: encodedCrc32cChecksum(content)}
 	s.createObject(obj)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
@@ -137,6 +156,7 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusCreated
 	objLength := len(obj.Content)
 	obj.Content = append(obj.Content, content...)
+	obj.Crc32c = encodedCrc32cChecksum(obj.Content)
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
 		commit, err = parseRange(contentRange, objLength, len(content), w)
 		if err != nil {
