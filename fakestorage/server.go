@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
 	"google.golang.org/api/option"
 )
@@ -22,7 +23,7 @@ import (
 //
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
-	buckets   map[string][]Object
+	backend   backend.Storage
 	uploads   map[string]Object
 	transport *http.Transport
 	ts        *httptest.Server
@@ -33,34 +34,64 @@ type Server struct {
 // NewServer creates a new instance of the server, pre-loaded with the given
 // objects.
 func NewServer(objects []Object) *Server {
-	s := newUnstartedServer(objects)
-	s.setTransportToAddr(s.ts.Listener.Addr().String())
-	s.ts.StartTLS()
+	s, _ := NewServerWithOptions(Options{
+		InitialObjects: objects,
+	})
 	return s
 }
 
 // NewServerWithHostPort creates a new server that listens on a custom host and port
 func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server, error) {
-	s := newUnstartedServer(objects)
-	addr := fmt.Sprintf("%s:%d", host, port)
-	l, err := net.Listen("tcp", addr)
-	if err != nil {
-		return nil, err
+	return NewServerWithOptions(Options{
+		InitialObjects: objects,
+		Host:           host,
+		Port:           port,
+	})
+}
+
+// Options are used to configure the server on creation
+type Options struct {
+	InitialObjects []Object
+	Host           string
+	Port           uint16
+	StorageRoot    string
+}
+
+// NewServerWithOptions creates a new server with custom options
+func NewServerWithOptions(options Options) (*Server, error) {
+	s := newUnstartedServer(options.InitialObjects, options.StorageRoot)
+	var addr string
+	if options.Port != 0 {
+		addr = fmt.Sprintf("%s:%d", options.Host, options.Port)
+		l, err := net.Listen("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		s.ts.Listener.Close()
+		s.ts.Listener = l
+		s.ts.StartTLS()
+		s.setTransportToAddr(addr)
+	} else {
+		s.setTransportToAddr(s.ts.Listener.Addr().String())
+		s.ts.StartTLS()
 	}
-	s.ts.Listener.Close()
-	s.ts.Listener = l
-	s.ts.StartTLS()
-	s.setTransportToAddr(addr)
 	return s, nil
 }
 
-func newUnstartedServer(objects []Object) *Server {
-	s := Server{buckets: make(map[string][]Object), uploads: make(map[string]Object)}
+func newUnstartedServer(objects []Object, storageRoot string) *Server {
+	backendObjects := toBackendObjects(objects)
+	var backendStorage backend.Storage
+	if storageRoot != "" {
+		panic("not implemented")
+	} else {
+		backendStorage = backend.NewStorageMemory(backendObjects)
+	}
+	s := Server{
+		backend: backendStorage,
+		uploads: make(map[string]Object),
+	}
 	s.buildMuxer()
 	s.ts = httptest.NewUnstartedServer(s.mux)
-	for _, o := range objects {
-		s.buckets[o.BucketName] = append(s.buckets[o.BucketName], o)
-	}
 	return &s
 }
 

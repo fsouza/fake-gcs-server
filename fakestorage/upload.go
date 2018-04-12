@@ -30,7 +30,7 @@ func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucketName := mux.Vars(r)["bucketName"]
-	if _, ok := s.buckets[bucketName]; !ok {
+	if err := s.backend.GetBucket(bucketName); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		err := newErrorResponse(http.StatusNotFound, "Not found", nil)
 		json.NewEncoder(w).Encode(err)

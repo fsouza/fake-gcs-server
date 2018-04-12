@@ -6,13 +6,12 @@ package fakestorage
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
 )
 
@@ -29,21 +28,6 @@ func (o *Object) id() string {
 	return o.BucketName + "/" + o.Name
 }
 
-type objectList []Object
-
-func (o objectList) Len() int {
-	return len(o)
-}
-
-func (o objectList) Less(i int, j int) bool {
-	return o[i].Name < o[j].Name
-}
-
-func (o *objectList) Swap(i int, j int) {
-	d := *o
-	d[i], d[j] = d[j], d[i]
-}
-
 // CreateObject stores the given object internally.
 //
 // If the bucket within the object doesn't exist, it also creates it. If the
@@ -55,11 +39,10 @@ func (s *Server) CreateObject(obj Object) {
 }
 
 func (s *Server) createObject(obj Object) {
-	index := s.findObject(obj)
-	if index < 0 {
-		s.buckets[obj.BucketName] = append(s.buckets[obj.BucketName], obj)
-	} else {
-		s.buckets[obj.BucketName][index] = obj
+	err := s.backend.CreateObject(backend.Object{BucketName: obj.BucketName, Name: obj.Name, Content: obj.Content, Crc32c: obj.Crc32c})
+	if err != nil {
+		// TODO: handle errors better
+		panic(err)
 	}
 }
 
@@ -68,60 +51,45 @@ func (s *Server) createObject(obj Object) {
 func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []string, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
-	objects, ok := s.buckets[bucketName]
-	if !ok {
-		return nil, nil, errors.New("bucket not found")
+	respObjects, respPrefixes, err := s.backend.ListObjects(bucketName, prefix, delimiter)
+	return fromBackendObjects(respObjects), respPrefixes, err
+}
+
+func toBackendObjects(objects []Object) []backend.Object {
+	backendObjects := []backend.Object{}
+	for _, o := range objects {
+		backendObjects = append(backendObjects, backend.Object{
+			BucketName: o.BucketName,
+			Name:       o.Name,
+			Content:    o.Content,
+			Crc32c:     o.Crc32c,
+		})
 	}
-	olist := objectList(objects)
-	sort.Sort(&olist)
-	var (
-		respObjects  []Object
-		respPrefixes []string
-	)
-	prefixes := make(map[string]bool)
-	for _, obj := range olist {
-		if strings.HasPrefix(obj.Name, prefix) {
-			objName := strings.Replace(obj.Name, prefix, "", 1)
-			delimPos := strings.Index(objName, delimiter)
-			if delimiter != "" && delimPos > -1 {
-				prefixes[obj.Name[:len(prefix)+delimPos+1]] = true
-			} else {
-				respObjects = append(respObjects, obj)
-			}
-		}
+	return backendObjects
+}
+
+func fromBackendObjects(objects []backend.Object) []Object {
+	backendObjects := []Object{}
+	for _, o := range objects {
+		backendObjects = append(backendObjects, Object{
+			BucketName: o.BucketName,
+			Name:       o.Name,
+			Content:    o.Content,
+			Crc32c:     o.Crc32c,
+		})
 	}
-	for p := range prefixes {
-		respPrefixes = append(respPrefixes, p)
-	}
-	sort.Strings(respPrefixes)
-	return respObjects, respPrefixes, nil
+	return backendObjects
 }
 
 // GetObject returns the object with the given name in the given bucket, or an
 // error if the object doesn't exist.
 func (s *Server) GetObject(bucketName, objectName string) (Object, error) {
-	obj := Object{BucketName: bucketName, Name: objectName}
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
-	index := s.findObject(obj)
-	if index < 0 {
-		return obj, errors.New("object not found")
+	backendObj, err := s.backend.GetObject(bucketName, objectName)
+	if err != nil {
+		return Object{}, err
 	}
-	return s.buckets[bucketName][index], nil
-}
-
-// findObject looks for an object in its bucket and return the index where it
-// was found, or -1 if the object doesn't exist.
-//
-// It doesn't lock the mutex, callers must lock the mutex before calling this
-// method.
-func (s *Server) findObject(obj Object) int {
-	for i, o := range s.buckets[obj.BucketName] {
-		if obj.id() == o.id() {
-			return i
-		}
-	}
-	return -1
+	obj := fromBackendObjects([]backend.Object{backendObj})[0]
+	return obj, nil
 }
 
 func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
@@ -157,17 +125,13 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	vars := mux.Vars(r)
-	obj := Object{BucketName: vars["bucketName"], Name: vars["objectName"]}
-	index := s.findObject(obj)
-	if index < 0 {
+	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+	if err != nil {
 		errResp := newErrorResponse(http.StatusNotFound, "Not Found", nil)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(errResp)
 		return
 	}
-	bucket := s.buckets[obj.BucketName]
-	bucket[index] = bucket[len(bucket)-1]
-	s.buckets[obj.BucketName] = bucket[:len(bucket)-1]
 	w.WriteHeader(http.StatusOK)
 }
 
