@@ -51,15 +51,14 @@ func (o *objectList) Swap(i int, j int) {
 func (s *Server) CreateObject(obj Object) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	s.createObject(obj)
-}
-
-func (s *Server) createObject(obj Object) {
-	err := s.backend.CreateObject(backend.Object{BucketName: obj.BucketName, Name: obj.Name, Content: obj.Content})
+	err := s.createObject(obj)
 	if err != nil {
-		// TODO: handle errors better
 		panic(err)
 	}
+}
+
+func (s *Server) createObject(obj Object) error {
+	return s.backend.CreateObject(backend.Object{BucketName: obj.BucketName, Name: obj.Name, Content: obj.Content})
 }
 
 // ListObjects returns a sorted list of objects that match the given criteria,

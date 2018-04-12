@@ -59,17 +59,14 @@ func (s *StorageMemory) GetBucket(name string) error {
 func (s *StorageMemory) CreateObject(obj Object) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	s.createObject(obj)
-	return nil
-}
 
-func (s *StorageMemory) createObject(obj Object) {
 	index := s.findObject(obj)
 	if index < 0 {
 		s.buckets[obj.BucketName] = append(s.buckets[obj.BucketName], obj)
 	} else {
 		s.buckets[obj.BucketName][index] = obj
 	}
+	return nil
 }
 
 // findObject looks for an object in its bucket and return the index where it

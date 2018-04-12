@@ -22,7 +22,7 @@ type StorageFS struct {
 	rootDir string
 }
 
-// NewStorageMemory creates an instance of StorageMemory
+// NewStorageFS creates an instance of StorageMemory
 func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 	if !strings.HasSuffix(rootDir, "/") {
 		rootDir += "/"
@@ -66,10 +66,7 @@ func (s *StorageFS) ListBuckets() ([]string, error) {
 // GetBucket checks if a bucket exists
 func (s *StorageFS) GetBucket(name string) error {
 	_, err := os.Stat(filepath.Join(s.rootDir, url.PathEscape(name)))
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // CreateObject stores an object

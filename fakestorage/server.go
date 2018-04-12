@@ -59,7 +59,10 @@ type Options struct {
 
 // NewServerWithOptions creates a new server with custom options
 func NewServerWithOptions(options Options) (*Server, error) {
-	s := newUnstartedServer(options.InitialObjects, options.StorageRoot)
+	s, err := newUnstartedServer(options.InitialObjects, options.StorageRoot)
+	if err != nil {
+		return nil, err
+	}
 	var addr string
 	if options.Port != 0 {
 		addr = fmt.Sprintf("%s:%d", options.Host, options.Port)
@@ -78,13 +81,17 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	return s, nil
 }
 
-func newUnstartedServer(objects []Object, storageRoot string) *Server {
+func newUnstartedServer(objects []Object, storageRoot string) (*Server, error) {
 	backendObjects := toBackendObjects(objects)
 	var backendStorage backend.Storage
+	var err error
 	if storageRoot != "" {
-		panic("not implemented")
+		backendStorage, err = backend.NewStorageFS(backendObjects, storageRoot)
 	} else {
 		backendStorage = backend.NewStorageMemory(backendObjects)
+	}
+	if err != nil {
+		return nil, err
 	}
 	s := Server{
 		backend: backendStorage,
@@ -92,7 +99,7 @@ func newUnstartedServer(objects []Object, storageRoot string) *Server {
 	}
 	s.buildMuxer()
 	s.ts = httptest.NewUnstartedServer(s.mux)
-	return &s
+	return &s, nil
 }
 
 func (s *Server) setTransportToAddr(addr string) {

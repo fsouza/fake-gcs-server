@@ -7,6 +7,7 @@ type Object struct {
 	Content    []byte
 }
 
+// ID is useful for comparing objects
 func (o *Object) ID() string {
 	return o.BucketName + "/" + o.Name
 }

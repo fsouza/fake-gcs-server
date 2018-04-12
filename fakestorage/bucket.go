@@ -30,7 +30,8 @@ func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
 
 	bucketNames, err := s.backend.ListBuckets()
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	resp := newListBucketsResponse(bucketNames)
 	json.NewEncoder(w).Encode(resp)

@@ -38,6 +38,18 @@ func testForStorageBackends(t *testing.T, test func(t *testing.T, storage Storag
 	}
 }
 
+func noError(t *testing.T, err error) {
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func shouldError(t *testing.T, err error, message string) {
+	if err == nil {
+		t.Fatal(message)
+	}
+}
+
 func TestObjectCRUD(t *testing.T) {
 	const bucketName = "prod-bucket"
 	const objectName = "video/hi-res/best_video_1080p.mp4"
@@ -46,24 +58,15 @@ func TestObjectCRUD(t *testing.T) {
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		// Get in non-existent case
 		_, err := storage.GetObject(bucketName, objectName)
-		if err == nil {
-			t.Fatal("object found before being created")
-		}
+		shouldError(t, err, "object found before being created")
 		// Delete in non-existent case
 		err = storage.DeleteObject(bucketName, objectName)
-		if err == nil {
-			t.Fatal("object successfully delete before being created")
-		}
+		shouldError(t, err, "object successfully delete before being created")
 		// Create in non-existent case
-		err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1})
-		if err != nil {
-			t.Fatal(err)
-		}
+		noError(t, storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1}))
 		// Get in existent case
 		obj, err := storage.GetObject(bucketName, objectName)
-		if err != nil {
-			t.Fatal(err)
-		}
+		noError(t, err)
 		if obj.BucketName != bucketName {
 			t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, obj.BucketName)
 		}
@@ -75,13 +78,9 @@ func TestObjectCRUD(t *testing.T) {
 		}
 		// Create (update) in existent case
 		err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content2})
-		if err != nil {
-			t.Fatal(err)
-		}
+		noError(t, err)
 		obj, err = storage.GetObject(bucketName, objectName)
-		if err != nil {
-			t.Fatal(err)
-		}
+		noError(t, err)
 		if obj.BucketName != bucketName {
 			t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, obj.BucketName)
 		}
@@ -93,9 +92,7 @@ func TestObjectCRUD(t *testing.T) {
 		}
 		// Delete in existent case
 		err = storage.DeleteObject(bucketName, objectName)
-		if err != nil {
-			t.Fatal(err)
-		}
+		noError(t, err)
 	})
 }
 
