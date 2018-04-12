@@ -6,7 +6,7 @@ type Storage interface {
 	ListBuckets() ([]string, error)
 	GetBucket(name string) error
 	CreateObject(obj Object) error
-	ListObjects(bucketName, prefix, delimiter string) ([]Object, []string, error)
+	ListObjects(bucketName string) ([]Object, error)
 	GetObject(bucketName, objectName string) (Object, error)
 	DeleteObject(bucketName, objectName string) error
 }

@@ -3,17 +3,35 @@ package backend
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
-func makeStorageBackends(t *testing.T) map[string]Storage {
-	return map[string]Storage{
-		"memory": NewStorageMemory(nil),
+func makeStorageBackends(t *testing.T) (map[string]Storage, func()) {
+	tempDir, err := ioutil.TempDir(os.TempDir(), "fakegcstest")
+	if err != nil {
+		t.Fatal(err)
 	}
+	storageFS, err := NewStorageFS(nil, tempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return map[string]Storage{
+			"memory":     NewStorageMemory(nil),
+			"filesystem": storageFS,
+		}, func() {
+			err := os.RemoveAll(tempDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 }
 
 func testForStorageBackends(t *testing.T, test func(t *testing.T, storage Storage)) {
-	for backendName, storage := range makeStorageBackends(t) {
+	backends, cleanup := makeStorageBackends(t)
+	defer cleanup()
+	for backendName, storage := range backends {
 		t.Run(fmt.Sprintf("storage backend %s", backendName), func(t *testing.T) {
 			test(t, storage)
 		})

@@ -3,8 +3,6 @@ package backend
 import (
 	"errors"
 	"fmt"
-	"sort"
-	"strings"
 	"sync"
 )
 
@@ -89,36 +87,14 @@ func (s *StorageMemory) findObject(obj Object) int {
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and delimeter
-func (s *StorageMemory) ListObjects(bucketName, prefix, delimiter string) ([]Object, []string, error) {
+func (s *StorageMemory) ListObjects(bucketName string) ([]Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	objects, ok := s.buckets[bucketName]
 	if !ok {
-		return nil, nil, errors.New("bucket not found")
+		return nil, errors.New("bucket not found")
 	}
-	olist := objectList(objects)
-	sort.Sort(&olist)
-	var (
-		respObjects  []Object
-		respPrefixes []string
-	)
-	prefixes := make(map[string]bool)
-	for _, obj := range olist {
-		if strings.HasPrefix(obj.Name, prefix) {
-			objName := strings.Replace(obj.Name, prefix, "", 1)
-			delimPos := strings.Index(objName, delimiter)
-			if delimiter != "" && delimPos > -1 {
-				prefixes[obj.Name[:len(prefix)+delimPos+1]] = true
-			} else {
-				respObjects = append(respObjects, obj)
-			}
-		}
-	}
-	for p := range prefixes {
-		respPrefixes = append(respPrefixes, p)
-	}
-	sort.Strings(respPrefixes)
-	return respObjects, respPrefixes, nil
+	return objects, nil
 }
 
 // GetObject get an object by bucket and name

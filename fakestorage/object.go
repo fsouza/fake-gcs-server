@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -28,6 +29,21 @@ func (o *Object) id() string {
 	return o.BucketName + "/" + o.Name
 }
 
+type objectList []Object
+
+func (o objectList) Len() int {
+	return len(o)
+}
+
+func (o objectList) Less(i int, j int) bool {
+	return o[i].Name < o[j].Name
+}
+
+func (o *objectList) Swap(i int, j int) {
+	d := *o
+	d[i], d[j] = d[j], d[i]
+}
+
 // CreateObject stores the given object internally.
 //
 // If the bucket within the object doesn't exist, it also creates it. If the
@@ -39,7 +55,7 @@ func (s *Server) CreateObject(obj Object) {
 }
 
 func (s *Server) createObject(obj Object) {
-	err := s.backend.CreateObject(backend.Object{BucketName: obj.BucketName, Name: obj.Name, Content: obj.Content, Crc32c: obj.Crc32c})
+	err := s.backend.CreateObject(backend.Object{BucketName: obj.BucketName, Name: obj.Name, Content: obj.Content})
 	if err != nil {
 		// TODO: handle errors better
 		panic(err)
@@ -51,8 +67,34 @@ func (s *Server) createObject(obj Object) {
 func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []string, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
-	respObjects, respPrefixes, err := s.backend.ListObjects(bucketName, prefix, delimiter)
-	return fromBackendObjects(respObjects), respPrefixes, err
+	backendObjects, err := s.backend.ListObjects(bucketName)
+	if err != nil {
+		return nil, nil, err
+	}
+	objects := fromBackendObjects(backendObjects)
+	olist := objectList(objects)
+	sort.Sort(&olist)
+	var (
+		respObjects  []Object
+		respPrefixes []string
+	)
+	prefixes := make(map[string]bool)
+	for _, obj := range olist {
+		if strings.HasPrefix(obj.Name, prefix) {
+			objName := strings.Replace(obj.Name, prefix, "", 1)
+			delimPos := strings.Index(objName, delimiter)
+			if delimiter != "" && delimPos > -1 {
+				prefixes[obj.Name[:len(prefix)+delimPos+1]] = true
+			} else {
+				respObjects = append(respObjects, obj)
+			}
+		}
+	}
+	for p := range prefixes {
+		respPrefixes = append(respPrefixes, p)
+	}
+	sort.Strings(respPrefixes)
+	return respObjects, respPrefixes, nil
 }
 
 func toBackendObjects(objects []Object) []backend.Object {
@@ -62,7 +104,6 @@ func toBackendObjects(objects []Object) []backend.Object {
 			BucketName: o.BucketName,
 			Name:       o.Name,
 			Content:    o.Content,
-			Crc32c:     o.Crc32c,
 		})
 	}
 	return backendObjects
@@ -75,7 +116,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			BucketName: o.BucketName,
 			Name:       o.Name,
 			Content:    o.Content,
-			Crc32c:     o.Crc32c,
+			Crc32c:     encodedCrc32cChecksum(o.Content),
 		})
 	}
 	return backendObjects
