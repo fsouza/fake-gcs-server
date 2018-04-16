@@ -53,8 +53,9 @@ func shouldError(t *testing.T, err error, message string) {
 func TestObjectCRUD(t *testing.T) {
 	const bucketName = "prod-bucket"
 	const objectName = "video/hi-res/best_video_1080p.mp4"
-	var content1 = []byte("content1")
-	var content2 = []byte("content2")
+	content1 := []byte("content1")
+	const crc1 = "crc1"
+	content2 := []byte("content2")
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		// Get in non-existent case
 		_, err := storage.GetObject(bucketName, objectName)
@@ -63,7 +64,7 @@ func TestObjectCRUD(t *testing.T) {
 		err = storage.DeleteObject(bucketName, objectName)
 		shouldError(t, err, "object successfully delete before being created")
 		// Create in non-existent case
-		noError(t, storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1}))
+		noError(t, storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1}))
 		// Get in existent case
 		obj, err := storage.GetObject(bucketName, objectName)
 		noError(t, err)
@@ -72,6 +73,9 @@ func TestObjectCRUD(t *testing.T) {
 		}
 		if obj.Name != objectName {
 			t.Errorf("wrong object name\n want %q\ngot  %q", objectName, obj.Name)
+		}
+		if obj.Crc32c != crc1 {
+			t.Errorf("wrong crc\n want %q\ngot  %q", crc1, obj.Crc32c)
 		}
 		if !bytes.Equal(obj.Content, content1) {
 			t.Errorf("wrong object content\n want %q\ngot  %q", content1, obj.Content)

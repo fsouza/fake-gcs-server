@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -75,7 +76,11 @@ func (s *StorageFS) CreateObject(obj Object) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), obj.Content, 0664)
+	encoded, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0664)
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and delimeter
@@ -103,16 +108,18 @@ func (s *StorageFS) ListObjects(bucketName string) ([]Object, error) {
 
 // GetObject get an object by bucket and name
 func (s *StorageFS) GetObject(bucketName, objectName string) (Object, error) {
-	content, err := ioutil.ReadFile(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
+	encoded, err := ioutil.ReadFile(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
 	if err != nil {
 		return Object{}, err
 	}
-
-	return Object{
-		Name:       objectName,
-		BucketName: bucketName,
-		Content:    content,
-	}, nil
+	var obj Object
+	err = json.Unmarshal(encoded, &obj)
+	if err != nil {
+		return Object{}, err
+	}
+	obj.Name = objectName
+	obj.BucketName = bucketName
+	return obj, nil
 }
 
 // DeleteObject deletes an object by bucket and name

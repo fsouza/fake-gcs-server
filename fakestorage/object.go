@@ -58,7 +58,7 @@ func (s *Server) CreateObject(obj Object) {
 }
 
 func (s *Server) createObject(obj Object) error {
-	return s.backend.CreateObject(backend.Object{BucketName: obj.BucketName, Name: obj.Name, Content: obj.Content})
+	return s.backend.CreateObject(toBackendObjects([]Object{obj})[0])
 }
 
 // ListObjects returns a sorted list of objects that match the given criteria,
@@ -103,6 +103,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			BucketName: o.BucketName,
 			Name:       o.Name,
 			Content:    o.Content,
+			Crc32c:     o.Crc32c,
 		})
 	}
 	return backendObjects
@@ -115,7 +116,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			BucketName: o.BucketName,
 			Name:       o.Name,
 			Content:    o.Content,
-			Crc32c:     encodedCrc32cChecksum(o.Content),
+			Crc32c:     o.Crc32c,
 		})
 	}
 	return backendObjects
