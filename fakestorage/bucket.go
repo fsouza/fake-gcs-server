@@ -18,17 +18,20 @@ import (
 func (s *Server) CreateBucket(name string) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	if _, ok := s.buckets[name]; !ok {
-		s.buckets[name] = nil
+	err := s.backend.CreateBucket(name)
+	if err != nil {
+		panic(err)
 	}
 }
 
 func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
-	bucketNames := make([]string, 0, len(s.buckets))
-	for name := range s.buckets {
-		bucketNames = append(bucketNames, name)
+
+	bucketNames, err := s.backend.ListBuckets()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	resp := newListBucketsResponse(bucketNames)
 	json.NewEncoder(w).Encode(resp)
@@ -39,7 +42,7 @@ func (s *Server) getBucket(w http.ResponseWriter, r *http.Request) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	encoder := json.NewEncoder(w)
-	if _, ok := s.buckets[bucketName]; !ok {
+	if err := s.backend.GetBucket(bucketName); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		err := newErrorResponse(http.StatusNotFound, "Not found", nil)
 		encoder.Encode(err)
