@@ -6,6 +6,8 @@ package fakestorage
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -80,5 +82,47 @@ func TestServerClientListBuckets(t *testing.T) {
 	expectedNames := []string{"other-bucket", "some-bucket"}
 	if !reflect.DeepEqual(returnedNames, expectedNames) {
 		t.Errorf("wrong names returned\nwant %#v\ngot  %#v", expectedNames, returnedNames)
+	}
+}
+
+func TestServerClientListObjects(t *testing.T) {
+	objects := []Object{
+		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
+		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
+		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
+	}
+
+	dir, err := ioutil.TempDir("", "fakestorage-test-root-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	serverOptions := []Options{
+		{InitialObjects: objects},
+		{InitialObjects: objects, StorageRoot: dir},
+	}
+
+	for _, options := range serverOptions {
+
+		server, err := NewServerWithOptions(options)
+		if err != nil {
+			t.Error(err)
+		}
+		defer server.Stop()
+		client := server.Client()
+
+		seenFiles := map[string]struct{}{}
+
+		it := client.Bucket("some-bucket").Objects(context.Background(), nil)
+		objAttrs, err := it.Next()
+		for ; err == nil; objAttrs, err = it.Next() {
+			seenFiles[objAttrs.Name] = struct{}{}
+			t.Logf("Seen file %s", objAttrs.Name)
+		}
+
+		if len(objects) != len(seenFiles) {
+			t.Errorf("wrong number of files\nwant %d\ngot %d", len(objects), len(seenFiles))
+		}
 	}
 }
