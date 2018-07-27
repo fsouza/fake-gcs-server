@@ -91,17 +91,15 @@ func (s *StorageFS) ListObjects(bucketName string) ([]Object, error) {
 	}
 	objects := []Object{}
 	for _, info := range infos {
-		if info.IsDir() {
-			unescaped, err := url.PathUnescape(info.Name())
-			if err != nil {
-				return nil, fmt.Errorf("failed to unescape object name %s: %s", info.Name(), err)
-			}
-			object, err := s.GetObject(bucketName, unescaped)
-			if err != nil {
-				return nil, err
-			}
-			objects = append(objects, object)
+		unescaped, err := url.PathUnescape(info.Name())
+		if err != nil {
+			return nil, fmt.Errorf("failed to unescape object name %s: %s", info.Name(), err)
 		}
+		object, err := s.GetObject(bucketName, unescaped)
+		if err != nil {
+			return nil, err
+		}
+		objects = append(objects, object)
 	}
 	return objects, nil
 }
