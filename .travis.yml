@@ -9,6 +9,6 @@ script:
   - gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --disable=gosec --deadline=10m --vendor --tests ./...
   - go test -race ./...
 go:
-  - 1.9.x
   - 1.10.x
+  - 1.11.x
   - tip
