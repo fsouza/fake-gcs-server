@@ -24,7 +24,7 @@ func uint32ToBytes(ui uint32) []byte {
 
 func uint32Checksum(b []byte) uint32 {
 	checksummer := crc32.New(crc32cTable)
-	checksummer.Write([]byte(b))
+	checksummer.Write(b)
 	return checksummer.Sum32()
 }
 
