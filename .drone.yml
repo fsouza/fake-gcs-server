@@ -1,5 +1,6 @@
 ---
 kind: pipeline
+name: go_1.10
 
 platform:
   os: linux
@@ -26,6 +27,7 @@ steps:
 
 ---
 kind: pipeline
+name: go_1.11
 
 platform:
   os: linux
