@@ -1,60 +1,53 @@
-[
-   {
-      "kind": "pipeline",
-      "steps": [
-         {
-            "name": "setup",
-            "image": "golang:1.10",
-            "commands": [
-               "go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep",
-               "gometalinter --install",
-               "dep ensure -v",
-               "go install ./..."
-            ]
-         },
-         {
-            "name": "lint",
-            "image": "golang:1.10",
-            "commands": [
-               "gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --disable=gosec --deadline=10m --vendor --tests ./..."
-            ]
-         },
-         {
-            "name": "test",
-            "image": "golang:1.10",
-            "commands": [
-               "go test -race ./..."
-            ]
-         }
-      ]
-   },
-   {
-      "kind": "pipeline",
-      "steps": [
-         {
-            "name": "setup",
-            "image": "golang:1.11",
-            "commands": [
-               "go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep",
-               "gometalinter --install",
-               "dep ensure -v",
-               "go install ./..."
-            ]
-         },
-         {
-            "name": "lint",
-            "image": "golang:1.11",
-            "commands": [
-               "gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --disable=gosec --deadline=10m --vendor --tests ./..."
-            ]
-         },
-         {
-            "name": "test",
-            "image": "golang:1.11",
-            "commands": [
-               "go test -race ./..."
-            ]
-         }
-      ]
-   }
-]
+---
+kind: pipeline
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: setup
+  image: golang:1.10
+  commands:
+  - go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep
+  - gometalinter --install
+  - dep ensure -v
+  - go install ./...
+
+- name: lint
+  image: golang:1.10
+  commands:
+  - gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --disable=gosec --deadline=10m --vendor --tests ./...
+
+- name: test
+  image: golang:1.10
+  commands:
+  - go test -race ./...
+
+---
+kind: pipeline
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: setup
+  image: golang:1.11
+  commands:
+  - go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep
+  - gometalinter --install
+  - dep ensure -v
+  - go install ./...
+
+- name: lint
+  image: golang:1.11
+  commands:
+  - gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --disable=gosec --deadline=10m --vendor --tests ./...
+
+- name: test
+  image: golang:1.11
+  commands:
+  - go test -race ./...
+
+...
