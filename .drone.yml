@@ -1,7 +1,6 @@
 [
    {
       "kind": "pipeline",
-      "name": "go_1.10",
       "steps": [
          {
             "name": "setup",
@@ -31,7 +30,6 @@
    },
    {
       "kind": "pipeline",
-      "name": "go_1.11",
       "steps": [
          {
             "name": "setup",

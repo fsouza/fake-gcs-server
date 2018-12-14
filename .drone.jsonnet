@@ -1,6 +1,5 @@
 local Pipeline(go_version) = {
   kind: "pipeline",
-  name: "go_" + go_version,
   steps: [
     {
       "name": "setup",
