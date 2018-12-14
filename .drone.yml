@@ -7,12 +7,18 @@ platform:
   arch: amd64
 
 steps:
-- name: setup
+- name: setup-tools
   image: golang:1.10
   commands:
   - go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep
   - gometalinter --install
   - dep ensure -v
+  environment:
+    GOMOD: off
+
+- name: install
+  image: golang:1.10
+  commands:
   - go install ./...
 
 - name: lint
@@ -34,12 +40,18 @@ platform:
   arch: amd64
 
 steps:
-- name: setup
+- name: setup-tools
   image: golang:1.11
   commands:
   - go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep
   - gometalinter --install
   - dep ensure -v
+  environment:
+    GOMOD: off
+
+- name: install
+  image: golang:1.11
+  commands:
   - go install ./...
 
 - name: lint

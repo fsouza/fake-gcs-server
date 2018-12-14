@@ -3,12 +3,21 @@ local Pipeline(go_version) = {
   name: "go_" + go_version,
   steps: [
     {
-      name: "setup",
+      name: "setup-tools",
       image: "golang:" + go_version,
       commands: [
         "go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep",
         "gometalinter --install",
         "dep ensure -v",
+      ],
+      environment: {
+        GOMOD: "off",
+      },
+    },
+    {
+      name: "install",
+      image: "golang:" + go_version,
+      commands: [
         "go install ./...",
       ],
     },
