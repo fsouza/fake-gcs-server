@@ -94,6 +94,17 @@ func TestObjectCRUD(t *testing.T) {
 		if !bytes.Equal(obj.Content, content2) {
 			t.Errorf("wrong object content\n want %q\ngot  %q", content2, obj.Content)
 		}
+
+		// List objects
+		objs, err := storage.ListObjects(bucketName)
+		noError(t, err)
+		if len(objs) != 1 {
+			t.Errorf("wrong number of objects returned\nwant 1\ngot  %d", len(objs))
+		}
+		if objs[0].Name != objectName {
+			t.Errorf("wrong object name\nwant %q\ngot  %q", objectName, objs[0].Name)
+		}
+
 		// Delete in existent case
 		err = storage.DeleteObject(bucketName, objectName)
 		noError(t, err)
