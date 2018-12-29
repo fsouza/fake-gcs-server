@@ -9,9 +9,9 @@ require (
 	go.opencensus.io v0.18.0 // indirect
 	golang.org/x/net v0.0.0-20181220203305-927f97764cc3 // indirect
 	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890 // indirect
-	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
-	golang.org/x/sys v0.0.0-20181221143128-b4a75ba826a6 // indirect
-	google.golang.org/api v0.0.0-20181221000618-65a46cafb132
+	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4 // indirect
+	golang.org/x/sys v0.0.0-20181228144115-9a3f9b0469bb // indirect
+	google.golang.org/api v0.0.0-20181229000844-f26a60c56f14
 	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f // indirect
 	google.golang.org/grpc v1.17.0 // indirect
