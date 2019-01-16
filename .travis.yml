@@ -1,7 +1,7 @@
 language: go
 sudo: false
 install:
-  - pushd /tmp && go get github.com/golangci/golangci-lint/cmd/golangci-lint github.com/golang/dep/cmd/dep && popd
+  - go get github.com/golangci/golangci-lint/cmd/golangci-lint github.com/golang/dep/cmd/dep
   - if [[ $DEP_TOOL == "dep" ]]; then dep ensure -v; fi
   - if [[ $DEP_TOOL == "mod" ]]; then go mod download; fi
 script:
