@@ -11,8 +11,18 @@ script:
 env:
   matrix:
     - JOB=lint DEP_TOOL=dep GO111MODULE=off
+    - JOB=lint DEP_TOOL=mod GO111MODULE=on
+    - JOB=gotest DEP_TOOL=dep GO111MODULE=off
     - JOB=gotest DEP_TOOL=mod GO111MODULE=on
 go:
+  - 1.10.x
   - 1.11.x
   - 1.12beta2
   - tip
+matrix:
+  fast_finish: true
+  exclude:
+    - go: 1.10.x
+      env: JOB=gotest DEP_TOOL=mod GO111MODULE=on
+    - go: 1.10.x
+      env: JOB=lint DEP_TOOL=mod GO111MODULE=on
