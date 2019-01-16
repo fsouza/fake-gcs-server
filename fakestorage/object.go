@@ -73,10 +73,7 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []
 	objects := fromBackendObjects(backendObjects)
 	olist := objectList(objects)
 	sort.Sort(&olist)
-	var (
-		respObjects  []Object
-		respPrefixes []string
-	)
+	var respObjects []Object
 	prefixes := make(map[string]bool)
 	for _, obj := range olist {
 		if strings.HasPrefix(obj.Name, prefix) {
@@ -89,6 +86,7 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []
 			}
 		}
 	}
+	respPrefixes := make([]string, 0, len(prefixes))
 	for p := range prefixes {
 		respPrefixes = append(respPrefixes, p)
 	}

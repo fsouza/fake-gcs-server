@@ -36,6 +36,7 @@ func testForStorageBackends(t *testing.T, test func(t *testing.T, storage Storag
 	backends, cleanup := makeStorageBackends(t)
 	defer cleanup()
 	for backendName, storage := range backends {
+		storage := storage
 		t.Run(fmt.Sprintf("storage backend %s", backendName), func(t *testing.T) {
 			test(t, storage)
 		})

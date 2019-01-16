@@ -99,6 +99,7 @@ func TestServerClientObjectAttrsErrors(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			objHandle := server.Client().Bucket(test.bucketName).Object(test.objectName)
 			attrs, err := objHandle.Attrs(context.Background())
@@ -174,6 +175,7 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			length := test.length
 			if length == -1 {
@@ -245,6 +247,7 @@ func TestServerClientObjectReaderError(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			objHandle := server.Client().Bucket(test.bucketName).Object(test.objectName)
 			reader, err := objHandle.NewReader(context.Background())
@@ -348,6 +351,7 @@ func TestServiceClientListObjects(t *testing.T) {
 	}
 	client := server.Client()
 	for _, test := range tests {
+		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			iter := client.Bucket(test.bucketName).Objects(context.Background(), test.query)
 			var prefixes []string
@@ -416,6 +420,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			client := server.Client()
 			sourceObject := client.Bucket("first-bucket").Object("files/some-file.txt")
@@ -492,6 +497,7 @@ func TestServerClientObjectDeleteErrors(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			objHandle := server.Client().Bucket(test.bucketName).Object(test.objectName)
 			err := objHandle.Delete(context.TODO())

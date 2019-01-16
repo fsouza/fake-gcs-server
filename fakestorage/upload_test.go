@@ -34,6 +34,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			server := NewServer(nil)
 			defer server.Stop()
