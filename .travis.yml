@@ -1,15 +1,17 @@
 language: go
 sudo: false
 install:
-  - go get github.com/alecthomas/gometalinter github.com/golang/dep/cmd/dep
-  - gometalinter --install
-  - dep ensure -v
-  - go install ./...
+  - pushd /tmp && go get github.com/golangci/golangci-lint/cmd/golangci-lint github.com/golang/dep/cmd/dep && popd
+  - if [[ $DEP_TOOL == "dep" ]]; then dep ensure -v; fi
+  - if [[ $DEP_TOOL == "mod" ]]; then go mod download; fi
 script:
-  - gometalinter --enable-gc --enable=gofmt --enable=goimports --disable=errcheck --disable=gas --disable=gosec --deadline=10m --vendor --tests ./...
-  - go test -race ./...
+  - if [[ $JOB == "lint" ]]; then golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam -D gosec --deadline 5m ./...; fi
+  - if [[ $JOB == "gotest" ]]; then go test -race ./...; fi
+env:
+  matrix:
+    - JOB=lint DEP_TOOL=dep GO111MODULE=off
+    - JOB=gotest DEP_TOOL=mod GO111MODULE=on
 go:
-  - 1.10.x
   - 1.11.x
   - 1.12beta2
   - tip
