@@ -6,14 +6,12 @@ install:
   - if [[ $DEP_TOOL == "dep" ]]; then dep ensure -v; fi
   - if [[ $DEP_TOOL == "mod" ]]; then go mod download; fi
 script:
-  - if [[ $JOB == "lint" ]]; then golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam -D gosec --deadline 5m ./...; fi
-  - if [[ $JOB == "gotest" ]]; then go test -race ./...; fi
+  - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam -D gosec --deadline 5m ./...
+  - go test -race ./...
 env:
   matrix:
-    - DEP_TOOL=dep GO111MODULE=off JOB=lint
-    - DEP_TOOL=dep GO111MODULE=off JOB=gotest
-    - DEP_TOOL=mod GO111MODULE=on JOB=lint
-    - DEP_TOOL=mod GO111MODULE=on JOB=gotest
+    - DEP_TOOL=dep GO111MODULE=off
+    - DEP_TOOL=mod GO111MODULE=on
 go:
   - 1.10.x
   - 1.11.x
@@ -23,6 +21,6 @@ matrix:
   fast_finish: true
   exclude:
     - go: 1.10.x
-      env: DEP_TOOL=mod GO111MODULE=on JOB=gotest
+      env: DEP_TOOL=mod GO111MODULE=on
     - go: 1.10.x
-      env: DEP_TOOL=mod GO111MODULE=on JOB=lint
+      env: DEP_TOOL=mod GO111MODULE=on
