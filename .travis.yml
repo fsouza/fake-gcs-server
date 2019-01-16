@@ -1,7 +1,8 @@
 language: go
 sudo: false
 install:
-  - go get github.com/golangci/golangci-lint/cmd/golangci-lint github.com/golang/dep/cmd/dep
+  # hack alert: setting GO111MODULE to off so dep can be go get'ed
+  - GO111MODULE=off go get github.com/golangci/golangci-lint/cmd/golangci-lint github.com/golang/dep/cmd/dep
   - if [[ $DEP_TOOL == "dep" ]]; then dep ensure -v; fi
   - if [[ $DEP_TOOL == "mod" ]]; then go mod download; fi
 script:
