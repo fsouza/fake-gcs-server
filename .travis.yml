@@ -10,10 +10,10 @@ script:
   - if [[ $JOB == "gotest" ]]; then go test -race ./...; fi
 env:
   matrix:
-    - JOB=lint DEP_TOOL=dep GO111MODULE=off
-    - JOB=lint DEP_TOOL=mod GO111MODULE=on
-    - JOB=gotest DEP_TOOL=dep GO111MODULE=off
-    - JOB=gotest DEP_TOOL=mod GO111MODULE=on
+    - DEP_TOOL=dep GO111MODULE=off JOB=lint
+    - DEP_TOOL=dep GO111MODULE=off JOB=gotest
+    - DEP_TOOL=mod GO111MODULE=on JOB=lint
+    - DEP_TOOL=mod GO111MODULE=on JOB=gotest
 go:
   - 1.10.x
   - 1.11.x
@@ -23,6 +23,6 @@ matrix:
   fast_finish: true
   exclude:
     - go: 1.10.x
-      env: JOB=gotest DEP_TOOL=mod GO111MODULE=on
+      env: DEP_TOOL=mod GO111MODULE=on JOB=gotest
     - go: 1.10.x
-      env: JOB=lint DEP_TOOL=mod GO111MODULE=on
+      env: DEP_TOOL=mod GO111MODULE=on JOB=lint
