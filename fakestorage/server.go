@@ -138,9 +138,14 @@ func (s *Server) URL() string {
 	return s.ts.URL
 }
 
+// HTTPClient returns an HTTP client configured to talk to the server.
+func (s *Server) HTTPClient() *http.Client {
+	return &http.Client{Transport: s.transport}
+}
+
 // Client returns a GCS client configured to talk to the server.
 func (s *Server) Client() *storage.Client {
-	opt := option.WithHTTPClient(&http.Client{Transport: s.transport})
+	opt := option.WithHTTPClient(s.HTTPClient())
 	client, _ := storage.NewClient(context.Background(), opt)
 	return client
 }
