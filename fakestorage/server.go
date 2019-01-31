@@ -114,8 +114,8 @@ func (s *Server) setTransportToAddr(addr string) {
 
 func (s *Server) buildMuxer() {
 	s.mux = mux.NewRouter()
-	s.mux.Host("storage.googleapis.com").Path("/{bucketName}/{objectName:.+}").Methods("GET").HandlerFunc(s.downloadObject)
-	s.mux.Host("{bucketName}.storage.googleapis.com").Path("/{objectName:.+}").Methods("GET").HandlerFunc(s.downloadObject)
+	s.mux.Host("storage.googleapis.com").Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	s.mux.Host("{bucketName}.storage.googleapis.com").Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 	r := s.mux.PathPrefix("/storage/v1").Subrouter()
 	r.Path("/b").Methods("GET").HandlerFunc(s.listBuckets)
 	r.Path("/b/{bucketName}").Methods("GET").HandlerFunc(s.getBucket)

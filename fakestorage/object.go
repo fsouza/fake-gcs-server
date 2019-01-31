@@ -206,9 +206,12 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusPartialContent
 		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(obj.Content)))
 	}
+	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
 	w.WriteHeader(status)
-	w.Write(content)
+	if r.Method == http.MethodGet {
+		w.Write(content)
+	}
 }
 
 func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, content []byte) {

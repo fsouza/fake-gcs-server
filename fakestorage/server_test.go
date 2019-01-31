@@ -35,26 +35,46 @@ func TestDownloadObject(t *testing.T) {
 	defer server.Stop()
 
 	var tests = []struct {
-		name         string
-		url          string
-		expectedBody string
+		name            string
+		method          string
+		url             string
+		expectedHeaders map[string]string
+		expectedBody    string
 	}{
 		{
-			"bucket in the path",
+			"GET: bucket in the path",
+			http.MethodGet,
 			"https://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
+			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
 			"something",
 		},
 		{
-			"bucket in the host",
+			"GET: bucket in the host",
+			http.MethodGet,
 			"https://other-bucket.storage.googleapis.com/static/css/website.css",
+			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
 			"body {display: none;}",
+		},
+		{
+			"HEAD: bucket in the path",
+			http.MethodHead,
+			"https://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
+			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
+			"",
+		},
+		{
+			"HEAD: bucket in the host",
+			http.MethodHead,
+			"https://other-bucket.storage.googleapis.com/static/css/website.css",
+			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
+			"",
 		},
 	}
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			client := server.HTTPClient()
-			req, err := http.NewRequest(http.MethodGet, test.url, nil)
+			req, err := http.NewRequest(test.method, test.url, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -65,6 +85,11 @@ func TestDownloadObject(t *testing.T) {
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+			}
+			for k, expectedV := range test.expectedHeaders {
+				if v := resp.Header.Get(k); v != expectedV {
+					t.Errorf("wrong value for header %q:\nwant %q\ngot  %q", k, expectedV, v)
+				}
 			}
 			data, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
