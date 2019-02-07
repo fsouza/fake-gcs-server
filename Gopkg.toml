@@ -1,7 +1,7 @@
 
 [[constraint]]
   name = "cloud.google.com/go"
-  version = "0.19.0 - 0.35.1"
+  version = "0.19.0 - 0.36.0"
 
 [[constraint]]
   name = "github.com/gorilla/mux"
