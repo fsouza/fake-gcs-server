@@ -1,5 +1,8 @@
 language: go
 sudo: false
+cache:
+  directories:
+    - $GOPATH/pkg
 install:
   # hack alert: setting GO111MODULE to off so dep can be go get'ed
   - GO111MODULE=off go get github.com/golangci/golangci-lint/cmd/golangci-lint github.com/golang/dep/cmd/dep
