@@ -129,6 +129,7 @@ func TestServerClientSimpleUpload(t *testing.T) {
 	}
 	client := http.Client{
 		Transport: &http.Transport{
+			// #nosec
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
@@ -164,6 +165,7 @@ func TestServerClientSimpleUploadNoName(t *testing.T) {
 	}
 	client := http.Client{
 		Transport: &http.Transport{
+			// #nosec
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
@@ -189,6 +191,7 @@ func TestServerInvalidUploadType(t *testing.T) {
 	}
 	client := http.Client{
 		Transport: &http.Transport{
+			// #nosec
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}

@@ -103,6 +103,7 @@ func newUnstartedServer(objects []Object, storageRoot string) (*Server, error) {
 }
 
 func (s *Server) setTransportToAddr(addr string) {
+	// #nosec
 	tlsConfig := tls.Config{InsecureSkipVerify: true}
 	s.transport = &http.Transport{
 		TLSClientConfig: &tlsConfig,
