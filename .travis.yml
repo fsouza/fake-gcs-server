@@ -19,7 +19,7 @@ env:
 go:
   - 1.10.x
   - 1.11.x
-  - 1.12beta2
+  - 1.12rc1
   - tip
 matrix:
   fast_finish: true
