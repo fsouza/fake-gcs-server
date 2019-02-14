@@ -7,9 +7,9 @@ cache:
     - $GOPATH/src/github.com/golang
     - $GOPATH/src/github.com/golangci
 install:
-  - if [[ $DEP_TOOL == "dep" ]]; then go get github.com/golangci/golangci-lint github.com/golang/dep/cmd/dep; fi
+  - if [[ $DEP_TOOL == "dep" ]]; then go get github.com/golangci/golangci-lint/cmd/golangci-lint github.com/golang/dep/cmd/dep; fi
   - if [[ $DEP_TOOL == "dep" ]]; then dep ensure -v; fi
-  - if [[ $DEP_TOOL == "mod" ]]; then go get github.com/golangci/golangci-lint@latest; fi
+  - if [[ $DEP_TOOL == "mod" ]]; then go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest; fi
   - if [[ $DEP_TOOL == "mod" ]]; then go mod download; fi
 script:
   - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
