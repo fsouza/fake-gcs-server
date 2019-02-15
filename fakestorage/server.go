@@ -25,7 +25,7 @@ import (
 type Server struct {
 	backend   backend.Storage
 	uploads   map[string]Object
-	transport *http.Transport
+	transport http.RoundTripper
 	ts        *httptest.Server
 	mux       *mux.Router
 	mtx       sync.RWMutex
@@ -52,16 +52,24 @@ func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server,
 // Options are used to configure the server on creation
 type Options struct {
 	InitialObjects []Object
+	StorageRoot    string
 	Host           string
 	Port           uint16
-	StorageRoot    string
+
+	// when set to true, the server will not actually start a TCP listener,
+	// client requests will get processed by an internal mocked transport.
+	NoListener bool
 }
 
 // NewServerWithOptions creates a new server with custom options
 func NewServerWithOptions(options Options) (*Server, error) {
-	s, err := newUnstartedServer(options.InitialObjects, options.StorageRoot)
+	s, err := newUnstartedServer(options.InitialObjects, options.StorageRoot, !options.NoListener)
 	if err != nil {
 		return nil, err
+	}
+	if options.NoListener {
+		s.setTransportToMux()
+		return s, nil
 	}
 	var addr string
 	if options.Port != 0 {
@@ -81,7 +89,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	return s, nil
 }
 
-func newUnstartedServer(objects []Object, storageRoot string) (*Server, error) {
+func newUnstartedServer(objects []Object, storageRoot string, listen bool) (*Server, error) {
 	backendObjects := toBackendObjects(objects)
 	var backendStorage backend.Storage
 	var err error
@@ -98,7 +106,9 @@ func newUnstartedServer(objects []Object, storageRoot string) (*Server, error) {
 		uploads: make(map[string]Object),
 	}
 	s.buildMuxer()
-	s.ts = httptest.NewUnstartedServer(s.mux)
+	if listen {
+		s.ts = httptest.NewUnstartedServer(s.mux)
+	}
 	return &s, nil
 }
 
@@ -111,6 +121,10 @@ func (s *Server) setTransportToAddr(addr string) {
 			return tls.Dial("tcp", addr, &tlsConfig)
 		},
 	}
+}
+
+func (s *Server) setTransportToMux() {
+	s.transport = &muxTransport{router: s.mux}
 }
 
 func (s *Server) buildMuxer() {
@@ -131,13 +145,20 @@ func (s *Server) buildMuxer() {
 
 // Stop stops the server, closing all connections.
 func (s *Server) Stop() {
-	s.transport.CloseIdleConnections()
-	s.ts.Close()
+	if s.ts != nil {
+		if transport, ok := s.transport.(*http.Transport); ok {
+			transport.CloseIdleConnections()
+		}
+		s.ts.Close()
+	}
 }
 
 // URL returns the server URL.
 func (s *Server) URL() string {
-	return s.ts.URL
+	if s.ts != nil {
+		return s.ts.URL
+	}
+	return ""
 }
 
 // HTTPClient returns an HTTP client configured to talk to the server.

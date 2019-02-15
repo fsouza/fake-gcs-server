@@ -19,56 +19,62 @@ func TestServerClientObjectWriter(t *testing.T) {
 	content := strings.Repeat(baseContent+"\n", googleapi.MinUploadChunkSize)
 	checksum := uint32Checksum([]byte(content))
 
-	var tests = []struct {
-		testCase  string
-		chunkSize int
-	}{
-		{
-			"default chunk size",
-			googleapi.DefaultUploadChunkSize,
-		},
-		{
-			"small chunk size",
-			googleapi.MinUploadChunkSize,
-		},
-	}
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		var tests = []struct {
+			testCase   string
+			bucketName string
+			objectName string
+			chunkSize  int
+		}{
+			{
+				"default chunk size",
+				"some-bucket",
+				"some/interesting/object.txt",
+				googleapi.DefaultUploadChunkSize,
+			},
+			{
+				"small chunk size",
+				"other-bucket",
+				"other/interesting/object.txt",
+				googleapi.MinUploadChunkSize,
+			},
+		}
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.testCase, func(t *testing.T) {
-			server := NewServer(nil)
-			defer server.Stop()
-			server.CreateBucket("some-bucket")
-			client := server.Client()
+		for _, test := range tests {
+			test := test
+			t.Run(test.testCase, func(t *testing.T) {
+				server.CreateBucket(test.bucketName)
+				client := server.Client()
 
-			objHandle := client.Bucket("some-bucket").Object("some/interesting/object.txt")
-			w := objHandle.NewWriter(context.Background())
-			w.ChunkSize = test.chunkSize
-			w.Write([]byte(content))
-			err := w.Close()
-			if err != nil {
-				t.Fatal(err)
-			}
+				objHandle := client.Bucket(test.bucketName).Object(test.objectName)
+				w := objHandle.NewWriter(context.Background())
+				w.ChunkSize = test.chunkSize
+				w.Write([]byte(content))
+				err := w.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
 
-			obj, err := server.GetObject("some-bucket", "some/interesting/object.txt")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(obj.Content) != content {
-				n := strings.Count(string(obj.Content), baseContent)
-				t.Errorf("wrong content returned\nwant %dx%q\ngot  %dx%q",
-					googleapi.MinUploadChunkSize, baseContent,
-					n, baseContent)
-			}
+				obj, err := server.GetObject(test.bucketName, test.objectName)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(obj.Content) != content {
+					n := strings.Count(string(obj.Content), baseContent)
+					t.Errorf("wrong content returned\nwant %dx%q\ngot  %dx%q",
+						googleapi.MinUploadChunkSize, baseContent,
+						n, baseContent)
+				}
 
-			if returnedChecksum := w.Attrs().CRC32C; returnedChecksum != checksum {
-				t.Errorf("wrong writer.Attrs() checksum returned\nwant %d\ngot  %d", checksum, returnedChecksum)
-			}
-			if base64Checksum := encodedChecksum(uint32ToBytes(checksum)); obj.Crc32c != base64Checksum {
-				t.Errorf("wrong obj.Crc32c returned\nwant %s\ngot %s", base64Checksum, obj.Crc32c)
-			}
-		})
-	}
+				if returnedChecksum := w.Attrs().CRC32C; returnedChecksum != checksum {
+					t.Errorf("wrong writer.Attrs() checksum returned\nwant %d\ngot  %d", checksum, returnedChecksum)
+				}
+				if base64Checksum := encodedChecksum(uint32ToBytes(checksum)); obj.Crc32c != base64Checksum {
+					t.Errorf("wrong obj.Crc32c returned\nwant %s\ngot %s", base64Checksum, obj.Crc32c)
+				}
+			})
+		}
+	})
 }
 
 func checkChecksum(t *testing.T, content []byte, obj Object) {
@@ -79,42 +85,42 @@ func checkChecksum(t *testing.T, content []byte, obj Object) {
 }
 
 func TestServerClientObjectWriterOverwrite(t *testing.T) {
-	const content = "other content"
-	server := NewServer(nil)
-	defer server.Stop()
-	server.CreateObject(Object{
-		BucketName: "some-bucket",
-		Name:       "some-object.txt",
-		Content:    []byte("some content"),
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		const content = "other content"
+		server.CreateObject(Object{
+			BucketName: "some-bucket",
+			Name:       "some-object.txt",
+			Content:    []byte("some content"),
+		})
+		objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
+		w := objHandle.NewWriter(context.Background())
+		w.Write([]byte(content))
+		err := w.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		obj, err := server.GetObject("some-bucket", "some-object.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(obj.Content) != content {
+			t.Errorf("wrong content in the object\nwant %q\ngot  %q", content, string(obj.Content))
+		}
+		checkChecksum(t, []byte(content), obj)
 	})
-	objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
-	w := objHandle.NewWriter(context.Background())
-	w.Write([]byte(content))
-	err := w.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	obj, err := server.GetObject("some-bucket", "some-object.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(obj.Content) != content {
-		t.Errorf("wrong content in the object\nwant %q\ngot  %q", content, string(obj.Content))
-	}
-	checkChecksum(t, []byte(content), obj)
 }
 
 func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
-	server := NewServer(nil)
-	defer server.Stop()
-	client := server.Client()
-	objHandle := client.Bucket("some-bucket").Object("some/interesting/object.txt")
-	w := objHandle.NewWriter(context.Background())
-	w.Write([]byte("whatever"))
-	err := w.Close()
-	if err == nil {
-		t.Fatal("unexpected <nil> error")
-	}
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		client := server.Client()
+		objHandle := client.Bucket("some-bucket").Object("some/interesting/object.txt")
+		w := objHandle.NewWriter(context.Background())
+		w.Write([]byte("whatever"))
+		err := w.Close()
+		if err == nil {
+			t.Fatal("unexpected <nil> error")
+		}
+	})
 }
 
 func TestServerClientSimpleUpload(t *testing.T) {

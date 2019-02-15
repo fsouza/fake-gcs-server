@@ -25,15 +25,30 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
+func TestNewServerNoListener(t *testing.T) {
+	t.Parallel()
+	server, err := NewServerWithOptions(Options{NoListener: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Stop()
+	url := server.URL()
+	if url != "" {
+		t.Errorf("unexpected non-empty url: %q", url)
+	}
+}
+
 func TestDownloadObject(t *testing.T) {
-	server := NewServer([]Object{
+	objs := []Object{
 		{BucketName: "some-bucket", Name: "files/txt/text-01.txt", Content: []byte("something")},
 		{BucketName: "some-bucket", Name: "files/txt/text-02.txt"},
 		{BucketName: "some-bucket", Name: "files/txt/text-03.txt"},
 		{BucketName: "other-bucket", Name: "static/css/website.css", Content: []byte("body {display: none;}")},
-	})
-	defer server.Stop()
+	}
+	runServersTest(t, objs, testDownloadObject)
+}
 
+func testDownloadObject(t *testing.T, server *Server) {
 	var tests = []struct {
 		name            string
 		method          string
@@ -100,4 +115,24 @@ func TestDownloadObject(t *testing.T) {
 			}
 		})
 	}
+}
+
+func runServersTest(t *testing.T, objs []Object, fn func(*testing.T, *Server)) {
+	t.Run("tcp listener", func(t *testing.T) {
+		t.Parallel()
+		tcpServer, err := NewServerWithOptions(Options{NoListener: false, InitialObjects: objs})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tcpServer.Stop()
+		fn(t, tcpServer)
+	})
+	t.Run("no listener", func(t *testing.T) {
+		t.Parallel()
+		noListenerServer, err := NewServerWithOptions(Options{NoListener: true, InitialObjects: objs})
+		if err != nil {
+			t.Fatal(err)
+		}
+		fn(t, noListenerServer)
+	})
 }
