@@ -63,7 +63,7 @@ type Options struct {
 
 // NewServerWithOptions creates a new server with custom options
 func NewServerWithOptions(options Options) (*Server, error) {
-	s, err := newUnstartedServer(options.InitialObjects, options.StorageRoot, !options.NoListener)
+	s, err := newServer(options.InitialObjects, options.StorageRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +71,10 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		s.setTransportToMux()
 		return s, nil
 	}
-	var addr string
+
+	s.ts = httptest.NewUnstartedServer(s.mux)
 	if options.Port != 0 {
-		addr = fmt.Sprintf("%s:%d", options.Host, options.Port)
+		addr := fmt.Sprintf("%s:%d", options.Host, options.Port)
 		l, err := net.Listen("tcp", addr)
 		if err != nil {
 			return nil, err
@@ -81,15 +82,14 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		s.ts.Listener.Close()
 		s.ts.Listener = l
 		s.ts.StartTLS()
-		s.setTransportToAddr(addr)
 	} else {
-		s.setTransportToAddr(s.ts.Listener.Addr().String())
 		s.ts.StartTLS()
 	}
+	s.setTransportToAddr(s.ts.Listener.Addr().String())
 	return s, nil
 }
 
-func newUnstartedServer(objects []Object, storageRoot string, listen bool) (*Server, error) {
+func newServer(objects []Object, storageRoot string) (*Server, error) {
 	backendObjects := toBackendObjects(objects)
 	var backendStorage backend.Storage
 	var err error
@@ -106,9 +106,6 @@ func newUnstartedServer(objects []Object, storageRoot string, listen bool) (*Ser
 		uploads: make(map[string]Object),
 	}
 	s.buildMuxer()
-	if listen {
-		s.ts = httptest.NewUnstartedServer(s.mux)
-	}
 	return &s, nil
 }
 
