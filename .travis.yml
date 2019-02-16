@@ -25,5 +25,3 @@ matrix:
   exclude:
     - go: 1.10.x
       env: DEP_TOOL=mod GO111MODULE=on
-    - go: 1.10.x
-      env: DEP_TOOL=mod GO111MODULE=on
