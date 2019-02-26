@@ -10,7 +10,6 @@ install:
   - if [[ $DEP_TOOL == "dep" ]]; then dep ensure -v; fi
   - if [[ $DEP_TOOL == "mod" ]]; then go mod download; fi
 script:
-  - export GOCACHE=$GOPATH/pkg/cache
   - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
   - go test -race -vet all ./...
 env:
