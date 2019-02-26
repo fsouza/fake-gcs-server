@@ -18,12 +18,8 @@ env:
     - DEP_TOOL=dep GO111MODULE=off
     - DEP_TOOL=mod GO111MODULE=on
 go:
-  - 1.10.x
   - 1.11.x
-  - 1.12rc1
+  - 1.12.x
   - tip
 matrix:
   fast_finish: true
-  exclude:
-    - go: 1.10.x
-      env: DEP_TOOL=mod GO111MODULE=on
