@@ -8,8 +8,8 @@
   version = "1.6.1 - 1.7.0"
 
 [[constraint]]
-  branch = "master"
   name = "google.golang.org/api"
+  version = "0.2.0"
 
 [prune]
   go-tests = true
