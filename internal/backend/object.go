@@ -10,6 +10,7 @@ type Object struct {
 	Name       string `json:"-"`
 	Content    []byte
 	Crc32c     string
+	Md5Hash    string
 }
 
 // ID is useful for comparing objects
