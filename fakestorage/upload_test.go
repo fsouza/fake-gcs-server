@@ -5,6 +5,7 @@
 package fakestorage
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"net/http"
@@ -18,6 +19,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 	const baseContent = "some nice content"
 	content := strings.Repeat(baseContent+"\n", googleapi.MinUploadChunkSize)
 	checksum := uint32Checksum([]byte(content))
+	hash := md5Hash([]byte(content))
 
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		var tests = []struct {
@@ -71,6 +73,12 @@ func TestServerClientObjectWriter(t *testing.T) {
 				}
 				if base64Checksum := encodedChecksum(uint32ToBytes(checksum)); obj.Crc32c != base64Checksum {
 					t.Errorf("wrong obj.Crc32c returned\nwant %s\ngot %s", base64Checksum, obj.Crc32c)
+				}
+				if returnedHash := w.Attrs().MD5; !bytes.Equal(returnedHash, hash) {
+					t.Errorf("wrong writer.Attrs() hash returned\nwant %d\ngot  %d", hash, returnedHash)
+				}
+				if stringHash := encodedHash(hash); obj.Md5Hash != stringHash {
+					t.Errorf("wrong obj.Md5Hash returned\nwant %s\ngot %s", stringHash, obj.Md5Hash)
 				}
 			})
 		}

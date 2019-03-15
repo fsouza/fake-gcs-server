@@ -5,6 +5,7 @@
 package fakestorage
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"hash/crc32"
@@ -35,8 +36,9 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		content    = "some nice content"
 	)
 	checksum := uint32Checksum([]byte(content))
+	hash := md5Hash([]byte(content))
 	objs := []Object{
-		{BucketName: bucketName, Name: objectName, Content: []byte(content), Crc32c: encodedChecksum(uint32ToBytes(checksum))},
+		{BucketName: bucketName, Name: objectName, Content: []byte(content), Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash)},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -57,6 +59,9 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		}
 		if attrs.CRC32C != checksum {
 			t.Errorf("wrong checksum returned\nwant %d\ngot   %d", checksum, attrs.CRC32C)
+		}
+		if !bytes.Equal(attrs.MD5, hash) {
+			t.Errorf("wrong hash returned\nwant %d\ngot   %d", hash, attrs.MD5)
 		}
 	})
 }
@@ -410,8 +415,9 @@ func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 func TestServiceClientRewriteObject(t *testing.T) {
 	const content = "some content"
 	checksum := uint32Checksum([]byte(content))
+	hash := md5Hash([]byte(content))
 	objs := []Object{
-		{BucketName: "first-bucket", Name: "files/some-file.txt", Content: []byte(content), Crc32c: encodedChecksum(uint32ToBytes(checksum))},
+		{BucketName: "first-bucket", Name: "files/some-file.txt", Content: []byte(content), Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash)},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -421,18 +427,21 @@ func TestServiceClientRewriteObject(t *testing.T) {
 			bucketName string
 			objectName string
 			crc32c     uint32
+			md5hash    string
 		}{
 			{
 				"same bucket",
 				"first-bucket",
 				"files/other-file.txt",
 				checksum,
+				encodedHash(hash),
 			},
 			{
 				"different bucket",
 				"empty-bucket",
 				"some/interesting/file.txt",
 				checksum,
+				encodedHash(hash),
 			},
 		}
 		for _, test := range tests {
@@ -457,6 +466,9 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				if attrs.CRC32C != checksum {
 					t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", checksum, attrs.CRC32C)
 				}
+				if !bytes.Equal(attrs.MD5, hash) {
+					t.Errorf("wrong hash returned\nwant %d\ngot   %d", hash, attrs.MD5)
+				}
 				obj, err := server.GetObject(test.bucketName, test.objectName)
 				if err != nil {
 					t.Fatal(err)
@@ -466,6 +478,9 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				}
 				if expect := encodedChecksum(uint32ToBytes(checksum)); expect != obj.Crc32c {
 					t.Errorf("wrong checksum on object\nwant %s\ngot  %s", expect, obj.Crc32c)
+				}
+				if expect := encodedHash(hash); expect != obj.Md5Hash {
+					t.Errorf("wrong hash on object\nwant %s\ngot  %s", expect, obj.Md5Hash)
 				}
 			})
 		}

@@ -59,17 +59,19 @@ type objectResponse struct {
 	Bucket string `json:"bucket"`
 	Size   int64  `json:"size,string"`
 	// Crc32c: CRC32c checksum, same as in google storage client code
-	Crc32c string `json:"crc32c,omitempty"`
+	Crc32c  string `json:"crc32c,omitempty"`
+	Md5Hash string `json:"md5hash,omitempty"`
 }
 
 func newObjectResponse(obj Object) objectResponse {
 	return objectResponse{
-		Kind:   "storage#object",
-		ID:     obj.id(),
-		Bucket: obj.BucketName,
-		Name:   obj.Name,
-		Size:   int64(len(obj.Content)),
-		Crc32c: obj.Crc32c,
+		Kind:    "storage#object",
+		ID:      obj.id(),
+		Bucket:  obj.BucketName,
+		Name:    obj.Name,
+		Size:    int64(len(obj.Content)),
+		Crc32c:  obj.Crc32c,
+		Md5Hash: obj.Md5Hash,
 	}
 }
 
