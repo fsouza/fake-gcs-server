@@ -9,7 +9,7 @@
 
 [[constraint]]
   name = "google.golang.org/api"
-  version = "0.2.0 - 0.2.1"
+  version = "0.2.0 - 0.3.0"
 
 [prune]
   go-tests = true
