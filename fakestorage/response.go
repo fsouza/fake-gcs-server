@@ -28,8 +28,8 @@ func newListBucketsResponse(bucketNames []string) listResponse {
 
 type bucketResponse struct {
 	Kind string `json:"kind"`
-	ID   string `json:"ID"`
-	Name string `json:"Name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func newBucketResponse(bucketName string) bucketResponse {
