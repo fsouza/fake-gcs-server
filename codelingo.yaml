@@ -1,4 +1,0 @@
-tenets:
-- import: codelingo/go
-- import: codelingo/effective-go
-- import: codelingo/code-review-comments
