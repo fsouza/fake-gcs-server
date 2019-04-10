@@ -4,9 +4,7 @@
 
 package fakestorage
 
-import (
-	"sort"
-)
+import "sort"
 
 type listResponse struct {
 	Kind     string        `json:"kind"`
