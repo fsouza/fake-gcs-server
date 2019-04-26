@@ -5,3 +5,5 @@ require (
 	github.com/gorilla/mux v1.7.1
 	google.golang.org/api v0.4.0
 )
+
+go 1.13
