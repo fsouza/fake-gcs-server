@@ -1,11 +1,7 @@
 dist: xenial
 language: go
 sudo: false
-cache:
-  directories:
-    - $GOPATH/pkg
 install:
-  - export GOCACHE=$GOPATH/pkg/cache
   - curl https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | BINDIR=$GOPATH/bin sh
   - if [[ $DEP_TOOL == "dep" ]]; then curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh; fi
   - if [[ $DEP_TOOL == "dep" ]]; then dep ensure -v; fi
@@ -17,6 +13,8 @@ env:
   matrix:
     - DEP_TOOL=dep GO111MODULE=off
     - DEP_TOOL=mod GO111MODULE=on
+  global:
+    - GOPROXY=https://proxy.golang.org
 go:
   - 1.11.x
   - 1.12.x
