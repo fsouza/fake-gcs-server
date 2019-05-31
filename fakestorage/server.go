@@ -130,6 +130,7 @@ func (s *Server) buildMuxer() {
 	s.mux.Host("{bucketName}.storage.googleapis.com").Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 	r := s.mux.PathPrefix("/storage/v1").Subrouter()
 	r.Path("/b").Methods("GET").HandlerFunc(s.listBuckets)
+	r.Path("/b").Methods("POST").HandlerFunc(s.createBucketByPost)
 	r.Path("/b/{bucketName}").Methods("GET").HandlerFunc(s.getBucket)
 	r.Path("/b/{bucketName}/o").Methods("GET").HandlerFunc(s.listObjects)
 	r.Path("/b/{bucketName}/o").Methods("POST").HandlerFunc(s.insertObject)
