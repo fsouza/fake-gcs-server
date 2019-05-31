@@ -50,6 +50,24 @@ func TestServerClientBucketAttrsAfterCreateBucket(t *testing.T) {
 	})
 }
 
+func TestServerClientBucketAttrsAfterCreateBucketByPost(t *testing.T) {
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		const bucketName = "post-bucket"
+		client := server.Client()
+		bucket := client.Bucket(bucketName)
+		if err := bucket.Create(context.Background(), "whatever", nil); err != nil {
+			t.Fatal(err)
+		}
+		attrs, err := client.Bucket(bucketName).Attrs(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if attrs.Name != bucketName {
+			t.Errorf("wrong bucket name returned\nwant %q\ngot  %q", bucketName, attrs.Name)
+		}
+	})
+}
+
 func TestServerClientBucketAttrsNotFound(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		client := server.Client()
