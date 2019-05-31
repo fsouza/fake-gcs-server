@@ -28,8 +28,6 @@ type multipartMetadata struct {
 }
 
 func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
 	bucketName := mux.Vars(r)["bucketName"]
 	if err := s.backend.GetBucket(bucketName); err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -156,7 +154,7 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.uploads[uploadID] = obj
+	s.uploads.Store(uploadID, obj)
 	w.Header().Set("Location", s.URL()+"/upload/resumable/"+uploadID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
@@ -164,13 +162,12 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 
 func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	uploadID := mux.Vars(r)["uploadId"]
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-	obj, ok := s.uploads[uploadID]
+	rawObj, ok := s.uploads.Load(uploadID)
 	if !ok {
 		http.Error(w, "upload not found", http.StatusNotFound)
 		return
 	}
+	obj := rawObj.(Object)
 	content, err := loadContent(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -190,7 +187,7 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if commit {
-		delete(s.uploads, uploadID)
+		s.uploads.Delete(uploadID)
 		err = s.createObject(obj)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -199,7 +196,7 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	} else {
 		status = http.StatusOK
 		w.Header().Set("X-Http-Status-Code-Override", "308")
-		s.uploads[uploadID] = obj
+		s.uploads.Store(uploadID, obj)
 	}
 	data, _ := json.Marshal(obj)
 	w.Header().Set("Content-Type", "application/json")

@@ -16,8 +16,6 @@ import (
 //
 // If the bucket already exists, this method does nothing.
 func (s *Server) CreateBucket(name string) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
 	err := s.backend.CreateBucket(name)
 	if err != nil {
 		panic(err)
@@ -40,8 +38,6 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 	name := data.Name
 
 	// Create the named bucket
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
 	if err := s.backend.CreateBucket(name); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -53,9 +49,6 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
-
 	bucketNames, err := s.backend.ListBuckets()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -67,8 +60,6 @@ func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getBucket(w http.ResponseWriter, r *http.Request) {
 	bucketName := mux.Vars(r)["bucketName"]
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
 	encoder := json.NewEncoder(w)
 	if err := s.backend.GetBucket(bucketName); err != nil {
 		w.WriteHeader(http.StatusNotFound)

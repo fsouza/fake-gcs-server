@@ -50,8 +50,6 @@ func (o *objectList) Swap(i int, j int) {
 // If the bucket within the object doesn't exist, it also creates it. If the
 // object already exists, it overrides the object.
 func (s *Server) CreateObject(obj Object) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
 	err := s.createObject(obj)
 	if err != nil {
 		panic(err)
@@ -65,8 +63,6 @@ func (s *Server) createObject(obj Object) error {
 // ListObjects returns a sorted list of objects that match the given criteria,
 // or an error if the bucket doesn't exist.
 func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []string, error) {
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
 	backendObjects, err := s.backend.ListObjects(bucketName)
 	if err != nil {
 		return nil, nil, err
@@ -164,8 +160,6 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
 	vars := mux.Vars(r)
 	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
 	if err != nil {

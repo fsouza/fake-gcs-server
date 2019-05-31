@@ -24,11 +24,10 @@ import (
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
 	backend   backend.Storage
-	uploads   map[string]Object
+	uploads   sync.Map
 	transport http.RoundTripper
 	ts        *httptest.Server
 	mux       *mux.Router
-	mtx       sync.RWMutex
 }
 
 // NewServer creates a new instance of the server, pre-loaded with the given
@@ -103,7 +102,7 @@ func newServer(objects []Object, storageRoot string) (*Server, error) {
 	}
 	s := Server{
 		backend: backendStorage,
-		uploads: make(map[string]Object),
+		uploads: sync.Map{},
 	}
 	s.buildMuxer()
 	return &s, nil
