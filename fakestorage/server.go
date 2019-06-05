@@ -23,11 +23,12 @@ import (
 //
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
-	backend   backend.Storage
-	uploads   sync.Map
-	transport http.RoundTripper
-	ts        *httptest.Server
-	mux       *mux.Router
+	backend     backend.Storage
+	uploads     sync.Map
+	transport   http.RoundTripper
+	ts          *httptest.Server
+	mux         *mux.Router
+	externalURL string
 }
 
 // NewServer creates a new instance of the server, pre-loaded with the given
@@ -58,6 +59,10 @@ type Options struct {
 	// when set to true, the server will not actually start a TCP listener,
 	// client requests will get processed by an internal mocked transport.
 	NoListener bool
+
+	// optional external URL, such as http://gcs.example.com
+	// returned as Location header for resumable uploads
+	ExternalURL string
 }
 
 // NewServerWithOptions creates a new server with custom options
@@ -69,6 +74,9 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	if options.NoListener {
 		s.setTransportToMux()
 		return s, nil
+	}
+	if options.ExternalURL != "" {
+		s.externalURL = options.ExternalURL
 	}
 
 	s.ts = httptest.NewUnstartedServer(s.mux)
@@ -153,6 +161,9 @@ func (s *Server) Stop() {
 
 // URL returns the server URL.
 func (s *Server) URL() string {
+	if s.externalURL != "" {
+		return s.externalURL
+	}
 	if s.ts != nil {
 		return s.ts.URL
 	}
