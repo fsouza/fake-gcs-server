@@ -38,6 +38,19 @@ func TestNewServerNoListener(t *testing.T) {
 	}
 }
 
+func TestNewServerExternalHost(t *testing.T) {
+	t.Parallel()
+	server, err := NewServerWithOptions(Options{ExternalURL: "https://gcs.example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Stop()
+	url := server.URL()
+	if url != "https://gcs.example.com" {
+		t.Errorf("wrong url returned\n want %q\ngot  %q", server.externalURL, url)
+	}
+}
+
 func TestDownloadObject(t *testing.T) {
 	objs := []Object{
 		{BucketName: "some-bucket", Name: "files/txt/text-01.txt", Content: []byte("something")},
