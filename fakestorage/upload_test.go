@@ -219,3 +219,55 @@ func TestServerInvalidUploadType(t *testing.T) {
 		t.Errorf("wrong status returned\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
 	}
 }
+
+func TestParseContentRange(t *testing.T) {
+	var goodHeaderTests = []struct {
+		header string
+		output contentRange
+	}{
+		{
+			"bytes */1024", // End of a streaming request, total is now known
+			contentRange{KnownTotal: true, Start: -1, End: -1, Total: 1024},
+		},
+		{
+			"bytes 1024-2047/4096", // Range with a known total
+			contentRange{KnownRange: true, KnownTotal: true, Start: 1024, End: 2047, Total: 4096},
+		},
+		{
+			"bytes 0-1024/*", // A streaming request, unknown total
+			contentRange{KnownRange: true, Start: 0, End: 1024, Total: -1},
+		},
+	}
+
+	for _, test := range goodHeaderTests {
+		test := test
+		t.Run(test.header, func(t *testing.T) {
+			output, err := parseContentRange(test.header)
+			if output != test.output {
+				t.Fatalf("output is different.\nexpected: %+v\n  actual: %+v\n", test.output, output)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+
+	var badHeaderTests = []string{
+		"none",                // Unsupported unit "none"
+		"bytes 20",            // No slash to split range from size
+		"bytes 1/4",           // Single-field range
+		"bytes start-20/100",  // Non-integer range start
+		"bytes 20-end/100",    // Non-integer range end
+		"bytes 100-200/total", // Non-integer size
+		"bytes */*",           // Unknown range or size
+	}
+	for _, test := range badHeaderTests {
+		test := test
+		t.Run(test, func(t *testing.T) {
+			_, err := parseContentRange(test)
+			if err == nil {
+				t.Fatalf("Expected err!=<nil>, but was %v", err)
+			}
+		})
+	}
+}
