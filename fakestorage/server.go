@@ -29,6 +29,7 @@ type Server struct {
 	ts          *httptest.Server
 	mux         *mux.Router
 	externalURL string
+	publicHost  string
 }
 
 // NewServer creates a new instance of the server, pre-loaded with the given
@@ -60,23 +61,30 @@ type Options struct {
 	// client requests will get processed by an internal mocked transport.
 	NoListener bool
 
-	// optional external URL, such as http://gcs.example.com
-	// returned as Location header for resumable uploads
+	// Optional external URL, such as https://gcs.127.0.0.1.nip.io:4443
+	// Returned in the Location header for resumable uploads
+	// The "real" value is https://www.googleapis.com, the JSON API
+	// The default is whatever the server is bound to, such as https://0.0.0.0:4443
 	ExternalURL string
+
+	// Optional URL for public access
+	// An example is "storage.gcs.127.0.0.1.nip.io:4443", which will configure
+	// the server to serve objects at:
+	// https://storage.gcs.127.0.0.1.nip.io:4443/<bucket>/<object>
+	// https://<bucket>.storage.gcs.127.0.0.1.nip.io:4443>/<bucket>/<object>
+	// If unset, the default is "storage.googleapis.com", the XML API
+	PublicHost string
 }
 
 // NewServerWithOptions creates a new server with custom options
 func NewServerWithOptions(options Options) (*Server, error) {
-	s, err := newServer(options.InitialObjects, options.StorageRoot)
+	s, err := newServer(options.InitialObjects, options.StorageRoot, options.ExternalURL, options.PublicHost)
 	if err != nil {
 		return nil, err
 	}
 	if options.NoListener {
 		s.setTransportToMux()
 		return s, nil
-	}
-	if options.ExternalURL != "" {
-		s.externalURL = options.ExternalURL
 	}
 
 	s.ts = httptest.NewUnstartedServer(s.mux)
@@ -96,7 +104,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	return s, nil
 }
 
-func newServer(objects []Object, storageRoot string) (*Server, error) {
+func newServer(objects []Object, storageRoot, externalURL, publicHost string) (*Server, error) {
 	backendObjects := toBackendObjects(objects)
 	var backendStorage backend.Storage
 	var err error
@@ -108,9 +116,14 @@ func newServer(objects []Object, storageRoot string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	if publicHost == "" {
+		publicHost = "storage.googleapis.com"
+	}
 	s := Server{
-		backend: backendStorage,
-		uploads: sync.Map{},
+		backend:     backendStorage,
+		uploads:     sync.Map{},
+		externalURL: externalURL,
+		publicHost:  publicHost,
 	}
 	s.buildMuxer()
 	return &s, nil
@@ -133,8 +146,9 @@ func (s *Server) setTransportToMux() {
 
 func (s *Server) buildMuxer() {
 	s.mux = mux.NewRouter()
-	s.mux.Host("storage.googleapis.com").Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
-	s.mux.Host("{bucketName}.storage.googleapis.com").Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
+	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 	r := s.mux.PathPrefix("/storage/v1").Subrouter()
 	r.Path("/b").Methods("GET").HandlerFunc(s.listBuckets)
 	r.Path("/b").Methods("POST").HandlerFunc(s.createBucketByPost)
@@ -168,6 +182,11 @@ func (s *Server) URL() string {
 		return s.ts.URL
 	}
 	return ""
+}
+
+// PublicURL returns the server's public download URL.
+func (s *Server) PublicURL() string {
+	return fmt.Sprintf("https://%s", s.publicHost)
 }
 
 // HTTPClient returns an HTTP client configured to talk to the server.
