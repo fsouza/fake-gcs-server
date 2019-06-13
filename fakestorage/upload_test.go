@@ -221,6 +221,7 @@ func TestServerInvalidUploadType(t *testing.T) {
 }
 
 func TestParseContentRange(t *testing.T) {
+	t.Parallel()
 	var goodHeaderTests = []struct {
 		header string
 		output contentRange
@@ -242,6 +243,7 @@ func TestParseContentRange(t *testing.T) {
 	for _, test := range goodHeaderTests {
 		test := test
 		t.Run(test.header, func(t *testing.T) {
+			t.Parallel()
 			output, err := parseContentRange(test.header)
 			if output != test.output {
 				t.Fatalf("output is different.\nexpected: %+v\n  actual: %+v\n", test.output, output)
@@ -264,6 +266,7 @@ func TestParseContentRange(t *testing.T) {
 	for _, test := range badHeaderTests {
 		test := test
 		t.Run(test, func(t *testing.T) {
+			t.Parallel()
 			_, err := parseContentRange(test)
 			if err == nil {
 				t.Fatalf("Expected err!=<nil>, but was %v", err)
