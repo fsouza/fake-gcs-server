@@ -7,8 +7,10 @@ package fakestorage
 import (
 	"crypto/md5" // #nosec G501
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -16,9 +18,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
-	"encoding/base64"
-	"hash/crc32"
 
 	"github.com/gorilla/mux"
 )

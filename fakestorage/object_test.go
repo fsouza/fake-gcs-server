@@ -94,7 +94,7 @@ func TestServerClientObjectAttrsErrors(t *testing.T) {
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		var tests = []struct {
+		tests := []struct {
 			testCase   string
 			bucketName string
 			objectName string
@@ -165,7 +165,7 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		var tests = []struct {
+		tests := []struct {
 			testCase string
 			offset   int64
 			length   int64
@@ -248,7 +248,7 @@ func TestServerClientObjectReaderError(t *testing.T) {
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		var tests = []struct {
+		tests := []struct {
 			testCase   string
 			bucketName string
 			objectName string
@@ -295,7 +295,7 @@ func TestServiceClientListObjects(t *testing.T) {
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
 		server.CreateBucket("empty-bucket")
-		var tests = []struct {
+		tests := []struct {
 			testCase         string
 			bucketName       string
 			query            *storage.Query
@@ -422,7 +422,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
 		server.CreateBucket("empty-bucket")
-		var tests = []struct {
+		tests := []struct {
 			testCase   string
 			bucketName string
 			objectName string
@@ -517,7 +517,7 @@ func TestServerClientObjectDeleteErrors(t *testing.T) {
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		var tests = []struct {
+		tests := []struct {
 			testCase   string
 			bucketName string
 			objectName string

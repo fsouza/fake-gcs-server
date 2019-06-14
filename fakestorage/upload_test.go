@@ -22,7 +22,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 	hash := md5Hash([]byte(content))
 
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
-		var tests = []struct {
+		tests := []struct {
 			testCase   string
 			bucketName string
 			objectName string
@@ -222,7 +222,7 @@ func TestServerInvalidUploadType(t *testing.T) {
 
 func TestParseContentRange(t *testing.T) {
 	t.Parallel()
-	var goodHeaderTests = []struct {
+	goodHeaderTests := []struct {
 		header string
 		output contentRange
 	}{
@@ -254,7 +254,7 @@ func TestParseContentRange(t *testing.T) {
 		})
 	}
 
-	var badHeaderTests = []string{
+	badHeaderTests := []string{
 		"none",                // Unsupported unit "none"
 		"bytes 20",            // No slash to split range from size
 		"bytes 1/4",           // Single-field range

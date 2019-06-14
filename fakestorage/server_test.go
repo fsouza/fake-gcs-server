@@ -62,7 +62,7 @@ func TestDownloadObject(t *testing.T) {
 }
 
 func testDownloadObject(t *testing.T, server *Server) {
-	var tests = []struct {
+	tests := []struct {
 		name            string
 		method          string
 		url             string
@@ -135,7 +135,7 @@ func testDownloadObject(t *testing.T, server *Server) {
 }
 
 func TestDownloadObjectAlternatePublicHost(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name            string
 		method          string
 		url             string
