@@ -16,6 +16,9 @@ type Object struct {
 	Crc32c          string
 	Md5Hash         string
 	ACL             []storage.ACLRule
+	Created         string
+	Deleted         string
+	Updated         string
 }
 
 // ID is useful for comparing objects

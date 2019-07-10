@@ -7,6 +7,7 @@ package fakestorage
 import (
 	"net/http"
 	"sort"
+	"time"
 
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/storage/v1"
@@ -67,6 +68,10 @@ type objectResponse struct {
 	Crc32c          string                         `json:"crc32c,omitempty"`
 	ACL             []*storage.ObjectAccessControl `json:"acl,omitempty"`
 	Md5Hash         string                         `json:"md5hash,omitempty"`
+	Md5Hash         string                         `json:"md5hash,omitempty"`
+	TimeCreated     string                         `json:"timeCreated,omitempty"`
+	TimeDeleted     string                         `json:"timeDeleted,omitempty"`
+	Updated         string                         `json:"updated,omitempty"`
 }
 
 func newObjectResponse(obj Object) objectResponse {
@@ -83,6 +88,9 @@ func newObjectResponse(obj Object) objectResponse {
 		Crc32c:          obj.Crc32c,
 		Md5Hash:         obj.Md5Hash,
 		ACL:             acl,
+		TimeCreated:     obj.Created.Format(time.RFC3339),
+		TimeDeleted:     obj.Deleted.Format(time.RFC3339),
+		Updated:         obj.Updated.Format(time.RFC3339),
 	}
 }
 

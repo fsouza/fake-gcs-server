@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -28,6 +29,10 @@ type Object struct {
 	Crc32c  string            `json:"crc32c,omitempty"`
 	Md5Hash string            `json:"md5hash,omitempty"`
 	ACL     []storage.ACLRule `json:"acl,omitempty"`
+	// Dates are manually (& optionally) injected, so you can do assertions on them
+	Created time.Time `json:"created,omitempty"`
+	Deleted time.Time `json:"deleted,omitempty"`
+	Updated time.Time `json:"updated,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -107,6 +112,9 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			ACL:             o.ACL,
+			Created:         o.Created.Format(time.RFC3339),
+			Deleted:         o.Deleted.Format(time.RFC3339),
+			Updated:         o.Updated.Format(time.RFC3339),
 		})
 	}
 	return backendObjects
@@ -124,9 +132,21 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			ACL:             o.ACL,
+			Created:         convertTimeWithoutError(o.Created),
+			Deleted:         convertTimeWithoutError(o.Deleted),
+			Updated:         convertTimeWithoutError(o.Updated),
 		})
 	}
 	return backendObjects
+}
+
+// https://github.com/googleapis/google-cloud-go/blob/2f857649c55302802e95b96119dd05032a61c87a/storage/storage.go#L1023
+func convertTimeWithoutError(t string) time.Time {
+	var r time.Time
+	if t != "" {
+		r, _ = time.Parse(time.RFC3339, t)
+	}
+	return r
 }
 
 // GetObject returns the object with the given name in the given bucket, or an

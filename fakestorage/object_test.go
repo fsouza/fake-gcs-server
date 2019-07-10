@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
@@ -37,49 +38,63 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		contentType     = "text/plain; charset=utf-8"
 		contentEncoding = "gzip"
 	)
+	testExecTime := time.Now()
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
-	objs := []Object{
+
+	tests := []struct {
+		testCase string
+		obj      Object
+	}{
 		{
-			BucketName:      bucketName,
-			Name:            objectName,
-			Content:         []byte(content),
-			ContentType:     contentType,
-			ContentEncoding: contentEncoding,
-			Crc32c:          encodedChecksum(uint32ToBytes(checksum)),
-			Md5Hash:         encodedHash(hash),
+			"object but no creation nor modification date",
+			Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash)},
+		},
+		{
+			"object with creation and modification dates",
+			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testExecTime, Updated: testExecTime},
 		},
 	}
-
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		client := server.Client()
-		objHandle := client.Bucket(bucketName).Object(objectName)
-		attrs, err := objHandle.Attrs(context.TODO())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if attrs.Bucket != bucketName {
-			t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, attrs.Bucket)
-		}
-		if attrs.Name != objectName {
-			t.Errorf("wrong object name\nwant %q\ngot  %q", objectName, attrs.Name)
-		}
-		if attrs.Size != int64(len(content)) {
-			t.Errorf("wrong size returned\nwant %d\ngot  %d", len(content), attrs.Size)
-		}
-		if attrs.ContentType != contentType {
-			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
-		}
-		if attrs.ContentEncoding != contentEncoding {
-			t.Errorf("wrong content encoding\nwant %q\ngot  %q", contentEncoding, attrs.ContentEncoding)
-		}
-		if attrs.CRC32C != checksum {
-			t.Errorf("wrong checksum returned\nwant %d\ngot   %d", checksum, attrs.CRC32C)
-		}
-		if !bytes.Equal(attrs.MD5, hash) {
-			t.Errorf("wrong hash returned\nwant %d\ngot   %d", hash, attrs.MD5)
-		}
-	})
+	for _, test := range tests {
+		test := test
+		runServersTest(t, []Object{test.obj}, func(t *testing.T, server *Server) {
+			t.Run(test.testCase, func(t *testing.T) {
+				client := server.Client()
+				objHandle := client.Bucket(bucketName).Object(test.obj.Name)
+				attrs, err := objHandle.Attrs(context.TODO())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if attrs.Bucket != bucketName {
+					t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, attrs.Bucket)
+				}
+				if attrs.Name != test.obj.Name {
+					t.Errorf("wrong object name\nwant %q\ngot  %q", test.obj.Name, attrs.Name)
+				}
+				if attrs.Size != int64(len(content)) {
+					t.Errorf("wrong size returned\nwant %d\ngot  %d", len(content), attrs.Size)
+				}
+				if attrs.ContentType != contentType {
+					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
+				}
+				if attrs.ContentEncoding != contentEncoding {
+					t.Errorf("wrong content encoding\nwant %q\ngot  %q", contentEncoding, attrs.ContentEncoding)
+				}
+				if attrs.CRC32C != checksum {
+					t.Errorf("wrong checksum returned\nwant %d\ngot   %d", checksum, attrs.CRC32C)
+				}
+				if !bytes.Equal(attrs.MD5, hash) {
+					t.Errorf("wrong hash returned\nwant %d\ngot   %d", hash, attrs.MD5)
+				}
+				if !(test.obj.Created.IsZero()) && test.obj.Created.Equal(attrs.Created) {
+					t.Errorf("wrong created date\nwant %v\ngot   %v\n err   %v\nname %v", test.obj.Created, attrs.Created, err, attrs.Name)
+				}
+				if !(test.obj.Updated.IsZero()) && test.obj.Updated.Equal(attrs.Updated) {
+					t.Errorf("wrong updated date\nwant %v\ngot   %v\n err   %v\nname %v", test.obj.Updated, attrs.Updated, err, attrs.Name)
+				}
+			})
+		})
+	}
 }
 
 func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
