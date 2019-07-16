@@ -1,0 +1,199 @@
+---
+kind: pipeline
+name: build_go_1.12.7
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  base: /go
+  path: gcs-emulator
+
+steps:
+- name: mod-download
+  image: golang:1.12.7
+  commands:
+  - go mod download
+  environment:
+    GOPROXY: https://proxy.golang.org
+  depends_on:
+  - clone
+
+- name: test
+  image: golang:1.12.7
+  commands:
+  - go test -race -vet all -mod readonly ./...
+  depends_on:
+  - mod-download
+
+- name: lint
+  pull: always
+  image: golangci/golangci-lint
+  commands:
+  - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
+  depends_on:
+  - mod-download
+
+- name: build
+  image: golang:1.12.7
+  commands:
+  - go build -o gcs-emulator -mod readonly ./cmd/gcs-emulator
+  depends_on:
+  - mod-download
+
+- name: test-ci-dockerfile
+  image: plugins/docker
+  settings:
+    dockerfile: drone/Dockerfile
+    dry_run: true
+    repo: fsouza/gcs-emulator
+  when:
+    event:
+    - pull_request
+  depends_on:
+  - build
+
+- name: test-dockerfile
+  image: plugins/docker
+  settings:
+    dry_run: true
+    repo: fsouza/gcs-emulator
+  when:
+    event:
+    - pull_request
+  depends_on:
+  - clone
+
+- name: build-and-push-to-dockerhub
+  image: plugins/docker
+  settings:
+    auto_tag: true
+    dockerfile: drone/Dockerfile
+    password:
+      from_secret: docker_password
+    repo: fsouza/gcs-emulator
+    username:
+      from_secret: docker_username
+  when:
+    ref:
+    - "refs/tags/*"
+    - refs/heads/master
+  depends_on:
+  - test
+  - lint
+  - build
+
+---
+kind: pipeline
+name: build_go_1.11.12
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  base: /go
+  path: gcs-emulator
+
+steps:
+- name: mod-download
+  image: golang:1.11.12
+  commands:
+  - go mod download
+  environment:
+    GOPROXY: https://proxy.golang.org
+  depends_on:
+  - clone
+
+- name: test
+  image: golang:1.11.12
+  commands:
+  - go test -race -vet all -mod readonly ./...
+  depends_on:
+  - mod-download
+
+- name: lint
+  pull: always
+  image: golangci/golangci-lint
+  commands:
+  - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
+  depends_on:
+  - mod-download
+
+- name: build
+  image: golang:1.11.12
+  commands:
+  - go build -o gcs-emulator -mod readonly ./cmd/gcs-emulator
+  depends_on:
+  - mod-download
+
+- name: test-ci-dockerfile
+  image: plugins/docker
+  settings:
+    dockerfile: drone/Dockerfile
+    dry_run: true
+    repo: fsouza/gcs-emulator
+  when:
+    event:
+    - pull_request
+  depends_on:
+  - build
+
+---
+kind: pipeline
+name: build_go_1.13beta1
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  base: /go
+  path: gcs-emulator
+
+steps:
+- name: mod-download
+  image: golang:1.13beta1
+  commands:
+  - go mod download
+  environment:
+    GOPROXY: https://proxy.golang.org
+  depends_on:
+  - clone
+
+- name: test
+  image: golang:1.13beta1
+  commands:
+  - go test -race -vet all -mod readonly ./...
+  depends_on:
+  - mod-download
+
+- name: lint
+  pull: always
+  image: golangci/golangci-lint
+  commands:
+  - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
+  depends_on:
+  - mod-download
+
+- name: build
+  image: golang:1.13beta1
+  commands:
+  - go build -o gcs-emulator -mod readonly ./cmd/gcs-emulator
+  depends_on:
+  - mod-download
+
+- name: test-ci-dockerfile
+  image: plugins/docker
+  settings:
+    dockerfile: drone/Dockerfile
+    dry_run: true
+    repo: fsouza/gcs-emulator
+  when:
+    event:
+    - pull_request
+  depends_on:
+  - build
+
+...
