@@ -18,7 +18,7 @@ const (
 	memoryBackend     = "memory"
 )
 
-type Config struct {
+type config struct {
 	publicHost  string
 	externalURL string
 	host        string
@@ -27,8 +27,8 @@ type Config struct {
 	fsRoot      string
 }
 
-func loadConfig(args []string) (Config, error) {
-	var cfg Config
+func loadConfig(args []string) (config, error) {
+	var cfg config
 	fs := flag.NewFlagSet("gcs-emulator", flag.ContinueOnError)
 	fs.StringVar(&cfg.backend, "backend", memoryBackend, "storage backend (memory or filesystem)")
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
@@ -43,7 +43,7 @@ func loadConfig(args []string) (Config, error) {
 	return cfg, cfg.validate()
 }
 
-func (c *Config) toFakeGcsOptions() fakestorage.Options {
+func (c *config) toFakeGcsOptions() fakestorage.Options {
 	return fakestorage.Options{
 		StorageRoot: c.fsRoot,
 		Host:        c.host,
@@ -53,7 +53,7 @@ func (c *Config) toFakeGcsOptions() fakestorage.Options {
 	}
 }
 
-func (c *Config) validate() error {
+func (c *config) validate() error {
 	if c.backend != memoryBackend && c.backend != filesystemBackend {
 		return fmt.Errorf(`invalid backend %q, must be either "memory" or "filesystem"`, c.backend)
 	}

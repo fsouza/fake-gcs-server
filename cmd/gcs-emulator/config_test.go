@@ -16,7 +16,7 @@ func TestLoadConfig(t *testing.T) {
 	tests := []struct {
 		name           string
 		args           []string
-		expectedConfig Config
+		expectedConfig config
 		expectErr      bool
 	}{
 		{
@@ -29,7 +29,7 @@ func TestLoadConfig(t *testing.T) {
 				"-host", "0.0.0.0",
 				"-port", "443",
 			},
-			expectedConfig: Config{
+			expectedConfig: config{
 				backend:     "filesystem",
 				fsRoot:      "/tmp/something",
 				publicHost:  "127.0.0.1.nip.io:8443",
@@ -40,7 +40,7 @@ func TestLoadConfig(t *testing.T) {
 		},
 		{
 			name: "default parameters",
-			expectedConfig: Config{
+			expectedConfig: config{
 				backend:     "memory",
 				fsRoot:      "",
 				publicHost:  "storage.googleapis.com",
@@ -80,7 +80,7 @@ func TestLoadConfig(t *testing.T) {
 			} else if err == nil && test.expectErr {
 				t.Fatal("unexpected <nil> error")
 			}
-			if diff := cmp.Diff(cfg, test.expectedConfig, cmp.AllowUnexported(Config{})); !test.expectErr && diff != "" {
+			if diff := cmp.Diff(cfg, test.expectedConfig, cmp.AllowUnexported(config{})); !test.expectErr && diff != "" {
 				t.Errorf("wrong config returned\nwant %#v\ngot  %#v\ndiff: %v", test.expectedConfig, cfg, diff)
 			}
 		})
@@ -88,7 +88,7 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestToFakeGcsOptions(t *testing.T) {
-	config := Config{
+	cfg := config{
 		backend:     "filesystem",
 		fsRoot:      "/tmp/something",
 		publicHost:  "127.0.0.1.nip.io:8443",
@@ -103,7 +103,7 @@ func TestToFakeGcsOptions(t *testing.T) {
 		Host:        "0.0.0.0",
 		Port:        443,
 	}
-	options := config.toFakeGcsOptions()
+	options := cfg.toFakeGcsOptions()
 
 	if diff := cmp.Diff(options, expected); diff != "" {
 		t.Errorf("wrong options generated\nwant %#v\ngot  %#v\ndiff: %v", expected, options, diff)
