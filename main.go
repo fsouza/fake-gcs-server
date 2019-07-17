@@ -1,3 +1,7 @@
+// Copyright 2019 Francisco Souza. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package main
 
 import (
@@ -28,8 +32,8 @@ func generateObjectsFromFiles() []fakestorage.Object {
 				panic(err)
 			}
 
-			switch mode := fi.Mode(); {
-			case mode.IsDir():
+			mode := fi.Mode();
+			if mode.IsDir() {
 				// if it's a directory, look for the files it's containing
 
 				files, err := ioutil.ReadDir("/data/" + fn)
