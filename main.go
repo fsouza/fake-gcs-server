@@ -32,7 +32,7 @@ func generateObjectsFromFiles() []fakestorage.Object {
 				panic(err)
 			}
 
-			mode := fi.Mode();
+			mode := fi.Mode()
 			if mode.IsDir() {
 				// if it's a directory, look for the files it's containing
 

@@ -18,6 +18,12 @@ DOCKER_IMAGENAME         := ${DOCKER_REGISTRY}${DOCKER_REPOSITORY}${SERVICE_NAME
 
 all: build
 
+## Go Targets
+lint:
+	GO111MODULE=on GOPROXY=https://proxy.golang.org go mod download
+	golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
+
+## Docker targets
 build:
 	docker build -t ${DOCKER_IMAGENAME} .
 
