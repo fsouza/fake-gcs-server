@@ -40,13 +40,7 @@ func main() {
 
 func generateObjectsFromFiles(logger *logrus.Logger, folder string) []fakestorage.Object {
 	var objects []fakestorage.Object
-	if fi, err := os.Stat(folder); !os.IsNotExist(err) && fi.IsDir() {
-		files, err := ioutil.ReadDir(folder)
-		if err != nil {
-			logger.WithError(err).Warnf("couldn't load objects from folder %q, starting empty", folder)
-			return nil
-		}
-
+	if files, err := ioutil.ReadDir(folder); err == nil {
 		for _, f := range files {
 			bucketName := f.Name()
 			localBucketPath := filepath.Join(folder, bucketName)
