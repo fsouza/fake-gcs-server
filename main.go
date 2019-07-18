@@ -33,7 +33,7 @@ func main() {
 	}
 	logger.Infof("server started at %s", server.URL())
 
-	ch := make(chan os.Signal)
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	<-ch
 }
