@@ -5,86 +5,78 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
+	"github.com/fsouza/fake-gcs-server/internal/config"
+	"github.com/sirupsen/logrus"
 )
 
-func generateObjectsFromFiles() []fakestorage.Object {
-	objects := []fakestorage.Object{}
+func main() {
+	cfg, err := config.Load(os.Args[1:])
+	if err != nil {
+		log.Fatal(err)
+	}
+	logger := logrus.New()
 
-	// if a /data volume is mounted in the container
-	if _, err := os.Stat("/data"); !os.IsNotExist(err) {
-		// list the content
-		files, err := ioutil.ReadDir("/data")
+	opts := cfg.ToFakeGcsOptions()
+	opts.InitialObjects = generateObjectsFromFiles(logger, cfg.Seed)
 
+	server, err := fakestorage.NewServerWithOptions(opts)
+	if err != nil {
+		logger.WithError(err).Fatal("couldn't start the server")
+	}
+	logger.Infof("server started at %s", server.URL())
+
+	ch := make(chan os.Signal)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	<-ch
+}
+
+func generateObjectsFromFiles(logger *logrus.Logger, folder string) []fakestorage.Object {
+	var objects []fakestorage.Object
+	if fi, err := os.Stat(folder); !os.IsNotExist(err) && fi.IsDir() {
+		files, err := ioutil.ReadDir(folder)
 		if err != nil {
-			panic(err)
+			logger.WithError(err).Warnf("couldn't load objects from folder %q, starting empty", folder)
+			return nil
 		}
 
 		for _, f := range files {
-			fn := f.Name()
-			fi, err := os.Stat("/data/" + fn)
+			bucketName := f.Name()
+			localBucketPath := filepath.Join(folder, bucketName)
 
+			files, err := ioutil.ReadDir(localBucketPath)
 			if err != nil {
-				panic(err)
+				logger.WithError(err).Warnf("couldn't read files from %q, skipping (make sure it's a directory)", localBucketPath)
+				continue
 			}
 
-			mode := fi.Mode()
-			if mode.IsDir() {
-				// if it's a directory, look for the files it's containing
-
-				files, err := ioutil.ReadDir("/data/" + fn)
-
+			for _, f := range files {
+				objectKey := f.Name()
+				localObjectPath := filepath.Join(localBucketPath, objectKey)
+				content, err := ioutil.ReadFile(localObjectPath)
 				if err != nil {
-					panic(err)
+					logger.WithError(err).Warnf("couldn't read file %q, skipping", localObjectPath)
+					continue
 				}
 
-				// for each file create an object
-				for _, f := range files {
-					fmt.Printf("Creating object with name %s in bucket %s\n", f.Name(), fn)
-					content, err := ioutil.ReadFile("/data/" + fn + "/" + f.Name())
-
-					if err != nil {
-						panic(err)
-					}
-
-					object := fakestorage.Object{
-						BucketName: fn,
-						Name:       f.Name(), //filename
-						Content:    content,
-					}
-					objects = append(objects, object)
+				object := fakestorage.Object{
+					BucketName: bucketName,
+					Name:       objectKey,
+					Content:    content,
 				}
+				objects = append(objects, object)
 			}
 		}
 	}
-	return objects
-}
-
-func main() {
-
-	// initialObjects := []fakestorage.Object{
-	// 	{
-	// 		objectName: "object",
-	// 		Name:       "object-precreate-object",
-	// 		Content:    []byte("This object just forces the object to exist when the server starts up."),
-	// 	},
-	// }
-
-	loadedObjects := generateObjectsFromFiles()
-
-	server, err := fakestorage.NewServerWithOptions(fakestorage.Options{
-		InitialObjects: loadedObjects,
-		Host:           "0.0.0.0",
-		Port:           4443,
-		StorageRoot:    "/storage",
-	})
-	if err != nil {
-		panic(err)
+	if len(objects) == 0 {
+		logger.Infof("couldn't load any objects from %q, starting empty", folder)
 	}
-	fmt.Printf("Server started at %s\n", server.URL())
-	select {}
+	return objects
 }

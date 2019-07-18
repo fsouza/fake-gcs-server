@@ -44,13 +44,13 @@ To make sure everything works as expected you can execute these commands:
 
 ```shell
 curl --insecure https://0.0.0.0:4443/storage/v1/b
-{"kind":"storage#buckets","items":[{"kind":"storage#bucket","id":"sample_bucket","name":"sample_bucket"}],"prefixes":null}
+{"kind":"storage#buckets","items":[{"kind":"storage#bucket","id":"sample-bucket","name":"sample-bucket"}],"prefixes":null}
 
-curl --insecure https://0.0.0.0:4443/storage/v1/b/sample_bucket/o
-{"kind":"storage#objects","items":[{"kind":"storage#object","name":"some_file.txt","id":"sample_bucket/some_file.txt","bucket":"sample_bucket","size":"33"}],"prefixes":[]}
+curl --insecure https://0.0.0.0:4443/storage/v1/b/sample-bucket/o
+{"kind":"storage#objects","items":[{"kind":"storage#object","name":"some_file.txt","id":"sample-bucket/some_file.txt","bucket":"sample-bucket","size":"33"}],"prefixes":[]}
 ```
 
-This will result in two ``buckets`` containing one ``blob`` each.
+This will result in one bucket called ``sample-bucket`` containing one object called ``some_file.txt``.
 
 ## Example with the Python client library
 
