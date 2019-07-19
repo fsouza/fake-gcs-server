@@ -9,8 +9,9 @@ used as a library in Go projects and/or as a standalone binary/Docker image.
 The library is available inside the package
 [``github.com/fsouza/fake-gcs-server/fakestorage``](https://godoc.org/github.com/fsouza/fake-gcs-server/fakestorage)
 and can be used from within test suites in Go package. The emulator is
-available as a binary that can be built manually or fetched from Docker Hub
-([``docker pull
+available as a binary that can be built manually, downloaded from the [releases
+page](https://github.com/fsouza/fake-gcs-server/releases) or pulled from Docker
+Hub ([``docker pull
 fsouza/fake-gcs-server``](https://hub.docker.com/r/fsouza/fake-gcs-server)).
 
 ## Using the emulator in Docker
