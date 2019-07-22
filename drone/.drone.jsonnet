@@ -84,6 +84,7 @@ local build(go_version) = {
   name: 'build',
   image: 'golang:%(go_version)s' % { go_version: go_version },
   commands: ['go build -o fake-gcs-server -mod readonly'],
+  environment: { CGO_ENABLED: '0' },
   depends_on: ['mod-download'],
 };
 
