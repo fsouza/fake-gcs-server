@@ -51,9 +51,22 @@ local goreleaser = {
   },
 };
 
+local goreleaser_test = {
+  name: 'test-goreleaser',
+  image: 'goreleaser/goreleaser',
+  commands: [
+    'goreleaser release --snapshot',
+  ],
+  depends_on: ['clone'],
+  when: {
+    event: ['push', 'pull_request'],
+  },
+};
+
 local release_steps = [
   test_dockerfile,
   push_to_dockerhub,
+  goreleaser_test,
   goreleaser,
 ];
 

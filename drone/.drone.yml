@@ -87,6 +87,17 @@ steps:
   - lint
   - build
 
+- name: test-goreleaser
+  image: goreleaser/goreleaser
+  commands:
+  - goreleaser release --snapshot
+  when:
+    event:
+    - push
+    - pull_request
+  depends_on:
+  - clone
+
 - name: goreleaser
   image: goreleaser/goreleaser
   commands:
