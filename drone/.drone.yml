@@ -44,6 +44,13 @@ steps:
   depends_on:
   - mod-download
 
+- name: sanity-check
+  image: alpine
+  commands:
+  - ./fake-gcs-server -h
+  depends_on:
+  - build
+
 - name: test-ci-dockerfile
   image: plugins/docker
   settings:
@@ -86,6 +93,28 @@ steps:
   - test
   - lint
   - build
+
+- name: docker-sanity-check-push
+  pull: always
+  image: fsouza/fake-gcs-server:latest
+  commands:
+  - fake-gcs-server -h
+  when:
+    ref:
+    - refs/heads/master
+  depends_on:
+  - build-and-push-to-dockerhub
+
+- name: docker-sanity-check-tag
+  pull: always
+  image: "fsouza/fake-gcs-server:${DRONE_TAG}"
+  commands:
+  - fake-gcs-server -h
+  when:
+    ref:
+    - "refs/tags/*"
+  depends_on:
+  - build-and-push-to-dockerhub
 
 - name: test-goreleaser
   image: goreleaser/goreleaser
@@ -159,6 +188,13 @@ steps:
   depends_on:
   - mod-download
 
+- name: sanity-check
+  image: alpine
+  commands:
+  - ./fake-gcs-server -h
+  depends_on:
+  - build
+
 - name: test-ci-dockerfile
   image: plugins/docker
   settings:
@@ -216,6 +252,13 @@ steps:
     CGO_ENABLED: 0
   depends_on:
   - mod-download
+
+- name: sanity-check
+  image: alpine
+  commands:
+  - ./fake-gcs-server -h
+  depends_on:
+  - build
 
 - name: test-ci-dockerfile
   image: plugins/docker

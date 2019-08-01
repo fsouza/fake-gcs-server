@@ -33,6 +33,17 @@ local push_to_dockerhub = {
   depends_on: ['test', 'lint', 'build'],
 };
 
+local docker_sanity_check(name, image_version, refs) = {
+  name: 'docker-sanity-check-%(name)s' % { name: name },
+  image: 'fsouza/fake-gcs-server:%(image_version)s' % { image_version: image_version },
+  pull: 'always',
+  commands: ['fake-gcs-server -h'],
+  when: {
+    ref: refs,
+  },
+  depends_on: ['build-and-push-to-dockerhub'],
+};
+
 local goreleaser = {
   name: 'goreleaser',
   image: 'goreleaser/goreleaser',
@@ -66,6 +77,8 @@ local goreleaser_test = {
 local release_steps = [
   test_dockerfile,
   push_to_dockerhub,
+  docker_sanity_check('push', 'latest', ['refs/heads/master']),
+  docker_sanity_check('tag', '${DRONE_TAG}', ['refs/tags/*']),
   goreleaser_test,
   goreleaser,
 ];
@@ -101,6 +114,13 @@ local build(go_version) = {
   depends_on: ['mod-download'],
 };
 
+local sanity_check = {
+  name: 'sanity-check',
+  image: 'alpine',
+  commands: ['./fake-gcs-server -h'],
+  depends_on: ['build'],
+};
+
 local test_ci_dockerfile = {
   name: 'test-ci-dockerfile',
   image: 'plugins/docker',
@@ -127,6 +147,7 @@ local pipeline(go_version) = {
     tests(go_version),
     lint,
     build(go_version),
+    sanity_check,
     test_ci_dockerfile,
   ] + if go_version == go_versions[0] then release_steps else [],
 };
