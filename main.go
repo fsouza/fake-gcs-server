@@ -5,6 +5,7 @@
 package main
 
 import (
+	"flag"
 	"io/ioutil"
 	"log"
 	"os"
@@ -19,6 +20,9 @@ import (
 
 func main() {
 	cfg, err := config.Load(os.Args[1:])
+	if err == flag.ErrHelp {
+		return
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
