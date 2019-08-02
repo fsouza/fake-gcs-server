@@ -176,7 +176,7 @@ func TestServerClientObjectReader(t *testing.T) {
 		if string(data) != content {
 			t.Errorf("wrong data returned\nwant %q\ngot  %q", content, string(data))
 		}
-		if ct := reader.ContentType(); ct != contentType {
+		if ct := reader.Attrs.ContentType; ct != contentType {
 			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
 		}
 	})
@@ -242,7 +242,7 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 				if string(data) != expectedData {
 					t.Errorf("wrong data returned\nwant %q\ngot  %q", expectedData, string(data))
 				}
-				if ct := reader.ContentType(); ct != contentType {
+				if ct := reader.Attrs.ContentType; ct != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
 				}
 			})
@@ -279,7 +279,7 @@ func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 		if string(data) != content {
 			t.Errorf("wrong data returned\nwant %q\ngot  %q", content, string(data))
 		}
-		if ct := reader.ContentType(); ct != contentType {
+		if ct := reader.Attrs.ContentType; ct != contentType {
 			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
 		}
 	})
