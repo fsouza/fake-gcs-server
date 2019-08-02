@@ -22,6 +22,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const contentTypeHeader = "Content-Type"
+
 type multipartMetadata struct {
 	Name string `json:"name"`
 }
@@ -67,7 +69,14 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	obj := Object{BucketName: bucketName, Name: name, Content: data, Crc32c: encodedCrc32cChecksum(data), Md5Hash: encodedMd5Hash(data)}
+	obj := Object{
+		BucketName:  bucketName,
+		Name:        name,
+		Content:     data,
+		ContentType: r.Header.Get(contentTypeHeader),
+		Crc32c:      encodedCrc32cChecksum(data),
+		Md5Hash:     encodedMd5Hash(data),
+	}
 	err = s.createObject(obj)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -110,7 +119,7 @@ func encodedMd5Hash(content []byte) string {
 
 func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	_, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	_, params, err := mime.ParseMediaType(r.Header.Get(contentTypeHeader))
 	if err != nil {
 		http.Error(w, "invalid Content-Type header", http.StatusBadRequest)
 		return
@@ -119,12 +128,14 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		metadata *multipartMetadata
 		content  []byte
 	)
+	var contentType string
 	reader := multipart.NewReader(r.Body, params["boundary"])
 	part, err := reader.NextPart()
 	for ; err == nil; part, err = reader.NextPart() {
 		if metadata == nil {
 			metadata, err = loadMetadata(part)
 		} else {
+			contentType = part.Header.Get(contentTypeHeader)
 			content, err = loadContent(part)
 		}
 		if err != nil {
@@ -135,7 +146,14 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	obj := Object{BucketName: bucketName, Name: metadata.Name, Content: content, Crc32c: encodedCrc32cChecksum(content), Md5Hash: encodedMd5Hash(content)}
+	obj := Object{
+		BucketName:  bucketName,
+		Name:        metadata.Name,
+		Content:     content,
+		ContentType: contentType,
+		Crc32c:      encodedCrc32cChecksum(content),
+		Md5Hash:     encodedMd5Hash(content),
+	}
 	err = s.createObject(obj)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -155,7 +173,10 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 		}
 		objName = metadata.Name
 	}
-	obj := Object{BucketName: bucketName, Name: objName}
+	obj := Object{
+		BucketName: bucketName,
+		Name:       objName,
+	}
 	uploadID, err := generateUploadID()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -220,6 +241,7 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	obj.Content = append(obj.Content, content...)
 	obj.Crc32c = encodedCrc32cChecksum(obj.Content)
 	obj.Md5Hash = encodedMd5Hash(obj.Content)
+	obj.ContentType = r.Header.Get(contentTypeHeader)
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
 		parsed, err := parseContentRange(contentRange)
 		if err != nil {
@@ -254,7 +276,7 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 		s.uploads.Store(uploadID, obj)
 	}
 	data, _ := json.Marshal(obj)
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeHeader, "application/json")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
 	w.Write(data)

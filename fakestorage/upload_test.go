@@ -45,6 +45,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 		for _, test := range tests {
 			test := test
 			t.Run(test.testCase, func(t *testing.T) {
+				const contentType = "text/plain; charset=utf-8"
 				server.CreateBucket(test.bucketName)
 				client := server.Client()
 
@@ -52,6 +53,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 				w := objHandle.NewWriter(context.Background())
 				w.ChunkSize = test.chunkSize
 				w.Write([]byte(content))
+				w.ContentType = contentType
 				err := w.Close()
 				if err != nil {
 					t.Fatal(err)
@@ -80,6 +82,9 @@ func TestServerClientObjectWriter(t *testing.T) {
 				if stringHash := encodedHash(hash); obj.Md5Hash != stringHash {
 					t.Errorf("wrong obj.Md5Hash returned\nwant %s\ngot %s", stringHash, obj.Md5Hash)
 				}
+				if obj.ContentType != contentType {
+					t.Errorf("wrong content-type\nwant %q\ngot  %q", contentType, obj.ContentType)
+				}
 			})
 		}
 	})
@@ -95,13 +100,16 @@ func checkChecksum(t *testing.T, content []byte, obj Object) {
 func TestServerClientObjectWriterOverwrite(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		const content = "other content"
+		const contentType = "text/plain"
 		server.CreateObject(Object{
-			BucketName: "some-bucket",
-			Name:       "some-object.txt",
-			Content:    []byte("some content"),
+			BucketName:  "some-bucket",
+			Name:        "some-object.txt",
+			Content:     []byte("some content"),
+			ContentType: "some-stff",
 		})
 		objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
 		w := objHandle.NewWriter(context.Background())
+		w.ContentType = contentType
 		w.Write([]byte(content))
 		err := w.Close()
 		if err != nil {
@@ -115,6 +123,9 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 			t.Errorf("wrong content in the object\nwant %q\ngot  %q", content, string(obj.Content))
 		}
 		checkChecksum(t, []byte(content), obj)
+		if obj.ContentType != contentType {
+			t.Errorf("wrong content-type\nwsant %q\ngot  %q", contentType, obj.ContentType)
+		}
 	})
 }
 
@@ -137,10 +148,12 @@ func TestServerClientSimpleUpload(t *testing.T) {
 	server.CreateBucket("other-bucket")
 
 	const data = "some nice content"
+	const contentType = "text/plain"
 	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?uploadType=media&name=some/nice/object.txt", strings.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Header.Set("Content-Type", contentType)
 	client := http.Client{
 		Transport: &http.Transport{
 			// #nosec
@@ -163,6 +176,9 @@ func TestServerClientSimpleUpload(t *testing.T) {
 	}
 	if string(obj.Content) != data {
 		t.Errorf("wrong content\nwant %q\ngot  %q", string(obj.Content), data)
+	}
+	if obj.ContentType != contentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
 	}
 	checkChecksum(t, []byte(data), obj)
 }

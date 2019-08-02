@@ -31,14 +31,22 @@ func uint32Checksum(b []byte) uint32 {
 
 func TestServerClientObjectAttrs(t *testing.T) {
 	const (
-		bucketName = "some-bucket"
-		objectName = "img/hi-res/party-01.jpg"
-		content    = "some nice content"
+		bucketName  = "some-bucket"
+		objectName  = "img/hi-res/party-01.jpg"
+		content     = "some nice content"
+		contentType = "text/plain; charset=utf-8"
 	)
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
 	objs := []Object{
-		{BucketName: bucketName, Name: objectName, Content: []byte(content), Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash)},
+		{
+			BucketName:  bucketName,
+			Name:        objectName,
+			Content:     []byte(content),
+			ContentType: contentType,
+			Crc32c:      encodedChecksum(uint32ToBytes(checksum)),
+			Md5Hash:     encodedHash(hash),
+		},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -57,6 +65,9 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		if attrs.Size != int64(len(content)) {
 			t.Errorf("wrong size returned\nwant %d\ngot  %d", len(content), attrs.Size)
 		}
+		if attrs.ContentType != contentType {
+			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
+		}
 		if attrs.CRC32C != checksum {
 			t.Errorf("wrong checksum returned\nwant %d\ngot   %d", checksum, attrs.CRC32C)
 		}
@@ -69,10 +80,15 @@ func TestServerClientObjectAttrs(t *testing.T) {
 func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		const (
-			bucketName = "prod-bucket"
-			objectName = "video/hi-res/best_video_1080p.mp4"
+			bucketName  = "prod-bucket"
+			objectName  = "video/hi-res/best_video_1080p.mp4"
+			contentType = "text/html; charset=utf-8"
 		)
-		server.CreateObject(Object{BucketName: bucketName, Name: objectName})
+		server.CreateObject(Object{
+			BucketName:  bucketName,
+			Name:        objectName,
+			ContentType: contentType,
+		})
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(objectName)
 		attrs, err := objHandle.Attrs(context.TODO())
@@ -84,6 +100,9 @@ func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 		}
 		if attrs.Name != objectName {
 			t.Errorf("wrong object name\n want %q\ngot  %q", objectName, attrs.Name)
+		}
+		if attrs.ContentType != contentType {
+			t.Errorf("wrong content type\n want %q\ngot  %q", contentType, attrs.ContentType)
 		}
 	})
 }
@@ -128,12 +147,18 @@ func TestServerClientObjectAttrsErrors(t *testing.T) {
 
 func TestServerClientObjectReader(t *testing.T) {
 	const (
-		bucketName = "some-bucket"
-		objectName = "items/data.txt"
-		content    = "some nice content"
+		bucketName  = "some-bucket"
+		objectName  = "items/data.txt"
+		content     = "some nice content"
+		contentType = "text/plain; charset=utf-8"
 	)
 	objs := []Object{
-		{BucketName: bucketName, Name: objectName, Content: []byte(content)},
+		{
+			BucketName:  bucketName,
+			Name:        objectName,
+			Content:     []byte(content),
+			ContentType: contentType,
+		},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -151,17 +176,26 @@ func TestServerClientObjectReader(t *testing.T) {
 		if string(data) != content {
 			t.Errorf("wrong data returned\nwant %q\ngot  %q", content, string(data))
 		}
+		if ct := reader.ContentType(); ct != contentType {
+			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
+		}
 	})
 }
 
 func TestServerClientObjectRangeReader(t *testing.T) {
 	const (
-		bucketName = "some-bucket"
-		objectName = "items/data.txt"
-		content    = "some really nice but long content stored in my object"
+		bucketName  = "some-bucket"
+		objectName  = "items/data.txt"
+		content     = "some really nice but long content stored in my object"
+		contentType = "text/plain; charset=iso-8859"
 	)
 	objs := []Object{
-		{BucketName: bucketName, Name: objectName, Content: []byte(content)},
+		{
+			BucketName:  bucketName,
+			Name:        objectName,
+			Content:     []byte(content),
+			ContentType: contentType,
+		},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -208,6 +242,9 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 				if string(data) != expectedData {
 					t.Errorf("wrong data returned\nwant %q\ngot  %q", expectedData, string(data))
 				}
+				if ct := reader.ContentType(); ct != contentType {
+					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
+				}
 			})
 		}
 	})
@@ -215,16 +252,19 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 
 func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 	const (
-		bucketName = "staging-bucket"
-		objectName = "items/data-overwritten.txt"
-		content    = "data inside the object"
+		bucketName  = "staging-bucket"
+		objectName  = "items/data-overwritten.txt"
+		content     = "data inside the object"
+		contentType = "text/plain; charset=iso-8859"
 	)
-	objs := []Object{
-		{BucketName: bucketName, Name: objectName},
-	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		server.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: []byte(content)})
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		server.CreateObject(Object{
+			BucketName:  bucketName,
+			Name:        objectName,
+			Content:     []byte(content),
+			ContentType: contentType,
+		})
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(objectName)
 		reader, err := objHandle.NewReader(context.TODO())
@@ -238,6 +278,9 @@ func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 		}
 		if string(data) != content {
 			t.Errorf("wrong data returned\nwant %q\ngot  %q", content, string(data))
+		}
+		if ct := reader.ContentType(); ct != contentType {
+			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
 		}
 	})
 }
@@ -413,11 +456,21 @@ func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 }
 
 func TestServiceClientRewriteObject(t *testing.T) {
-	const content = "some content"
+	const (
+		content     = "some content"
+		contentType = "text/plain; charset=utf-8"
+	)
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
 	objs := []Object{
-		{BucketName: "first-bucket", Name: "files/some-file.txt", Content: []byte(content), Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash)},
+		{
+			BucketName:  "first-bucket",
+			Name:        "files/some-file.txt",
+			Content:     []byte(content),
+			ContentType: contentType,
+			Crc32c:      encodedChecksum(uint32ToBytes(checksum)),
+			Md5Hash:     encodedHash(hash),
+		},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -466,6 +519,9 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				if attrs.CRC32C != checksum {
 					t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", checksum, attrs.CRC32C)
 				}
+				if attrs.ContentType != contentType {
+					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
+				}
 				if !bytes.Equal(attrs.MD5, hash) {
 					t.Errorf("wrong hash returned\nwant %d\ngot   %d", hash, attrs.MD5)
 				}
@@ -481,6 +537,9 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				}
 				if expect := encodedHash(hash); expect != obj.Md5Hash {
 					t.Errorf("wrong hash on object\nwant %s\ngot  %s", expect, obj.Md5Hash)
+				}
+				if obj.ContentType != contentType {
+					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
 				}
 			})
 		}

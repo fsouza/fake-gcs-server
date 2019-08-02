@@ -6,11 +6,12 @@ package backend
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName string `json:"-"`
-	Name       string `json:"-"`
-	Content    []byte
-	Crc32c     string
-	Md5Hash    string
+	BucketName  string `json:"-"`
+	Name        string `json:"-"`
+	ContentType string
+	Content     []byte
+	Crc32c      string
+	Md5Hash     string
 }
 
 // ID is useful for comparing objects

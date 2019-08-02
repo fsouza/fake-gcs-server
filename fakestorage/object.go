@@ -18,9 +18,10 @@ import (
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName string `json:"-"`
-	Name       string `json:"name"`
-	Content    []byte `json:"-"`
+	BucketName  string `json:"-"`
+	Name        string `json:"name"`
+	ContentType string `json:"contentType"`
+	Content     []byte `json:"-"`
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string `json:"crc32c,omitempty"`
 	Md5Hash string `json:"md5hash,omitempty"`
@@ -95,11 +96,12 @@ func toBackendObjects(objects []Object) []backend.Object {
 	backendObjects := []backend.Object{}
 	for _, o := range objects {
 		backendObjects = append(backendObjects, backend.Object{
-			BucketName: o.BucketName,
-			Name:       o.Name,
-			Content:    o.Content,
-			Crc32c:     o.Crc32c,
-			Md5Hash:    o.Md5Hash,
+			BucketName:  o.BucketName,
+			Name:        o.Name,
+			Content:     o.Content,
+			ContentType: o.ContentType,
+			Crc32c:      o.Crc32c,
+			Md5Hash:     o.Md5Hash,
 		})
 	}
 	return backendObjects
@@ -109,11 +111,12 @@ func fromBackendObjects(objects []backend.Object) []Object {
 	backendObjects := []Object{}
 	for _, o := range objects {
 		backendObjects = append(backendObjects, Object{
-			BucketName: o.BucketName,
-			Name:       o.Name,
-			Content:    o.Content,
-			Crc32c:     o.Crc32c,
-			Md5Hash:    o.Md5Hash,
+			BucketName:  o.BucketName,
+			Name:        o.Name,
+			Content:     o.Content,
+			ContentType: o.ContentType,
+			Crc32c:      o.Crc32c,
+			Md5Hash:     o.Md5Hash,
 		})
 	}
 	return backendObjects
@@ -180,11 +183,12 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 	}
 	dstBucket := vars["destinationBucket"]
 	newObject := Object{
-		BucketName: dstBucket,
-		Name:       vars["destinationObject"],
-		Content:    append([]byte(nil), obj.Content...),
-		Crc32c:     obj.Crc32c,
-		Md5Hash:    obj.Md5Hash,
+		BucketName:  dstBucket,
+		Name:        vars["destinationObject"],
+		Content:     append([]byte(nil), obj.Content...),
+		Crc32c:      obj.Crc32c,
+		Md5Hash:     obj.Md5Hash,
+		ContentType: obj.ContentType,
 	}
 	s.CreateObject(newObject)
 	w.Header().Set("Content-Type", "application/json")
@@ -206,6 +210,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	w.Header().Set(contentTypeHeader, obj.ContentType)
 	w.WriteHeader(status)
 	if r.Method == http.MethodGet {
 		w.Write(content)
