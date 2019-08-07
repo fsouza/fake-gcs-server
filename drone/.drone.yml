@@ -127,7 +127,7 @@ steps:
 
 - name: docker-sanity-check-tag
   pull: always
-  image: "fsouza/fake-gcs-server:${DRONE_TAG}"
+  image: "fsouza/fake-gcs-server:${DRONE_TAG#v}"
   commands:
   - fake-gcs-server -h
   when:
