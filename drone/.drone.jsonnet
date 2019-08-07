@@ -121,6 +121,29 @@ local sanity_check = {
   depends_on: ['build'],
 };
 
+local start_locally = {
+  name: 'start-locally',
+  image: 'alpine',
+  commands: ['./fake-gcs-server -backend memory -data $PWD/examples/data'],
+  detach: true,
+  depends_on: ['build'],
+};
+
+local test_python_script = {
+  name: 'test-python-example',
+  image: 'python:3',
+  pull: 'always',
+  commands: [
+    'pip install -r examples/python/requirements.txt',
+    'python examples/python/python.py',
+  ],
+  environment: {
+    EXTERNAL_URL: 'https://start-locally:4443',
+    PUBLIC_HOST: 'start-locally:4443',
+  },
+  depends_on: ['start-locally'],
+};
+
 local test_ci_dockerfile = {
   name: 'test-ci-dockerfile',
   image: 'plugins/docker',
@@ -148,6 +171,8 @@ local pipeline(go_version) = {
     lint,
     build(go_version),
     sanity_check,
+    start_locally,
+    test_python_script,
     test_ci_dockerfile,
   ] + if go_version == go_versions[0] then release_steps else [],
 };

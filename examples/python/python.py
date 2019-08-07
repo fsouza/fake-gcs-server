@@ -2,13 +2,15 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import os
+
 import requests
 import urllib3
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import storage
 
-EXTERNAL_URL = "https://127.0.0.1:4443"
-PUBLIC_HOST = "storage.gcs.127.0.0.1.nip.io:4443"
+EXTERNAL_URL = os.getenv("EXTERNAL_URL", "https://127.0.0.1:4443")
+PUBLIC_HOST = os.getenv("PUBLIC_HOST", "storage.gcs.127.0.0.1.nip.io:4443")
 
 storage._http.Connection.API_BASE_URL = (
     EXTERNAL_URL
