@@ -55,29 +55,7 @@ This will result in one bucket called ``sample-bucket`` containing one object ca
 
 ## Example with the Python client library
 
-> For more examples, check out the [``examples``](/examples/) directory.
-
-```python
-# virtualenv venv --no-site-packages
-# source venv/bin/activate
-# pip install -r pip_requirements.txt
-# python python.py
-
-from google.cloud import storage
-from google.auth.credentials import AnonymousCredentials
-import requests
-import urllib3
-
-storage._http.Connection.API_BASE_URL = "https://127.0.0.1:4443" # override the BASE_URL in the client library with the mock server
-
-my_http = requests.Session()
-my_http.verify = False  # disable SSL validation
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) # disable https warnings for https insecure certs
-
-client = storage.Client(credentials=AnonymousCredentials(), project="test", _http=my_http)
-for bucket in client.list_buckets():
-    print(bucket.name)
-```
+For Python examples, check out the [``examples/python``](/examples/python/) directory.
 
 ### Building the image locally
 
