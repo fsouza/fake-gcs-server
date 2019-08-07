@@ -7,16 +7,18 @@ import urllib3
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import storage
 
-BASE_URL = "https://127.0.0.1:4443"
+EXTERNAL_URL = "https://127.0.0.1:4443"
+PUBLIC_HOST = "storage.gcs.127.0.0.1.nip.io:4443"
 
 storage._http.Connection.API_BASE_URL = (
-    BASE_URL
-)  # override the BASE_URL in the client library with the mock server
+    EXTERNAL_URL
+)  # override the API_BASE_URL in the client library with the mock server
+storage.blob._API_ACCESS_ENDPOINT = "https://" + PUBLIC_HOST
 storage.blob._DOWNLOAD_URL_TEMPLATE = (
-    u"%s/download/storage/v1{path}?alt=media" % BASE_URL
+    u"%s/download/storage/v1{path}?alt=media" % EXTERNAL_URL
 )
 storage.blob._BASE_UPLOAD_TEMPLATE = (
-    u"%s/upload/storage/v1{bucket_path}/o?uploadType=" % BASE_URL
+    u"%s/upload/storage/v1{bucket_path}/o?uploadType=" % EXTERNAL_URL
 )
 storage.blob._MULTIPART_URL_TEMPLATE = storage.blob._BASE_UPLOAD_TEMPLATE + u"multipart"
 storage.blob._RESUMABLE_URL_TEMPLATE = storage.blob._BASE_UPLOAD_TEMPLATE + u"resumable"
