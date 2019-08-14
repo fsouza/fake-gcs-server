@@ -33,7 +33,6 @@ func uint32Checksum(b []byte) uint32 {
 func TestServerClientObjectAttrs(t *testing.T) {
 	const (
 		bucketName      = "some-bucket"
-		objectName      = "img/hi-res/party-01.jpg"
 		content         = "some nice content"
 		contentType     = "text/plain; charset=utf-8"
 		contentEncoding = "gzip"

@@ -68,7 +68,6 @@ type objectResponse struct {
 	Crc32c          string                         `json:"crc32c,omitempty"`
 	ACL             []*storage.ObjectAccessControl `json:"acl,omitempty"`
 	Md5Hash         string                         `json:"md5hash,omitempty"`
-	Md5Hash         string                         `json:"md5hash,omitempty"`
 	TimeCreated     string                         `json:"timeCreated,omitempty"`
 	TimeDeleted     string                         `json:"timeDeleted,omitempty"`
 	Updated         string                         `json:"updated,omitempty"`
