@@ -17,7 +17,7 @@ RUN golangci-lint run --enable-all \
     --deadline 5m \
     ./...
 
-FROM golang:1.12.8-alpine AS builder
+FROM golang:1.13.4-alpine AS builder
 WORKDIR /code
 ENV CGO_ENABLED=0
 COPY --from=tester /go/pkg /go/pkg
