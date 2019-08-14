@@ -29,10 +29,11 @@ type Object struct {
 	Crc32c  string            `json:"crc32c,omitempty"`
 	Md5Hash string            `json:"md5hash,omitempty"`
 	ACL     []storage.ACLRule `json:"acl,omitempty"`
-	// Dates are manually (& optionally) injected, so you can do assertions on them
-	Created time.Time `json:"created,omitempty"`
-	Deleted time.Time `json:"deleted,omitempty"`
-	Updated time.Time `json:"updated,omitempty"`
+	// Dates and generation are manually (& optionally) injected, so you can do assertions on them
+	Created    time.Time `json:"created,omitempty"`
+	Deleted    time.Time `json:"deleted,omitempty"`
+	Updated    time.Time `json:"updated,omitempty"`
+	Generation int64     `json:"generation,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -100,6 +101,20 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []
 	return respObjects, respPrefixes, nil
 }
 
+func getCurrentIfZero(date time.Time) time.Time {
+	if date.IsZero() {
+		return time.Now()
+	}
+	return date
+}
+
+func getGenerationIfZero(generation int64) int64 {
+	if generation == 0 {
+		return time.Now().UnixNano()
+	}
+	return generation
+}
+
 func toBackendObjects(objects []Object) []backend.Object {
 	backendObjects := []backend.Object{}
 	for _, o := range objects {
@@ -112,9 +127,10 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			ACL:             o.ACL,
-			Created:         o.Created.Format(time.RFC3339),
+			Created:         getCurrentIfZero(o.Created).Format(time.RFC3339),
 			Deleted:         o.Deleted.Format(time.RFC3339),
-			Updated:         o.Updated.Format(time.RFC3339),
+			Updated:         getCurrentIfZero(o.Updated).Format(time.RFC3339),
+			Generation:      getGenerationIfZero(o.Generation),
 		})
 	}
 	return backendObjects
@@ -135,6 +151,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			Created:         convertTimeWithoutError(o.Created),
 			Deleted:         convertTimeWithoutError(o.Deleted),
 			Updated:         convertTimeWithoutError(o.Updated),
+			Generation:      o.Generation,
 		})
 	}
 	return backendObjects

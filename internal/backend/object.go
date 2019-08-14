@@ -19,6 +19,7 @@ type Object struct {
 	Created         string
 	Deleted         string
 	Updated         string
+	Generation      int64
 }
 
 // ID is useful for comparing objects

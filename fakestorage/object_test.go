@@ -59,6 +59,10 @@ func createObjectTestCases() testCases {
 			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testExecTime, Updated: testExecTime},
 		},
 		{
+			"object with creation, modification dates, and generation",
+			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testExecTime, Updated: testExecTime, Generation: testExecTime.UnixNano()},
+		},
+		{
 			"object with no contents neither dates",
 			Object{BucketName: bucketName, Name: "video/hi-res/best_video_1080p.mp4", ContentType: "text/html; charset=utf-8"},
 		},
@@ -82,14 +86,17 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	if !(testObj.Updated.IsZero()) && testObj.Updated.Equal(attrs.Updated) {
 		t.Errorf("wrong updated date\nwant %v\ngot   %v\nname %v", testObj.Updated, attrs.Updated, attrs.Name)
 	}
-	// if attrs.Generation == 0 {
-	// 	t.Errorf("generation value is zero")
-	// }
-	if testObj.Content == nil {
-		return
+	if testObj.Created.IsZero() && attrs.Created.IsZero() {
+		t.Errorf("wrong created date\nwant non zero, got   %v\nname %v", attrs.Created, attrs.Name)
 	}
-	if attrs.Size != int64(len(testObj.Content)) {
-		t.Errorf("wrong size returned\nwant %d\ngot  %d", len(testObj.Content), attrs.Size)
+	if testObj.Updated.IsZero() && attrs.Updated.IsZero() {
+		t.Errorf("wrong updated date\nwant non zero, got   %v\nname %v", attrs.Updated, attrs.Name)
+	}
+	if testObj.Generation != 0 && attrs.Generation != testObj.Generation {
+		t.Errorf("wrong generation\nwant %d\ngot   %d\nname %v", testObj.Generation, attrs.Generation, attrs.Name)
+	}
+	if testObj.Generation == 0 && attrs.Generation == 0 {
+		t.Errorf("generation value is zero")
 	}
 	if attrs.ContentType != testObj.ContentType {
 		t.Errorf("wrong content type\nwant %q\ngot  %q", testObj.ContentType, attrs.ContentType)
@@ -97,10 +104,13 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	if attrs.ContentEncoding != testObj.ContentEncoding {
 		t.Errorf("wrong content encoding\nwant %q\ngot  %q", testObj.ContentEncoding, attrs.ContentEncoding)
 	}
-	if attrs.CRC32C != uint32Checksum(testObj.Content) {
+	if testObj.Content != nil && attrs.Size != int64(len(testObj.Content)) {
+		t.Errorf("wrong size returned\nwant %d\ngot  %d", len(testObj.Content), attrs.Size)
+	}
+	if testObj.Content != nil && attrs.CRC32C != uint32Checksum(testObj.Content) {
 		t.Errorf("wrong checksum returned\nwant %d\ngot   %d", uint32Checksum(testObj.Content), attrs.CRC32C)
 	}
-	if !bytes.Equal(attrs.MD5, md5Hash(testObj.Content)) {
+	if testObj.Content != nil && !bytes.Equal(attrs.MD5, md5Hash(testObj.Content)) {
 		t.Errorf("wrong hash returned\nwant %d\ngot   %d", md5Hash(testObj.Content), attrs.MD5)
 	}
 }
