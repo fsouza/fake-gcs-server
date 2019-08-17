@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-FROM golang:1.12.8-alpine AS builder
+FROM golang:1.12.9-alpine AS builder
 
 ARG GOPROXY=https://proxy.golang.org
 
