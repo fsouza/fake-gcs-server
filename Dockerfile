@@ -13,6 +13,6 @@ RUN go mod download
 ADD . ./
 RUN go build -o fake-gcs-server
 
-FROM alpine:3.10.1
+FROM alpine:3.10.2
 COPY --from=builder /code/fake-gcs-server /bin/fake-gcs-server
 ENTRYPOINT ["/bin/fake-gcs-server"]
