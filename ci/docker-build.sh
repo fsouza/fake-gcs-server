@@ -18,3 +18,5 @@ if [ -z "${DRY_RUN}" ]; then
 	docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}"
 	docker push fsouza/fake-gcs-server
 fi
+
+docker system prune -af
