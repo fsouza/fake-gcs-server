@@ -4,6 +4,8 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+IMAGE_NAME=fsouza/fake-gcs-server
+
 function pick_tag() {
 	tag=latest
 	if [ "${GITHUB_HEAD_REF##refs/tags/}" != "${GITHUB_HEAD_REF}" ]; then
@@ -12,11 +14,25 @@ function pick_tag() {
 	echo $tag
 }
 
-docker build -t fsouza/fake-gcs-server:$(pick_tag) -f ci/Dockerfile .
+function additional_tags() {
+	original_tag=$1
+	if echo "$original_tag" | grep -q '^v\d\+\.\d\+\.\d\+$'; then
+		filtered=${original_tag#v}
+		tags="${filtered} ${filtered%.*} ${filtered%%.*}"
+
+		for tag in $tags; do
+			docker tag ${IMAGE_NAME}:${original_tag} ${IMAGE_NAME}:${tag}
+		done
+	fi
+}
+
+tag=$(pick_tag)
+docker build -t "${IMAGE_NAME}:${tag}" -f ci/Dockerfile .
+additional_tags "${tag}"
 
 if [ -z "${DRY_RUN}" ]; then
 	docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}"
-	docker push fsouza/fake-gcs-server
+	docker push ${IMAGE_NAME}
 fi
 
 docker system prune -af
