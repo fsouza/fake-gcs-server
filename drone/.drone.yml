@@ -107,7 +107,7 @@ steps:
       from_secret: docker_username
   when:
     ref:
-    - refs/tags/*
+    - "refs/tags/*"
     - refs/heads/master
   depends_on:
   - test
@@ -127,12 +127,12 @@ steps:
 
 - name: docker-sanity-check-tag
   pull: always
-  image: fsouza/fake-gcs-server:${DRONE_TAG#v}
+  image: "fsouza/fake-gcs-server:${DRONE_TAG#v}"
   commands:
   - fake-gcs-server -h
   when:
     ref:
-    - refs/tags/*
+    - "refs/tags/*"
   depends_on:
   - build-and-push-to-dockerhub
 
