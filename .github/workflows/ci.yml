@@ -7,8 +7,6 @@ on:
   pull_request:
     branches:
       - master
-    paths:
-      - "!Dockerfile"
 
 jobs:
   lint-and-test:
