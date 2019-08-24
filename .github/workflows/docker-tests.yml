@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - Dockerfile
-      - ci/Dockerfile
+      - ci/*
 jobs:
   test-root-dockerfile:
     name: test root dockerfile
@@ -36,6 +36,8 @@ jobs:
       - name: test ci/Dockerfile
         if: github.event_name == 'pull_request'
         uses: docker://docker
+        env:
+          DRY_RUN: 1
         with:
-          entrypoint: docker
-          args: build -f ci/Dockerfile .
+          entrypoint: sh
+          args: ci/docker-build.sh
