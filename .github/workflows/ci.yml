@@ -1,10 +1,9 @@
 name: Lint, Test & Publish
 on:
-  create:
-    ref_type: tag
   push:
     branches:
       - master
+
   pull_request:
     branches:
       - master
@@ -25,7 +24,9 @@ jobs:
         id: go
         with:
           version: ${{ matrix.go_version }}
+
       - uses: actions/checkout@master
+
       - name: go-mod-download
         run: go mod download
         env:
@@ -48,6 +49,7 @@ jobs:
     needs: lint-and-test
     steps:
       - uses: actions/checkout@master
+
       - uses: actions/setup-go@v1
         id: go
         with:
@@ -64,6 +66,12 @@ jobs:
         with:
           entrypoint: sh
           args: -c "./fake-gcs-server -h"
+
+      - name: test-python-example
+        uses: docker://python:3
+        with:
+          entrypoint: bash
+          args: ci/run-python-example.sh
 
       - name: docker-publish
         uses: docker://docker
