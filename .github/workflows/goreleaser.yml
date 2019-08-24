@@ -1,0 +1,14 @@
+name: goreleaser
+on: tag
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - uses: docker://goreleaser/goreleaser
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          entrypoint: bash
+          args: -c "git fetch --tags && goreleaser release"
