@@ -3,7 +3,6 @@ on:
   pull_request:
     paths:
       - Dockerfile
-      - ci/*
 jobs:
   test-root-dockerfile:
     name: test root dockerfile
@@ -11,33 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: test Dockerfile
-        if: github.event_name == 'pull_request'
         uses: docker://docker
         with:
           entrypoint: docker
           args: build .
-
-  test-ci-dockerfile:
-    name: test ci dockerfile
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-go@v1
-        id: go
-        with:
-          version: 1.13rc1
-
-      - name: go-build
-        run: go build -o fake-gcs-server -mod readonly
-        env:
-          CGO_ENABLED: 0
-          GOPROXY: https://proxy.golang.org,https://gocenter.io,direct
-
-      - name: test ci/Dockerfile
-        if: github.event_name == 'pull_request'
-        uses: docker://docker
-        env:
-          DRY_RUN: 1
-        with:
-          entrypoint: sh
-          args: ci/docker-build.sh

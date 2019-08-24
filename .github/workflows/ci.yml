@@ -1,10 +1,21 @@
 name: Lint, Test & Publish
-on: [push, pull_request, tag]
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - master
 jobs:
   lint-and-test:
     strategy:
       matrix:
-        go_version: [1.11.13, 1.12.9, 1.13rc1]
+        go_version:
+          - 1.11.13
+          - 1.12.9
+          - 1.13rc1
 
     name: lint-and-test (go ${{ matrix.go_version }})
     runs-on: ubuntu-latest
@@ -51,7 +62,6 @@ jobs:
         run: ./fake-gcs-server -h
 
       - name: docker-publish
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'tag'
         uses: docker://docker
         env:
           DOCKER_USERNAME: ${{ secrets.docker_username }}
@@ -59,19 +69,3 @@ jobs:
         with:
           entrypoint: sh
           args: ci/docker-build.sh
-
-      - name: docker-sanity-check-push
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: docker://docker
-        with:
-          entrypoint: docker
-          args: run fsouza/fake-gcs-server:latest -h
-
-      - name: docker-sanity-check-tag
-        if: github.event_name == 'tag'
-        uses: docker://docker
-        env:
-          GITHUB_REF: ${{ github.ref }}
-        with:
-          entrypoint: sh
-          args: -c "docker run fsouza/fake-gcs-server:${GITHUB_REF##refs/tags/} -h"

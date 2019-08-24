@@ -1,5 +1,8 @@
 name: goreleaser
-on: tag
+on:
+  push:
+    tags:
+      - v*
 jobs:
   release:
     runs-on: ubuntu-latest
