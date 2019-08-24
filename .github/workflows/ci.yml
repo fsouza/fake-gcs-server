@@ -50,8 +50,9 @@ jobs:
       - name: sanity-check
         run: ./fake-gcs-server -h
 
+      # TODO(fsouza): fix for tags
       - name: docker-publish
-        if: (github.event_name == 'push' && github.ref == 'master') || github.event_name == 'tag'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'tag'
         uses: elgohr/Publish-Docker-Github-Action@1.7
         with:
           name: fsouza/fake-gcs-server
@@ -72,5 +73,5 @@ jobs:
         env:
           GITHUB_REF: ${{ github.ref }}
         with:
-          entrypoint: docker
-          args: run fsouza/fake-gcs-server:${GITHUB_REF} -h
+          entrypoint: bash
+          args: -c "docker run fsouza/fake-gcs-server:${GITHUB_REF##refs/tags/} -h"
