@@ -15,6 +15,6 @@ function pick_tag() {
 docker build -t fsouza/fake-gcs-server:$(pick_tag) -f ci/Dockerfile .
 
 if [ -z "${DRY_RUN}" ]; then
-	docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
+	docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}"
 	docker push fsouza/fake-gcs-server
 fi
