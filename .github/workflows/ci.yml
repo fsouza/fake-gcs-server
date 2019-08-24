@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - master
+
 jobs:
   lint-and-test:
     strategy:
@@ -59,7 +60,10 @@ jobs:
           GOPROXY: https://proxy.golang.org,https://gocenter.io,direct
 
       - name: sanity-check
-        run: ./fake-gcs-server -h
+        uses: docker://alpine
+        with:
+          entrypoint: sh
+          args: -c "./fake-gcs-server -h"
 
       - name: docker-publish
         uses: docker://docker
