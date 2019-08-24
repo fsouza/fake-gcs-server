@@ -78,7 +78,7 @@ local release_steps = [
   test_dockerfile,
   push_to_dockerhub,
   docker_sanity_check('push', 'latest', ['refs/heads/master']),
-  docker_sanity_check('tag', '${DRONE_TAG#v}', ['refs/tags/*']),
+  docker_sanity_check('tag', '1', ['refs/tags/*']),
   goreleaser_test,
   goreleaser,
 ];
