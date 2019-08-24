@@ -1,0 +1,18 @@
+name: Test Dockerfiles
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - Dockerfile
+jobs:
+  test-root-dockerfile:
+    name: test root dockerfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: test Dockerfile
+        uses: docker://docker
+        with:
+          entrypoint: docker
+          args: build .
