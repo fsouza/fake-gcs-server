@@ -1,6 +1,8 @@
 name: Test Dockerfiles
 on:
   pull_request:
+    branches:
+      - master
     paths:
       - Dockerfile
 jobs:
