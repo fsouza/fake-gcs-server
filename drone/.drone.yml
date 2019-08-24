@@ -1,0 +1,313 @@
+---
+kind: pipeline
+name: go-1.13rc1
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  base: /go
+  path: fake-gcs-server
+
+steps:
+- name: mod-download
+  image: golang:1.13rc1
+  commands:
+  - go mod download
+  environment:
+    GOPROXY: https://proxy.golang.org
+  depends_on:
+  - clone
+
+- name: test
+  image: golang:1.13rc1
+  commands:
+  - go test -race -vet all -mod readonly ./...
+  depends_on:
+  - mod-download
+
+- name: lint
+  pull: always
+  image: golangci/golangci-lint
+  commands:
+  - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
+  depends_on:
+  - mod-download
+
+- name: build
+  image: golang:1.13rc1
+  commands:
+  - go build -o fake-gcs-server -mod readonly
+  environment:
+    CGO_ENABLED: 0
+  depends_on:
+  - mod-download
+
+- name: sanity-check
+  image: alpine
+  commands:
+  - ./fake-gcs-server -h
+  depends_on:
+  - build
+
+- name: start-locally
+  image: alpine
+  detach: true
+  commands:
+  - ./fake-gcs-server -backend memory -data $PWD/examples/data
+  depends_on:
+  - build
+
+- name: test-python-example
+  pull: always
+  image: python:3
+  commands:
+  - pip install -r examples/python/requirements.txt
+  - python examples/python/python.py
+  environment:
+    EXTERNAL_URL: https://start-locally:4443
+    PUBLIC_HOST: start-locally:4443
+  depends_on:
+  - start-locally
+
+- name: test-ci-dockerfile
+  image: plugins/docker
+  settings:
+    dockerfile: drone/Dockerfile
+    dry_run: true
+    repo: fsouza/fake-gcs-server
+  when:
+    event:
+    - pull_request
+  depends_on:
+  - build
+
+- name: test-dockerfile
+  image: plugins/docker
+  settings:
+    dry_run: true
+    repo: fsouza/fake-gcs-server
+  when:
+    event:
+    - push
+    - pull_request
+  depends_on:
+  - clone
+
+- name: build-and-push-to-dockerhub
+  image: plugins/docker
+  settings:
+    auto_tag: true
+    dockerfile: drone/Dockerfile
+    password:
+      from_secret: docker_password
+    repo: fsouza/fake-gcs-server
+    username:
+      from_secret: docker_username
+  when:
+    ref:
+    - refs/tags/*
+    - refs/heads/master
+  depends_on:
+  - test
+  - lint
+  - build
+
+- name: test-goreleaser
+  image: goreleaser/goreleaser
+  commands:
+  - goreleaser release --snapshot
+  when:
+    event:
+    - push
+    - pull_request
+  depends_on:
+  - clone
+
+- name: goreleaser
+  image: goreleaser/goreleaser
+  commands:
+  - git fetch --tags
+  - goreleaser release
+  environment:
+    GITHUB_TOKEN:
+      from_secret: github_token
+  when:
+    event:
+    - tag
+  depends_on:
+  - test
+  - lint
+
+---
+kind: pipeline
+name: go-1.12.9
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  base: /go
+  path: fake-gcs-server
+
+steps:
+- name: mod-download
+  image: golang:1.12.9
+  commands:
+  - go mod download
+  environment:
+    GOPROXY: https://proxy.golang.org
+  depends_on:
+  - clone
+
+- name: test
+  image: golang:1.12.9
+  commands:
+  - go test -race -vet all -mod readonly ./...
+  depends_on:
+  - mod-download
+
+- name: lint
+  pull: always
+  image: golangci/golangci-lint
+  commands:
+  - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
+  depends_on:
+  - mod-download
+
+- name: build
+  image: golang:1.12.9
+  commands:
+  - go build -o fake-gcs-server -mod readonly
+  environment:
+    CGO_ENABLED: 0
+  depends_on:
+  - mod-download
+
+- name: sanity-check
+  image: alpine
+  commands:
+  - ./fake-gcs-server -h
+  depends_on:
+  - build
+
+- name: start-locally
+  image: alpine
+  detach: true
+  commands:
+  - ./fake-gcs-server -backend memory -data $PWD/examples/data
+  depends_on:
+  - build
+
+- name: test-python-example
+  pull: always
+  image: python:3
+  commands:
+  - pip install -r examples/python/requirements.txt
+  - python examples/python/python.py
+  environment:
+    EXTERNAL_URL: https://start-locally:4443
+    PUBLIC_HOST: start-locally:4443
+  depends_on:
+  - start-locally
+
+- name: test-ci-dockerfile
+  image: plugins/docker
+  settings:
+    dockerfile: drone/Dockerfile
+    dry_run: true
+    repo: fsouza/fake-gcs-server
+  when:
+    event:
+    - pull_request
+  depends_on:
+  - build
+
+---
+kind: pipeline
+name: go-1.11.13
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  base: /go
+  path: fake-gcs-server
+
+steps:
+- name: mod-download
+  image: golang:1.11.13
+  commands:
+  - go mod download
+  environment:
+    GOPROXY: https://proxy.golang.org
+  depends_on:
+  - clone
+
+- name: test
+  image: golang:1.11.13
+  commands:
+  - go test -race -vet all -mod readonly ./...
+  depends_on:
+  - mod-download
+
+- name: lint
+  pull: always
+  image: golangci/golangci-lint
+  commands:
+  - golangci-lint run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
+  depends_on:
+  - mod-download
+
+- name: build
+  image: golang:1.11.13
+  commands:
+  - go build -o fake-gcs-server -mod readonly
+  environment:
+    CGO_ENABLED: 0
+  depends_on:
+  - mod-download
+
+- name: sanity-check
+  image: alpine
+  commands:
+  - ./fake-gcs-server -h
+  depends_on:
+  - build
+
+- name: start-locally
+  image: alpine
+  detach: true
+  commands:
+  - ./fake-gcs-server -backend memory -data $PWD/examples/data
+  depends_on:
+  - build
+
+- name: test-python-example
+  pull: always
+  image: python:3
+  commands:
+  - pip install -r examples/python/requirements.txt
+  - python examples/python/python.py
+  environment:
+    EXTERNAL_URL: https://start-locally:4443
+    PUBLIC_HOST: start-locally:4443
+  depends_on:
+  - start-locally
+
+- name: test-ci-dockerfile
+  image: plugins/docker
+  settings:
+    dockerfile: drone/Dockerfile
+    dry_run: true
+    repo: fsouza/fake-gcs-server
+  when:
+    event:
+    - pull_request
+  depends_on:
+  - build
+
+...
