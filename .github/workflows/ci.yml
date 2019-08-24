@@ -1,0 +1,76 @@
+name: Lint, Test & Publish
+on: [push, pull_request, tag]
+jobs:
+  lint-and-test:
+    strategy:
+      matrix:
+        go_version: [1.11.13, 1.12.9, 1.13rc1]
+
+    name: lint-and-test (go ${{ matrix.go_version }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v1
+        id: go
+        with:
+          version: ${{ matrix.go_version }}
+      - uses: actions/checkout@master
+      - name: go-mod-download
+        run: go mod download
+        env:
+          GOPROXY: https://proxy.golang.org
+
+      - name: run-linter
+        uses: docker://golangci/golangci-lint
+        env:
+          GOROOT: /usr/local/go
+        with:
+          entrypoint: golangci-lint
+          args: run --enable-all -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam --deadline 5m ./...
+
+      - name: run-tests
+        run: go test -race -vet all -mod readonly ./...
+
+  build:
+    name: build-and-publish
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/setup-go@v1
+        id: go
+        with:
+          version: 1.13rc1
+
+      - name: go-build
+        run: go build -o fake-gcs-server -mod readonly
+        env:
+          CGO_ENABLED: 0
+          GOPROXY: https://proxy.golang.org,https://gocenter.io,direct
+
+      - name: sanity-check
+        run: ./fake-gcs-server -h
+
+      - name: docker-publish
+        if: (github.event_name == 'push' && github.ref == 'master') || github.event_name == 'tag'
+        uses: elgohr/Publish-Docker-Github-Action@1.7
+        with:
+          name: fsouza/fake-gcs-server
+          username: ${{ secrets.docker_username }}
+          password: ${{ secrets.docker_password }}
+          dockerfile: ci/Dockerfile
+
+      - name: docker-sanity-check-push
+        if: github.event_name == 'push' && github.ref == 'master'
+        uses: docker://docker
+        with:
+          entrypoint: docker
+          args: run fsouza/fake-gcs-server:latest -h
+
+      - name: docker-sanity-check-tag
+        if: github.event_name == 'tag'
+        uses: docker://docker
+        env:
+          GITHUB_REF: ${{ github.ref }}
+        with:
+          entrypoint: docker
+          args: run fsouza/fake-gcs-server:${GITHUB_REF} -h
