@@ -101,13 +101,6 @@ local build(go_version) = {
   depends_on: ['mod-download'],
 };
 
-local sanity_check = {
-  name: 'sanity-check',
-  image: 'alpine',
-  commands: ['./fake-gcs-server -h'],
-  depends_on: ['build'],
-};
-
 local start_locally = {
   name: 'start-locally',
   image: 'alpine',
@@ -157,7 +150,6 @@ local pipeline(go_version) = {
     tests(go_version),
     lint,
     build(go_version),
-    sanity_check,
     start_locally,
     test_python_script,
     test_ci_dockerfile,

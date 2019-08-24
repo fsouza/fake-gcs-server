@@ -44,13 +44,6 @@ steps:
   depends_on:
   - mod-download
 
-- name: sanity-check
-  image: alpine
-  commands:
-  - ./fake-gcs-server -h
-  depends_on:
-  - build
-
 - name: start-locally
   image: alpine
   detach: true
@@ -186,13 +179,6 @@ steps:
   depends_on:
   - mod-download
 
-- name: sanity-check
-  image: alpine
-  commands:
-  - ./fake-gcs-server -h
-  depends_on:
-  - build
-
 - name: start-locally
   image: alpine
   detach: true
@@ -270,13 +256,6 @@ steps:
     CGO_ENABLED: 0
   depends_on:
   - mod-download
-
-- name: sanity-check
-  image: alpine
-  commands:
-  - ./fake-gcs-server -h
-  depends_on:
-  - build
 
 - name: start-locally
   image: alpine
