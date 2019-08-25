@@ -1,4 +1,4 @@
-name: lint-test-publish
+name: Build
 on:
   push:
     branches:
