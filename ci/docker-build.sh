@@ -7,7 +7,7 @@ IMAGE_NAME=fsouza/fake-gcs-server
 function pick_tag() {
 	tag=latest
 	if [ "${GITHUB_REF##refs/tags/}" != "${GITHUB_REF}" ]; then
-		tag=${GITHUB_REF##refs/tags}
+		tag=${GITHUB_REF##refs/tags/}
 	fi
 	echo $tag
 }
