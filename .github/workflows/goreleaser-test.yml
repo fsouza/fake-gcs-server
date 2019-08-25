@@ -11,4 +11,4 @@ jobs:
 
       - uses: docker://goreleaser/goreleaser
         with:
-          args: release --snapshot
+          args: release --snapshot -f ci/.goreleaser.yml
