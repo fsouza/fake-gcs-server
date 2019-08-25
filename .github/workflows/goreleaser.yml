@@ -1,15 +1,15 @@
 name: goreleaser
-on:
-  create:
-    ref_type: tag
+on: create
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
+        if: github.event.ref_type == 'tag'
 
       - uses: docker://goreleaser/goreleaser
+        if: github.event.ref_type == 'tag'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
