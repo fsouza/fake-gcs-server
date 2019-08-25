@@ -1,6 +1,7 @@
 # fake-gcs-server
 
-[![Build Status](https://github.com/fsouza/fake-gcs-server/workflows/lint-test-publish/badge.svg)](https://github.com/fsouza/fake-gcs-server/actions)
+[![Build Status](https://github.com/fsouza/fake-gcs-server/workflows/Build/badge.svg)](https://github.com/fsouza/fake-gcs-server/actions)
+[![Build Status](https://github.com/fsouza/fake-gcs-server/workflows/goreleaser/badge.svg)](https://github.com/fsouza/fake-gcs-server/actions)
 [![GoDoc](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](https://godoc.org/github.com/fsouza/fake-gcs-server/fakestorage)
 
 fake-gcs-server provides an emulator for Google Cloud Storage API. It can be
