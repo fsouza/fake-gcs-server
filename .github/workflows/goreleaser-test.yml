@@ -1,4 +1,4 @@
-name: Test goreleaser
+name: goreleaser-test
 on:
   pull_request:
     paths:
