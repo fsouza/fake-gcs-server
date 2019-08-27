@@ -13,19 +13,19 @@ jobs:
     strategy:
       matrix:
         go_version:
-          - 1.11.13
-          - 1.12.9
+          - 1.11.x
+          - 1.12.x
           - 1.13rc1
 
     name: lint-and-test (go ${{ matrix.go_version }})
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v1.0.2
         id: go
         with:
-          version: ${{ matrix.go_version }}
+          go-version: ${{ matrix.go_version }}
 
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v1.0.0
 
       - name: go-mod-download
         run: go mod download
@@ -48,12 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-and-test
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v1.0.0
 
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v1.0.2
         id: go
         with:
-          version: 1.13rc1
+          go-version: 1.13rc1
 
       - name: go-build
         run: go build -o fake-gcs-server -mod readonly
