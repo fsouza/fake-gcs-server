@@ -6,15 +6,13 @@ import os
 
 import requests
 import urllib3
+from google.api_core.client_options import ClientOptions
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import storage
 
 EXTERNAL_URL = os.getenv("EXTERNAL_URL", "https://127.0.0.1:4443")
 PUBLIC_HOST = os.getenv("PUBLIC_HOST", "storage.gcs.127.0.0.1.nip.io:4443")
 
-storage._http.Connection.API_BASE_URL = (
-    EXTERNAL_URL
-)  # override the API_BASE_URL in the client library with the mock server
 storage.blob._API_ACCESS_ENDPOINT = "https://" + PUBLIC_HOST
 storage.blob._DOWNLOAD_URL_TEMPLATE = (
     u"%s/download/storage/v1{path}?alt=media" % EXTERNAL_URL
@@ -32,7 +30,10 @@ urllib3.disable_warnings(
 )  # disable https warnings for https insecure certs
 
 client = storage.Client(
-    credentials=AnonymousCredentials(), project="test", _http=my_http
+    credentials=AnonymousCredentials(),
+    project="test",
+    _http=my_http,
+    client_options=ClientOptions(api_endpoint=EXTERNAL_URL),
 )
 
 # List the Buckets
