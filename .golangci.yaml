@@ -5,6 +5,7 @@ linters:
   enable-all: true
   disable:
     - dupl
+    - errcheck
     - gochecknoglobals
     - lll
     - unparam
