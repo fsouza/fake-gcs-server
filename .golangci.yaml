@@ -1,0 +1,10 @@
+run:
+  deadline: 5m
+
+linters:
+  enable-all: true
+  disable:
+    - dupl
+    - gochecknoglobals
+    - lll
+    - unparam
