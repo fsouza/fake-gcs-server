@@ -37,7 +37,7 @@ jobs:
           GOROOT: /usr/local/go
         with:
           entrypoint: golangci-lint
-          args: run ./...
+          args: run
 
       - name: run-tests
         run: go test -race -vet all -mod readonly ./...
