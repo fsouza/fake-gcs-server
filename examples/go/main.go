@@ -1,14 +1,15 @@
 package main
 
 import (
-	"cloud.google.com/go/storage"
 	"context"
 	"crypto/tls"
 	"fmt"
-	"google.golang.org/api/iterator"
-	"google.golang.org/api/option"
 	"log"
 	"net/http"
+
+	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 )
 
 func main() {
