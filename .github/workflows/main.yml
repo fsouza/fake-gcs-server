@@ -72,6 +72,18 @@ jobs:
           entrypoint: bash
           args: ci/run-python-example.sh
 
+      - name: test-node-example
+        uses: docker://node:10
+        with:
+          entrypoint: bash
+          args: ci/run-node-example.sh
+
+      - name: test-go-example
+        uses: docker://golang:1.13
+        with:
+          entrypoint: bash
+          args: ci/run-go-example.sh
+
       - name: docker-publish
         uses: docker://docker
         env:
