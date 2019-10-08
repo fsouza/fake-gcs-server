@@ -31,9 +31,9 @@ additional_tags "${tag}"
 if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
 	docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}"
 	docker push ${IMAGE_NAME}
+
+	docker system prune -af
+
+	# sanity check
+	docker run "${IMAGE_NAME}:${tag}" -h
 fi
-
-docker system prune -af
-
-# sanity check
-docker run "${IMAGE_NAME}:${tag}" -h
