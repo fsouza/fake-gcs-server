@@ -13,5 +13,7 @@ linters:
     - dupl
     - errcheck
     - gochecknoglobals
+    - gocognit
     - lll
     - unparam
+    - wsl
