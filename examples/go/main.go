@@ -13,20 +13,14 @@ import (
 )
 
 func main() {
-
-	ctx := context.Background()
-
 	transCfg := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // ignore expired SSL certificates
 	}
 	httpClient := &http.Client{Transport: transCfg}
-
-	// [START setup]
-	client, err := storage.NewClient(ctx, option.WithEndpoint("https://0.0.0.0:4443/storage/v1/"), option.WithHTTPClient(httpClient))
+	client, err := storage.NewClient(context.TODO(), option.WithEndpoint("https://0.0.0.0:4443/storage/v1/"), option.WithHTTPClient(httpClient))
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	buckets, err := list(client, "test")
 	if err != nil {
 		log.Fatal(err)
@@ -35,10 +29,8 @@ func main() {
 }
 
 func list(client *storage.Client, projectID string) ([]string, error) {
-	ctx := context.Background()
-	// [START list_buckets]
 	var buckets []string
-	it := client.Buckets(ctx, projectID)
+	it := client.Buckets(context.TODO(), projectID)
 	for {
 		battrs, err := it.Next()
 		if err == iterator.Done {
@@ -49,6 +41,5 @@ func list(client *storage.Client, projectID string) ([]string, error) {
 		}
 		buckets = append(buckets, battrs.Name)
 	}
-	// [END list_buckets]
 	return buckets, nil
 }
