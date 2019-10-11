@@ -7,7 +7,10 @@ async function listBuckets() {
   const {Storage} = require("@google-cloud/storage");
 
   // Creates a client
-  const storage = new Storage({ apiEndpoint: "127.0.0.1:4443" });
+  const storage = new Storage({
+    apiEndpoint: "127.0.0.1:4443",
+    projectId: "test",
+  });
 
   // Lists all buckets in the current project
   const [buckets] = await storage.getBuckets();
