@@ -6,6 +6,7 @@ package main
 
 import (
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
@@ -13,6 +14,20 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 )
+
+func TestMain(m *testing.M) {
+	const emptyBucketDir = "testdata/basic/empty-bucket"
+	err := os.Mkdir(emptyBucketDir, 0755)
+	if err != nil {
+		panic(err)
+	}
+	var status int
+	defer func() {
+		os.Remove(emptyBucketDir)
+		os.Exit(status)
+	}()
+	status = m.Run()
+}
 
 func TestGenerateObjectsFromFiles(t *testing.T) {
 	t.Parallel()
