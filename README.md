@@ -53,9 +53,9 @@ curl --insecure https://0.0.0.0:4443/storage/v1/b/sample-bucket/o
 
 This will result in one bucket called ``sample-bucket`` containing one object called ``some_file.txt``.
 
-## Example with the Python client library
+## Client library examples
 
-For Python examples, check out the [``examples/python``](/examples/python/) directory.
+For examples using the Python, Node.js and Go clients, check out the [``examples``](/examples/) directory.
 
 ### Building the image locally
 
