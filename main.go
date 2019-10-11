@@ -28,22 +28,27 @@ func main() {
 	}
 	logger := logrus.New()
 
+	var emptyBuckets []string
 	opts := cfg.ToFakeGcsOptions()
-	opts.InitialObjects = generateObjectsFromFiles(logger, cfg.Seed)
+	opts.InitialObjects, emptyBuckets = generateObjectsFromFiles(logger, cfg.Seed)
 
 	server, err := fakestorage.NewServerWithOptions(opts)
 	if err != nil {
 		logger.WithError(err).Fatal("couldn't start the server")
 	}
 	logger.Infof("server started at %s", server.URL())
+	for _, bucketName := range emptyBuckets {
+		server.CreateBucket(bucketName)
+	}
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	<-ch
 }
 
-func generateObjectsFromFiles(logger *logrus.Logger, folder string) []fakestorage.Object {
+func generateObjectsFromFiles(logger *logrus.Logger, folder string) ([]fakestorage.Object, []string) {
 	var objects []fakestorage.Object
+	var emptyBuckets []string
 	if files, err := ioutil.ReadDir(folder); err == nil {
 		for _, f := range files {
 			bucketName := f.Name()
@@ -55,6 +60,9 @@ func generateObjectsFromFiles(logger *logrus.Logger, folder string) []fakestorag
 				continue
 			}
 
+			if len(files) < 1 {
+				emptyBuckets = append(emptyBuckets, bucketName)
+			}
 			for _, f := range files {
 				objectKey := f.Name()
 				localObjectPath := filepath.Join(localBucketPath, objectKey)
@@ -73,8 +81,8 @@ func generateObjectsFromFiles(logger *logrus.Logger, folder string) []fakestorag
 			}
 		}
 	}
-	if len(objects) == 0 {
-		logger.Infof("couldn't load any objects from %q, starting empty", folder)
+	if len(objects) == 0 && len(emptyBuckets) == 0 {
+		logger.Infof("couldn't load any objects or buckets from %q, starting empty", folder)
 	}
-	return objects
+	return objects, emptyBuckets
 }

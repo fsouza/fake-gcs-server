@@ -17,9 +17,10 @@ import (
 func TestGenerateObjectsFromFiles(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name            string
-		folder          string
-		expectedObjects []fakestorage.Object
+		name                 string
+		folder               string
+		expectedObjects      []fakestorage.Object
+		expectedEmptyBuckets []string
 	}{
 		{
 			name:   "should load from sample folder",
@@ -31,6 +32,7 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 					Content:    []byte("Some amazing content to be loaded"),
 				},
 			},
+			expectedEmptyBuckets: []string{"empty-bucket"},
 		},
 		{
 			name:   "should skip inexistent folder",
@@ -74,13 +76,16 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			t.Parallel()
 			logger := discardLogger()
 
-			objects := generateObjectsFromFiles(logger, test.folder)
+			objects, emptyBuckets := generateObjectsFromFiles(logger, test.folder)
 			cmpOpts := []cmp.Option{
 				cmpopts.IgnoreFields(fakestorage.Object{}, "Crc32c", "Md5Hash"),
 				cmpopts.IgnoreUnexported(fakestorage.Object{}),
 			}
 			if diff := cmp.Diff(objects, test.expectedObjects, cmpOpts...); diff != "" {
 				t.Errorf("wrong list of objects returned\nwant %#v\ngot  %#v\ndiff: %s", test.expectedObjects, objects, diff)
+			}
+			if diff := cmp.Diff(emptyBuckets, test.expectedEmptyBuckets); diff != "" {
+				t.Errorf("wrong list of empty buckets returned\nwant %#v\ngot  %#v", test.expectedEmptyBuckets, emptyBuckets)
 			}
 		})
 	}
