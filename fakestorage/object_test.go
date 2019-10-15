@@ -604,3 +604,33 @@ func TestServerClientObjectDeleteErrors(t *testing.T) {
 		}
 	})
 }
+
+func TestServerClientObjectSetAclPrivate(t *testing.T) {
+	objs := []Object{
+		{BucketName: "some-bucket", Name: "img/public-to-private.jpg"},
+	}
+
+	runServersTest(t, objs, func(t *testing.T, server *Server) {
+		t.Run("public to private", func(t *testing.T) {
+			ctx := context.Background()
+			objHandle := server.Client().Bucket("some-bucket").Object("img/public-to-private.jpg")
+
+			err := objHandle.ACL().Set(ctx, storage.AllAuthenticatedUsers, storage.RoleReader)
+			if err != nil {
+				t.Errorf("unexpected error while setting acl %+v", err)
+				return
+			}
+
+			rules, err := objHandle.ACL().List(ctx)
+			if err != nil {
+				t.Errorf("unexpected error while getting acl %+v", err)
+				return
+			}
+
+			if len(rules) != 1 && rules[0].Entity != storage.AllAuthenticatedUsers && rules[0].Role != storage.RoleReader {
+				t.Error("bad acl")
+				return
+			}
+		})
+	})
+}

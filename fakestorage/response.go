@@ -4,7 +4,13 @@
 
 package fakestorage
 
-import "sort"
+import (
+	. "cloud.google.com/go/storage"
+	"google.golang.org/api/googleapi"
+	"google.golang.org/api/storage/v1"
+	"net/http"
+	"sort"
+)
 
 type listResponse struct {
 	Kind     string        `json:"kind"`
@@ -58,6 +64,7 @@ type objectResponse struct {
 	Size        int64  `json:"size,string"`
 	ContentType string `json:"contentType,omitempty"`
 	Crc32c      string `json:"crc32c,omitempty"`
+	Acl         string `json:"acl,omitempty"`
 	Md5Hash     string `json:"md5hash,omitempty"`
 }
 
@@ -70,7 +77,30 @@ func newObjectResponse(obj Object) objectResponse {
 		Size:        int64(len(obj.Content)),
 		ContentType: obj.ContentType,
 		Crc32c:      obj.Crc32c,
+		Acl:         string(obj.Acl),
 		Md5Hash:     obj.Md5Hash,
+	}
+}
+
+type aclListResponse struct {
+	*storage.ObjectAccessControls
+}
+
+func newAclListResponse(obj Object) aclListResponse {
+	return aclListResponse{
+		&storage.ObjectAccessControls{
+			ServerResponse: googleapi.ServerResponse{
+				HTTPStatusCode: http.StatusOK,
+			},
+			Items: []*storage.ObjectAccessControl{
+				{
+					Bucket: obj.BucketName,
+					Entity: string(obj.Acl),
+					Object: obj.Name,
+					Role:   string(RoleReader),
+				},
+			},
+		},
 	}
 }
 
