@@ -12,7 +12,6 @@ type Object struct {
 	Content     []byte
 	Crc32c      string
 	Md5Hash     string
-	AclEntity   string
 	Acl         string
 }
 
