@@ -627,8 +627,17 @@ func TestServerClientObjectSetAclPrivate(t *testing.T) {
 				return
 			}
 
-			if len(rules) != 1 && rules[0].Entity != storage.AllAuthenticatedUsers && rules[0].Role != storage.RoleReader {
-				t.Error("bad acl")
+			if len(rules) != 1 {
+				t.Error("acl has no rules")
+				return
+			}
+			if rules[0].Entity != storage.AllAuthenticatedUsers {
+				t.Error("acl entity not set to AllAuthenticatedUsers")
+				return
+			}
+
+			if rules[0].Role != storage.RoleReader {
+				t.Error("acl role not set to RoleReader")
 				return
 			}
 		})
