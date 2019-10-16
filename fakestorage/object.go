@@ -5,7 +5,6 @@
 package fakestorage
 
 import (
-	"cloud.google.com/go/storage"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -13,6 +12,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"cloud.google.com/go/storage"
 
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"

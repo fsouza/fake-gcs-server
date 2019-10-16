@@ -5,11 +5,12 @@
 package fakestorage
 
 import (
+	"net/http"
+	"sort"
+
 	cloudstorage "cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/storage/v1"
-	"net/http"
-	"sort"
 )
 
 type listResponse struct {
