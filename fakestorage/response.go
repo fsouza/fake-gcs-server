@@ -64,7 +64,7 @@ type objectResponse struct {
 	Size        int64  `json:"size,string"`
 	ContentType string `json:"contentType,omitempty"`
 	Crc32c      string `json:"crc32c,omitempty"`
-	Acl         string `json:"acl,omitempty"`
+	ACL         string `json:"acl,omitempty"`
 	Md5Hash     string `json:"md5hash,omitempty"`
 }
 
@@ -77,7 +77,7 @@ func newObjectResponse(obj Object) objectResponse {
 		Size:        int64(len(obj.Content)),
 		ContentType: obj.ContentType,
 		Crc32c:      obj.Crc32c,
-		Acl:         string(obj.ACL),
+		ACL:         string(obj.ACL),
 		Md5Hash:     obj.Md5Hash,
 	}
 }
