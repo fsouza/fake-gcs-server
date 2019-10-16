@@ -27,7 +27,7 @@ type Object struct {
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string            `json:"crc32c,omitempty"`
 	Md5Hash string            `json:"md5hash,omitempty"`
-	Acl     storage.ACLEntity `json:"acl,omitempty"`
+	ACL     storage.ACLEntity `json:"acl,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -105,7 +105,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			ContentType: o.ContentType,
 			Crc32c:      o.Crc32c,
 			Md5Hash:     o.Md5Hash,
-			Acl:         string(o.Acl),
+			ACL:         string(o.ACL),
 		})
 	}
 	return backendObjects
@@ -121,7 +121,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			ContentType: o.ContentType,
 			Crc32c:      o.Crc32c,
 			Md5Hash:     o.Md5Hash,
-			Acl:         storage.ACLEntity(o.Acl),
+			ACL:         storage.ACLEntity(o.ACL),
 		})
 	}
 	return backendObjects
@@ -179,7 +179,7 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) listObjectAcl(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 
@@ -188,16 +188,21 @@ func (s *Server) listObjectAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := newAclListResponse(obj)
+	response := newACLListResponse(obj)
 	json.NewEncoder(w).Encode(response)
 }
 
-func (s *Server) setObjectAcl(w http.ResponseWriter, r *http.Request) {
+func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
 	bodyMap := make(map[string]string)
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
 	json.Unmarshal(body, &bodyMap)
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
@@ -208,11 +213,11 @@ func (s *Server) setObjectAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	obj.Acl = entity
+	obj.ACL = entity
 
 	s.CreateObject(obj)
 
-	response := newAclListResponse(obj)
+	response := newACLListResponse(obj)
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -231,7 +236,7 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 		Crc32c:      obj.Crc32c,
 		Md5Hash:     obj.Md5Hash,
 		ContentType: obj.ContentType,
-		Acl:         obj.Acl,
+		ACL:         obj.ACL,
 	}
 	s.CreateObject(newObject)
 	w.Header().Set("Content-Type", "application/json")

@@ -5,7 +5,7 @@
 package fakestorage
 
 import (
-	. "cloud.google.com/go/storage"
+	cloudstorage "cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/storage/v1"
 	"net/http"
@@ -77,7 +77,7 @@ func newObjectResponse(obj Object) objectResponse {
 		Size:        int64(len(obj.Content)),
 		ContentType: obj.ContentType,
 		Crc32c:      obj.Crc32c,
-		Acl:         string(obj.Acl),
+		Acl:         string(obj.ACL),
 		Md5Hash:     obj.Md5Hash,
 	}
 }
@@ -86,7 +86,7 @@ type aclListResponse struct {
 	*storage.ObjectAccessControls
 }
 
-func newAclListResponse(obj Object) aclListResponse {
+func newACLListResponse(obj Object) aclListResponse {
 	return aclListResponse{
 		&storage.ObjectAccessControls{
 			ServerResponse: googleapi.ServerResponse{
@@ -95,9 +95,9 @@ func newAclListResponse(obj Object) aclListResponse {
 			Items: []*storage.ObjectAccessControl{
 				{
 					Bucket: obj.BucketName,
-					Entity: string(obj.Acl),
+					Entity: string(obj.ACL),
 					Object: obj.Name,
-					Role:   string(RoleReader),
+					Role:   string(cloudstorage.RoleReader),
 				},
 			},
 		},
