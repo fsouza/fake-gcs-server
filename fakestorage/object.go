@@ -7,14 +7,12 @@ package fakestorage
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 
 	"cloud.google.com/go/storage"
-
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
 )
@@ -195,16 +193,6 @@ func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-
-	bodyMap := make(map[string]string)
-	defer r.Body.Close()
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	json.Unmarshal(body, &bodyMap)
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	entity := storage.ACLEntity(vars["entity"])

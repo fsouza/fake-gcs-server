@@ -617,27 +617,27 @@ func TestServerClientObjectSetAclPrivate(t *testing.T) {
 
 			err := objHandle.ACL().Set(ctx, storage.AllAuthenticatedUsers, storage.RoleReader)
 			if err != nil {
-				t.Errorf("unexpected error while setting acl %+v", err)
+				t.Fatalf("unexpected error while setting acl %+v", err)
 				return
 			}
 
 			rules, err := objHandle.ACL().List(ctx)
 			if err != nil {
-				t.Errorf("unexpected error while getting acl %+v", err)
+				t.Fatalf("unexpected error while getting acl %+v", err)
 				return
 			}
 
 			if len(rules) != 1 {
-				t.Error("acl has no rules")
+				t.Fatal("acl has no rules")
 				return
 			}
 			if rules[0].Entity != storage.AllAuthenticatedUsers {
-				t.Error("acl entity not set to AllAuthenticatedUsers")
+				t.Fatal("acl entity not set to AllAuthenticatedUsers")
 				return
 			}
 
 			if rules[0].Role != storage.RoleReader {
-				t.Error("acl role not set to RoleReader")
+				t.Fatal("acl role not set to RoleReader")
 				return
 			}
 		})
