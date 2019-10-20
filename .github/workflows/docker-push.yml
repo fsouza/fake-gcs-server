@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: debug
-        run: echo ${GITHUB_EVENT_NAME}
+        run: printenv
 
       - uses: actions/checkout@v1.0.0
         if: github.event.ref_type == 'tag'
