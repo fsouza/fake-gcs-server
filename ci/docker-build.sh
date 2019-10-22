@@ -28,7 +28,7 @@ tag=$(pick_tag)
 docker build -t "${IMAGE_NAME}:${tag}" -f ci/Dockerfile .
 additional_tags "${tag}"
 
-if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+if [[ ${GITHUB_EVENT_NAME} == "push" || ${GITHUB_EVENT_NAME} == "create" ]]; then
 	docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}"
 	docker push ${IMAGE_NAME}
 

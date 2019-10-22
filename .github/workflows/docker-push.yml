@@ -1,0 +1,38 @@
+name: docker-push
+on: create
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1.0.0
+        if: github.event.ref_type == 'tag'
+
+      - uses: actions/setup-go@v1.0.2
+        if: github.event.ref_type == 'tag'
+        id: go
+        with:
+          go-version: 1.13.x
+
+      - name: go-build
+        if: github.event.ref_type == 'tag'
+        run: go build -o fake-gcs-server -mod readonly
+        env:
+          CGO_ENABLED: 0
+
+      - name: sanity-check
+        if: github.event.ref_type == 'tag'
+        uses: docker://alpine
+        with:
+          entrypoint: sh
+          args: -c "./fake-gcs-server -h"
+
+      - name: docker-publish
+        if: github.event.ref_type == 'tag'
+        uses: docker://docker
+        env:
+          DOCKER_USERNAME: ${{ secrets.docker_username }}
+          DOCKER_PASSWORD: ${{ secrets.docker_password }}
+        with:
+          entrypoint: sh
+          args: ci/docker-build.sh

@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google-cloud/storage": "^3.3.0"
+    "@google-cloud/storage": "^4.0.0"
   }
 }
