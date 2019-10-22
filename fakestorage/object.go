@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
 )
@@ -23,8 +24,9 @@ type Object struct {
 	ContentType string `json:"contentType"`
 	Content     []byte `json:"-"`
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
-	Crc32c  string `json:"crc32c,omitempty"`
-	Md5Hash string `json:"md5hash,omitempty"`
+	Crc32c  string            `json:"crc32c,omitempty"`
+	Md5Hash string            `json:"md5hash,omitempty"`
+	ACL     storage.ACLEntity `json:"acl,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -102,6 +104,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			ContentType: o.ContentType,
 			Crc32c:      o.Crc32c,
 			Md5Hash:     o.Md5Hash,
+			ACL:         string(o.ACL),
 		})
 	}
 	return backendObjects
@@ -117,6 +120,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			ContentType: o.ContentType,
 			Crc32c:      o.Crc32c,
 			Md5Hash:     o.Md5Hash,
+			ACL:         storage.ACLEntity(o.ACL),
 		})
 	}
 	return backendObjects
@@ -174,6 +178,38 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	response := newACLListResponse(obj)
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	entity := storage.ACLEntity(vars["entity"])
+
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	obj.ACL = entity
+
+	s.CreateObject(obj)
+
+	response := newACLListResponse(obj)
+	json.NewEncoder(w).Encode(response)
+}
+
 func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	obj, err := s.GetObject(vars["sourceBucket"], vars["sourceObject"])
@@ -189,6 +225,7 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 		Crc32c:      obj.Crc32c,
 		Md5Hash:     obj.Md5Hash,
 		ContentType: obj.ContentType,
+		ACL:         obj.ACL,
 	}
 	s.CreateObject(newObject)
 	w.Header().Set("Content-Type", "application/json")
