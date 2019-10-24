@@ -146,9 +146,15 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	objName := r.URL.Query().Get("name")
+	if objName == "" && metadata != nil {
+		objName = metadata.Name
+	}
+
 	obj := Object{
 		BucketName:  bucketName,
-		Name:        metadata.Name,
+		Name:        objName,
 		Content:     content,
 		ContentType: contentType,
 		Crc32c:      encodedCrc32cChecksum(content),
