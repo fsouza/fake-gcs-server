@@ -148,7 +148,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	}
 
 	objName := r.URL.Query().Get("name")
-	if objName == "" && metadata != nil {
+	if objName == "" {
 		objName = metadata.Name
 	}
 
