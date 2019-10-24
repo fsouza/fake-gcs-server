@@ -26,21 +26,26 @@ jobs:
 
       - uses: actions/checkout@v1.0.0
 
-      - name: go-mod-download
-        run: go mod download
+      - name: install deps
+        run: |
+          go mod download
+          (
+            cd /tmp
+            env GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          )
         env:
           GOPROXY: https://proxy.golang.org
 
       - name: run-linter
-        uses: docker://golangci/golangci-lint
+        run: golangci-lint run
         env:
-          GOROOT: /usr/local/go
-        with:
-          entrypoint: golangci-lint
-          args: run
+          GOPROXY: off
+          GOFLAGS: -mod=readonly
 
       - name: run-tests
         run: go test -race -vet all -mod readonly ./...
+        env:
+          GOPROXY: off
 
   build:
     name: build-and-publish
