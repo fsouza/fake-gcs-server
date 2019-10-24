@@ -37,7 +37,8 @@ jobs:
           GOPROXY: https://proxy.golang.org
 
       - name: run-linter
-        run: golangci-lint run
+        run: |
+          $(go env GOPATH)/bin/golangci-lint run
         env:
           GOPROXY: off
           GOFLAGS: -mod=readonly
