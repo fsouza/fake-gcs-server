@@ -1,0 +1,3 @@
+name: fake-gcs-server
+runtime: python
+description: Testing resources in GCP to compare behaviors
