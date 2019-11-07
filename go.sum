@@ -21,6 +21,8 @@ cloud.google.com/go/storage v1.1.2 h1:q7KNypEb3CARnitCAqY63g+dZp9HDEgv/c6IPlPLMJ
 cloud.google.com/go/storage v1.1.2/go.mod h1:/03MkR5FWjF0OpcKpdJ4RgWybEaYAr2boHXq5RDlxbw=
 cloud.google.com/go/storage v1.2.0 h1:j4FZW6a1zW237It0ORRgQ5knC6H4AAI/OEADjmNPQ6s=
 cloud.google.com/go/storage v1.2.0/go.mod h1:9gYIx9Yslppm7JnJFIRyUhybmKXFCReO7Eq8bdUJZ4k=
+cloud.google.com/go/storage v1.2.1 h1:3G66kIUChoxgxJPzwpWroEnXjfbLuZgbCNAHIvN/sKY=
+cloud.google.com/go/storage v1.2.1/go.mod h1:kpwTAahUQmhyVVGgLWQh2GdyPDZSA3UJDjMm/fDV2oQ=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
@@ -182,6 +184,8 @@ golang.org/x/tools v0.0.0-20191022210528-83d82311fd1f h1:X4UYO3m0+b0v4ctMUiMVB/v
 golang.org/x/tools v0.0.0-20191022210528-83d82311fd1f/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.0.0-20191104232314-dc038396d1f0 h1:azkp5oIgy7LNGQ64URezZccjePaEGSYIHEgYTn/bfXI=
 golang.org/x/tools v0.0.0-20191104232314-dc038396d1f0/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
+golang.org/x/tools v0.0.0-20191105231337-689d0f08e67a h1:RzzIfXstYPS78k0QViPGpDcTlV+QuYrbxVmsxDHdxTs=
+golang.org/x/tools v0.0.0-20191105231337-689d0f08e67a/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 google.golang.org/api v0.4.0/go.mod h1:8k5glujaEP+g9n7WNsDg8QP6cUVNI86fCNMcbazEtwE=
 google.golang.org/api v0.7.0/go.mod h1:WtwebWUNSVBH/HAw79HIFXZNqEvBhG+Ra+ax0hx3E3M=
