@@ -4,4 +4,4 @@ examples
 LICENSE
 .git
 deployments/
-drone/
+ci/

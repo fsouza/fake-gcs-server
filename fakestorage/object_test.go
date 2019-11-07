@@ -42,7 +42,7 @@ func createObjectTestCases() testCases {
 		contentType     = "text/plain; charset=utf-8"
 		contentEncoding = "gzip"
 	)
-	testExecTime := time.Now()
+	testInitExecTime := time.Now()
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
 
@@ -60,7 +60,7 @@ func createObjectTestCases() testCases {
 		},
 		{
 			"object with creation, modification dates, and generation",
-			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testExecTime, Updated: testExecTime, Generation: testExecTime.UnixNano()},
+			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime, Generation: testInitExecTime.UnixNano()},
 		},
 		{
 			"object with no contents neither dates",

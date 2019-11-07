@@ -1,4 +1,5 @@
 fake-gcs-server
-.pulumi
+.pulumi/
 Pulumi.*.yaml
-venv
+*.pyc
+venv/

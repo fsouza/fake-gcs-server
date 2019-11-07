@@ -29,7 +29,7 @@ type Object struct {
 	Crc32c  string            `json:"crc32c,omitempty"`
 	Md5Hash string            `json:"md5hash,omitempty"`
 	ACL     []storage.ACLRule `json:"acl,omitempty"`
-	// Dates and generation are manually (& optionally) injected, so you can do assertions on them 
+	// Dates and generation are manually (& optionally) injected, so you can do assertions on them
 	Created    time.Time `json:"created,omitempty"`
 	Deleted    time.Time `json:"deleted,omitempty"`
 	Updated    time.Time `json:"updated,omitempty"`
@@ -108,7 +108,7 @@ func getCurrentIfZero(date time.Time) time.Time {
 	return date
 }
 
-func getGenerationIfZero(generation int64) int64 {
+func getNewGenerationIfZero(generation int64) int64 {
 	if generation == 0 {
 		return time.Now().UnixNano()
 	}
@@ -130,7 +130,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Created:         getCurrentIfZero(o.Created).Format(time.RFC3339),
 			Deleted:         o.Deleted.Format(time.RFC3339),
 			Updated:         getCurrentIfZero(o.Updated).Format(time.RFC3339),
-			Generation:      getGenerationIfZero(o.Generation),
+			Generation:      getNewGenerationIfZero(o.Generation),
 		})
 	}
 	return backendObjects
