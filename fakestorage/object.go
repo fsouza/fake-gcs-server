@@ -29,7 +29,7 @@ type Object struct {
 	Crc32c  string            `json:"crc32c,omitempty"`
 	Md5Hash string            `json:"md5hash,omitempty"`
 	ACL     []storage.ACLRule `json:"acl,omitempty"`
-	// Dates and generation are manually (& optionally) injected, so you can do assertions on them
+	// Dates and generation are manually (& optionally) injected, so you can do assertions on them 
 	Created    time.Time `json:"created,omitempty"`
 	Deleted    time.Time `json:"deleted,omitempty"`
 	Updated    time.Time `json:"updated,omitempty"`
