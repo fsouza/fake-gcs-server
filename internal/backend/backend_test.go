@@ -123,7 +123,7 @@ func TestObjectCRUD(t *testing.T) {
 func TestBucketCreateGetList(t *testing.T) {
 	const bucketName = "prod-bucket"
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
-		err := storage.GetBucket(bucketName)
+		_, err := storage.GetBucket(bucketName)
 		if err == nil {
 			t.Fatal("bucket exists before being created")
 		}
@@ -134,11 +134,11 @@ func TestBucketCreateGetList(t *testing.T) {
 		if len(buckets) != 0 {
 			t.Fatalf("more than zero buckets found: %d", len(buckets))
 		}
-		err = storage.CreateBucket(bucketName)
+		err = storage.CreateBucket(bucketName, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = storage.GetBucket(bucketName)
+		_, err = storage.GetBucket(bucketName)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -149,8 +149,8 @@ func TestBucketCreateGetList(t *testing.T) {
 		if len(buckets) != 1 {
 			t.Fatalf("one bucket not found after creating it, found: %d", len(buckets))
 		}
-		if buckets[0] != bucketName {
-			t.Fatalf("wrong bucket name; expected %s, got %s", bucketName, buckets[0])
+		if buckets[0].Name != bucketName {
+			t.Fatalf("wrong bucket name; expected %s, got %s", bucketName, buckets[0].Name)
 		}
 	})
 }

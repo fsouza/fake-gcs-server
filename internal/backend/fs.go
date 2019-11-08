@@ -47,7 +47,10 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 }
 
 // CreateBucket creates a bucket
-func (s *StorageFS) CreateBucket(name string) error {
+func (s *StorageFS) CreateBucket(name string, versioningEnabled bool) error {
+	if versioningEnabled {
+		return fmt.Errorf("fs storage type does not support versioning yet")
+	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	return s.createBucket(name)
@@ -58,32 +61,32 @@ func (s *StorageFS) createBucket(name string) error {
 }
 
 // ListBuckets lists buckets
-func (s *StorageFS) ListBuckets() ([]string, error) {
+func (s *StorageFS) ListBuckets() ([]Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	infos, err := ioutil.ReadDir(s.rootDir)
 	if err != nil {
 		return nil, err
 	}
-	buckets := []string{}
+	buckets := []Bucket{}
 	for _, info := range infos {
 		if info.IsDir() {
 			unescaped, err := url.PathUnescape(info.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to unescape object name %s: %s", info.Name(), err)
 			}
-			buckets = append(buckets, unescaped)
+			buckets = append(buckets, Bucket{Name: unescaped})
 		}
 	}
 	return buckets, nil
 }
 
 // GetBucket checks if a bucket exists
-func (s *StorageFS) GetBucket(name string) error {
+func (s *StorageFS) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	_, err := os.Stat(filepath.Join(s.rootDir, url.PathEscape(name)))
-	return err
+	return Bucket{Name: name}, err
 }
 
 // CreateObject stores an object

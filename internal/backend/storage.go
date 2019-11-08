@@ -7,9 +7,9 @@ package backend
 
 // Storage is the generic interface for implementing the backend storage of the server
 type Storage interface {
-	CreateBucket(name string) error
-	ListBuckets() ([]string, error)
-	GetBucket(name string) error
+	CreateBucket(name string, versioningEnabled bool) error
+	ListBuckets() ([]Bucket, error)
+	GetBucket(name string) (Bucket, error)
 	CreateObject(obj Object) error
 	ListObjects(bucketName string) ([]Object, error)
 	GetObject(bucketName, objectName string) (Object, error)

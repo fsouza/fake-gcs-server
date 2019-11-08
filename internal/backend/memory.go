@@ -27,8 +27,15 @@ func NewStorageMemory(objects []Object) Storage {
 	return s
 }
 
+// type bucketInMemory struct {
+// 	Bucket
+// 	objects []Object
+// }
+
+// func
+
 // CreateBucket creates a bucket
-func (s *StorageMemory) CreateBucket(name string) error {
+func (s *StorageMemory) CreateBucket(name string, versioningEnabled bool) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	if _, ok := s.buckets[name]; !ok {
@@ -38,25 +45,25 @@ func (s *StorageMemory) CreateBucket(name string) error {
 }
 
 // ListBuckets lists buckets
-func (s *StorageMemory) ListBuckets() ([]string, error) {
+func (s *StorageMemory) ListBuckets() ([]Bucket, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	buckets := []string{}
+	buckets := []Bucket{}
 	for bucket := range s.buckets {
-		buckets = append(buckets, bucket)
+		buckets = append(buckets, Bucket{Name: bucket})
 	}
 	return buckets, nil
 }
 
 // GetBucket checks if a bucket exists
-func (s *StorageMemory) GetBucket(name string) error {
+func (s *StorageMemory) GetBucket(name string) (Bucket, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	if _, ok := s.buckets[name]; !ok {
-		return fmt.Errorf("no bucket named %s", name)
+		return Bucket{}, fmt.Errorf("no bucket named %s", name)
 	}
-	return nil
+	return Bucket{Name: name}, nil
 }
 
 // CreateObject stores an object

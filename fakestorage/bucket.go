@@ -16,7 +16,7 @@ import (
 //
 // If the bucket already exists, this method does nothing.
 func (s *Server) CreateBucket(name string) {
-	err := s.backend.CreateBucket(name)
+	err := s.backend.CreateBucket(name, false)
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +38,7 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 	name := data.Name
 
 	// Create the named bucket
-	if err := s.backend.CreateBucket(name); err != nil {
+	if err := s.backend.CreateBucket(name, false); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -49,10 +49,14 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
-	bucketNames, err := s.backend.ListBuckets()
+	buckets, err := s.backend.ListBuckets()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	bucketNames := []string{}
+	for _, bucket := range buckets {
+		bucketNames = append(bucketNames, bucket.Name)
 	}
 	resp := newListBucketsResponse(bucketNames)
 	json.NewEncoder(w).Encode(resp)
@@ -61,7 +65,7 @@ func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getBucket(w http.ResponseWriter, r *http.Request) {
 	bucketName := mux.Vars(r)["bucketName"]
 	encoder := json.NewEncoder(w)
-	if err := s.backend.GetBucket(bucketName); err != nil {
+	if _, err := s.backend.GetBucket(bucketName); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		err := newErrorResponse(http.StatusNotFound, "Not found", nil)
 		encoder.Encode(err)
