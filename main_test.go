@@ -50,6 +50,27 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			expectedEmptyBuckets: []string{"empty-bucket"},
 		},
 		{
+			name:   "should support multiple levels",
+			folder: "testdata/multi-level",
+			expectedObjects: []fakestorage.Object{
+				{
+					BucketName: "some-bucket",
+					Name:       "a/b/c/d/f/e/f/object1.txt",
+					Content:    []byte("this is object 1"),
+				},
+				{
+					BucketName: "some-bucket",
+					Name:       "a/b/c/d/f/e/f/object2.txt",
+					Content:    []byte("this is object 2"),
+				},
+				{
+					BucketName: "some-bucket",
+					Name:       "root-object.txt",
+					Content:    []byte("r00t"),
+				},
+			},
+		},
+		{
 			name:   "should skip inexistent folder",
 			folder: "testdata/i-dont-exist",
 		},
