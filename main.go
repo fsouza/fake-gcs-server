@@ -6,11 +6,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
@@ -51,38 +53,46 @@ func generateObjectsFromFiles(logger *logrus.Logger, folder string) ([]fakestora
 	var emptyBuckets []string
 	if files, err := ioutil.ReadDir(folder); err == nil {
 		for _, f := range files {
+			if !f.IsDir() {
+				continue
+			}
 			bucketName := f.Name()
 			localBucketPath := filepath.Join(folder, bucketName)
 
-			files, err := ioutil.ReadDir(localBucketPath)
+			bucketObjects, err := objectsFromBucket(localBucketPath, bucketName)
 			if err != nil {
 				logger.WithError(err).Warnf("couldn't read files from %q, skipping (make sure it's a directory)", localBucketPath)
 				continue
 			}
 
-			if len(files) < 1 {
+			if len(bucketObjects) < 1 {
 				emptyBuckets = append(emptyBuckets, bucketName)
 			}
-			for _, f := range files {
-				objectKey := f.Name()
-				localObjectPath := filepath.Join(localBucketPath, objectKey)
-				content, err := ioutil.ReadFile(localObjectPath)
-				if err != nil {
-					logger.WithError(err).Warnf("couldn't read file %q, skipping", localObjectPath)
-					continue
-				}
-
-				object := fakestorage.Object{
-					BucketName: bucketName,
-					Name:       objectKey,
-					Content:    content,
-				}
-				objects = append(objects, object)
-			}
+			objects = append(objects, bucketObjects...)
 		}
 	}
 	if len(objects) == 0 && len(emptyBuckets) == 0 {
 		logger.Infof("couldn't load any objects or buckets from %q, starting empty", folder)
 	}
 	return objects, emptyBuckets
+}
+
+func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object, error) {
+	var objects []fakestorage.Object
+	err := filepath.Walk(localBucketPath, func(path string, info os.FileInfo, err error) error {
+		if info.Mode().IsRegular() {
+			objectKey := strings.TrimLeft(strings.Replace(path, localBucketPath, "", 1), "/")
+			fileContent, err := ioutil.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("could not read file %q: %v", path, err)
+			}
+			objects = append(objects, fakestorage.Object{
+				BucketName: bucketName,
+				Name:       objectKey,
+				Content:    fileContent,
+			})
+		}
+		return nil
+	})
+	return objects, err
 }

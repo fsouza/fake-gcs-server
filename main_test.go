@@ -57,18 +57,18 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			expectedObjects: []fakestorage.Object{
 				{
 					BucketName: "some-bucket",
-					Name:       "a/b/c/d/f/e/f/object1.txt",
-					Content:    []byte("this is object 1"),
+					Name:       "a/b/c/d/e/f/object1.txt",
+					Content:    []byte("this is object 1\n"),
 				},
 				{
 					BucketName: "some-bucket",
-					Name:       "a/b/c/d/f/e/f/object2.txt",
-					Content:    []byte("this is object 2"),
+					Name:       "a/b/c/d/e/f/object2.txt",
+					Content:    []byte("this is object 2\n"),
 				},
 				{
 					BucketName: "some-bucket",
 					Name:       "root-object.txt",
-					Content:    []byte("r00t"),
+					Content:    []byte("r00t\n"),
 				},
 			},
 		},
