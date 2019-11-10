@@ -18,3 +18,5 @@ snapshot:
   name_template: "{{ .Tag }}-next"
 changelog:
   sort: asc
+  exclude:
+    - '^Merge'
