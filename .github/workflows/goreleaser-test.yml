@@ -1,5 +1,10 @@
 name: goreleaser-test
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - .goreleaser.yml
   pull_request:
     paths:
       - .goreleaser.yml
