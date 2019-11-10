@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package backend proides the backends used by fake-gcs-server.
 package backend
 
 // Storage is the generic interface for implementing the backend storage of the server

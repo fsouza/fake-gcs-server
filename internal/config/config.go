@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package config provides utilities for managing fake-gcs-server's
+// configuration using command line flags.
 package config
 
 import (
