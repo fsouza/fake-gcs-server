@@ -5,6 +5,8 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -17,7 +19,7 @@ import (
 
 func TestMain(m *testing.M) {
 	const emptyBucketDir = "testdata/basic/empty-bucket"
-	err := os.Mkdir(emptyBucketDir, 0755)
+	err := ensureEmptyDir(emptyBucketDir)
 	if err != nil {
 		panic(err)
 	}
@@ -125,6 +127,27 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ensureEmptyDir(dirname string) error {
+	err := os.Mkdir(dirname, 0755)
+	if err != nil {
+		dir, direrr := os.Open(dirname)
+		if direrr != nil {
+			return fmt.Errorf("cannot create empty dir %q: mkdir failed with %v. open failed with %v", dirname, err, direrr)
+		}
+		defer dir.Close()
+
+		_, direrr = dir.Readdirnames(1)
+		if direrr == io.EOF {
+			return nil
+		}
+		if direrr != nil {
+			return fmt.Errorf("cannot create empty dir %q: mkdir failed with %v. readdir failed with %v", dirname, err, direrr)
+		}
+		return fmt.Errorf("cannot create empty dir %q: it already exists and is not empty", dirname)
+	}
+	return nil
 }
 
 func discardLogger() *logrus.Logger {
