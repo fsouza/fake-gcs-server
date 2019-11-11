@@ -141,6 +141,7 @@ func encodedMd5Hash(content []byte) string {
 func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	_, params, err := mime.ParseMediaType(r.Header.Get(contentTypeHeader))
+
 	if err != nil {
 		http.Error(w, "invalid Content-Type header", http.StatusBadRequest)
 		return
@@ -169,6 +170,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	}
 
 	objName := r.URL.Query().Get("name")
+	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	if objName == "" {
 		objName = metadata.Name
 	}
@@ -180,6 +182,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		ContentType: contentType,
 		Crc32c:      encodedCrc32cChecksum(content),
 		Md5Hash:     encodedMd5Hash(content),
+		ACL:         getObjectACL(predefinedACL),
 	}
 	err = s.createObject(obj)
 	if err != nil {
@@ -192,6 +195,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 
 func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	objName := r.URL.Query().Get("name")
+	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	if objName == "" {
 		metadata, err := loadMetadata(r.Body)
 		if err != nil {
@@ -203,6 +207,7 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 	obj := Object{
 		BucketName: bucketName,
 		Name:       objName,
+		ACL:        getObjectACL(predefinedACL),
 	}
 	uploadID, err := generateUploadID()
 	if err != nil {
