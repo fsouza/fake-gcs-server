@@ -380,7 +380,7 @@ func TestServiceClientListObjects(t *testing.T) {
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		server.CreateBucket("empty-bucket")
+		server.CreateBucket("empty-bucket", false)
 		tests := []struct {
 			testCase         string
 			bucketName       string
@@ -517,7 +517,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		server.CreateBucket("empty-bucket")
+		server.CreateBucket("empty-bucket", false)
 		tests := []struct {
 			testCase   string
 			bucketName string

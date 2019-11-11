@@ -40,7 +40,7 @@ func main() {
 	}
 	logger.Infof("server started at %s", server.URL())
 	for _, bucketName := range emptyBuckets {
-		server.CreateBucket(bucketName)
+		server.CreateBucket(bucketName, false)
 	}
 
 	ch := make(chan os.Signal, 1)

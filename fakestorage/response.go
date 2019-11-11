@@ -26,23 +26,32 @@ func newListBucketsResponse(bucketNames []string) listResponse {
 	}
 	sort.Strings(bucketNames)
 	for i, name := range bucketNames {
-		resp.Items[i] = newBucketResponse(name)
+		resp.Items[i] = newBucketResponse(name, false)
 	}
 	return resp
 }
 
 type bucketResponse struct {
-	Kind string `json:"kind"`
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	Kind       string            `json:"kind"`
+	ID         string            `json:"id"`
+	Name       string            `json:"name"`
+	Versioning *bucketVersioning `json:"versioning,omitempty"`
 }
 
-func newBucketResponse(bucketName string) bucketResponse {
-	return bucketResponse{
+type bucketVersioning struct {
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+func newBucketResponse(bucketName string, versioningEnabled bool) (br bucketResponse) {
+	br = bucketResponse{
 		Kind: "storage#bucket",
 		ID:   bucketName,
 		Name: bucketName,
 	}
+	if versioningEnabled {
+		br.Versioning = &bucketVersioning{true}
+	}
+	return
 }
 
 func newListObjectsResponse(objs []Object, prefixes []string) listResponse {
