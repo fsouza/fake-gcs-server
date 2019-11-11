@@ -79,8 +79,7 @@ func newObjectResponse(obj Object) objectResponse {
 		ContentType:     obj.ContentType,
 		ContentEncoding: obj.ContentEncoding,
 		Crc32c:          obj.Crc32c,
-		//ACL:         string(obj.ACL),
-		Md5Hash: obj.Md5Hash,
+		Md5Hash:         obj.Md5Hash,
 	}
 }
 
