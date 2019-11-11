@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
 )
 
@@ -60,6 +61,7 @@ func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
+	predefinedAcl := r.URL.Query().Get("predefinedAcl")
 	if name == "" {
 		http.Error(w, "name is required for simple uploads", http.StatusBadRequest)
 		return
@@ -76,6 +78,7 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		ContentType: r.Header.Get(contentTypeHeader),
 		Crc32c:      encodedCrc32cChecksum(data),
 		Md5Hash:     encodedMd5Hash(data),
+		ACL:         getObjectAcl(predefinedAcl),
 	}
 	err = s.createObject(obj)
 	if err != nil {
@@ -84,6 +87,24 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
+}
+
+func getObjectAcl(predefinedAcl string) []storage.ACLRule {
+	if predefinedAcl == "publicRead" {
+		return []storage.ACLRule{
+			{
+				Entity: "allUsers",
+				Role:   "READER",
+			},
+		}
+	} else {
+		return []storage.ACLRule{
+			{
+				Entity: "projectOwner",
+				Role:   "OWNER",
+			},
+		}
+	}
 }
 
 var crc32cTable = crc32.MakeTable(crc32.Castagnoli)

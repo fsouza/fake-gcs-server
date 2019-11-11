@@ -12,7 +12,7 @@ type Object struct {
 	Content     []byte
 	Crc32c      string
 	Md5Hash     string
-	ACL         string
+	ACL         []byte
 }
 
 // ID is useful for comparing objects

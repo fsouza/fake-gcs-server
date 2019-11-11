@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sort"
 
-	cloudstorage "cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/storage/v1"
 )
@@ -78,8 +77,8 @@ func newObjectResponse(obj Object) objectResponse {
 		Size:        int64(len(obj.Content)),
 		ContentType: obj.ContentType,
 		Crc32c:      obj.Crc32c,
-		ACL:         string(obj.ACL),
-		Md5Hash:     obj.Md5Hash,
+		//ACL:         string(obj.ACL),
+		Md5Hash: obj.Md5Hash,
 	}
 }
 
@@ -88,19 +87,22 @@ type aclListResponse struct {
 }
 
 func newACLListResponse(obj Object) aclListResponse {
+	aclItems := make([]*storage.ObjectAccessControl, len(obj.ACL))
+	for idx, aclRule := range obj.ACL {
+		aclItems[idx] = &storage.ObjectAccessControl{
+			Bucket: obj.BucketName,
+			Entity: string(aclRule.Entity),
+			Object: obj.Name,
+			Role:   string(aclRule.Role),
+		}
+	}
+
 	return aclListResponse{
 		&storage.ObjectAccessControls{
 			ServerResponse: googleapi.ServerResponse{
 				HTTPStatusCode: http.StatusOK,
 			},
-			Items: []*storage.ObjectAccessControl{
-				{
-					Bucket: obj.BucketName,
-					Entity: string(obj.ACL),
-					Object: obj.Name,
-					Role:   string(cloudstorage.RoleReader),
-				},
-			},
+			Items: aclItems,
 		},
 	}
 }
