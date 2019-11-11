@@ -222,7 +222,7 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !isAclPublic(acl) {
+	if !isACLPublic(acl) {
 		t.Errorf("wrong acl\ngot %+v", acl)
 	}
 	if string(obj.Content) != data {
@@ -342,7 +342,7 @@ func TestParseContentRange(t *testing.T) {
 	}
 }
 
-func isAclPublic(acl []storage.ACLRule) bool {
+func isACLPublic(acl []storage.ACLRule) bool {
 	for _, entry := range acl {
 		if entry.Entity == storage.AllUsers && entry.Role == storage.RoleReader {
 			return true

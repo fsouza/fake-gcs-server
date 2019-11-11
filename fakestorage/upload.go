@@ -61,7 +61,7 @@ func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
-	predefinedAcl := r.URL.Query().Get("predefinedAcl")
+	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	if name == "" {
 		http.Error(w, "name is required for simple uploads", http.StatusBadRequest)
 		return
@@ -78,7 +78,7 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		ContentType: r.Header.Get(contentTypeHeader),
 		Crc32c:      encodedCrc32cChecksum(data),
 		Md5Hash:     encodedMd5Hash(data),
-		ACL:         getObjectAcl(predefinedAcl),
+		ACL:         getObjectACL(predefinedACL),
 	}
 	err = s.createObject(obj)
 	if err != nil {
@@ -89,21 +89,21 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 	json.NewEncoder(w).Encode(obj)
 }
 
-func getObjectAcl(predefinedAcl string) []storage.ACLRule {
-	if predefinedAcl == "publicRead" {
+func getObjectACL(predefinedACL string) []storage.ACLRule {
+	if predefinedACL == "publicRead" {
 		return []storage.ACLRule{
 			{
 				Entity: "allUsers",
 				Role:   "READER",
 			},
 		}
-	} else {
-		return []storage.ACLRule{
-			{
-				Entity: "projectOwner",
-				Role:   "OWNER",
-			},
-		}
+	}
+
+	return []storage.ACLRule{
+		{
+			Entity: "projectOwner",
+			Role:   "OWNER",
+		},
 	}
 }
 
