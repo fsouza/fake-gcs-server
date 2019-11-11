@@ -12,71 +12,93 @@ import (
 
 // StorageMemory is an implementation of the backend storage that stores data in memory
 type StorageMemory struct {
-	buckets map[string][]Object
+	buckets map[string]bucketInMemory
 	mtx     sync.RWMutex
+}
+
+type bucketInMemory struct {
+	Bucket
+	objects []Object
+}
+
+func newBucketInMemory(name string, versioningEnabled bool) bucketInMemory {
+	return bucketInMemory{Bucket{name, versioningEnabled}, []Object{}}
+}
+
+func (bm *bucketInMemory) addObject(object Object) {
+	bm.objects = append(bm.objects, object)
 }
 
 // NewStorageMemory creates an instance of StorageMemory
 func NewStorageMemory(objects []Object) Storage {
 	s := &StorageMemory{
-		buckets: make(map[string][]Object),
+		buckets: make(map[string]bucketInMemory),
 	}
 	for _, o := range objects {
-		s.buckets[o.BucketName] = append(s.buckets[o.BucketName], o)
+		s.CreateBucket(o.BucketName, false)
+		bucket := s.buckets[o.BucketName]
+		bucket.addObject(o)
+		s.buckets[o.BucketName] = bucket
 	}
 	return s
 }
-
-// type bucketInMemory struct {
-// 	Bucket
-// 	objects []Object
-// }
-
-// func
 
 // CreateBucket creates a bucket
 func (s *StorageMemory) CreateBucket(name string, versioningEnabled bool) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	if _, ok := s.buckets[name]; !ok {
-		s.buckets[name] = nil
+	bucket, err := s.getBucketInMemory(name)
+	if err == nil {
+		if bucket.VersioningEnabled != versioningEnabled {
+			return fmt.Errorf("a bucket named %s already exists, but with different properties", name)
+		}
+		return nil
 	}
+	s.buckets[name] = newBucketInMemory(name, versioningEnabled)
 	return nil
 }
 
 // ListBuckets lists buckets
 func (s *StorageMemory) ListBuckets() ([]Bucket, error) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 	buckets := []Bucket{}
 	for bucket := range s.buckets {
-		buckets = append(buckets, Bucket{Name: bucket})
+		buckets = append(buckets, Bucket{s.buckets[bucket].Name, s.buckets[bucket].VersioningEnabled})
 	}
 	return buckets, nil
 }
 
 // GetBucket checks if a bucket exists
 func (s *StorageMemory) GetBucket(name string) (Bucket, error) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+	bucketInMemory, err := s.getBucketInMemory(name)
+	return Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled}, err
+}
 
-	if _, ok := s.buckets[name]; !ok {
-		return Bucket{}, fmt.Errorf("no bucket named %s", name)
+func (s *StorageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
+	if bucketInMemory, found := s.buckets[name]; found {
+		return bucketInMemory, nil
 	}
-	return Bucket{Name: name}, nil
+	return bucketInMemory{}, fmt.Errorf("no bucket named %s", name)
 }
 
 // CreateObject stores an object
 func (s *StorageMemory) CreateObject(obj Object) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-
+	bucketInMemory, err := s.getBucketInMemory(obj.BucketName)
+	if err != nil {
+		bucketInMemory = newBucketInMemory(obj.BucketName, false)
+	}
 	index := s.findObject(obj)
 	if index < 0 {
-		s.buckets[obj.BucketName] = append(s.buckets[obj.BucketName], obj)
+		bucketInMemory.addObject(obj)
 	} else {
-		s.buckets[obj.BucketName][index] = obj
+		bucketInMemory.objects[index] = obj
 	}
+	s.buckets[obj.BucketName] = bucketInMemory
 	return nil
 }
 
@@ -86,7 +108,7 @@ func (s *StorageMemory) CreateObject(obj Object) error {
 // It doesn't lock the mutex, callers must lock the mutex before calling this
 // method.
 func (s *StorageMemory) findObject(obj Object) int {
-	for i, o := range s.buckets[obj.BucketName] {
+	for i, o := range s.buckets[obj.BucketName].objects {
 		if obj.ID() == o.ID() {
 			return i
 		}
@@ -98,34 +120,41 @@ func (s *StorageMemory) findObject(obj Object) int {
 func (s *StorageMemory) ListObjects(bucketName string) ([]Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
-	objects, ok := s.buckets[bucketName]
-	if !ok {
-		return nil, errors.New("bucket not found")
+	bucketInMemory, err := s.getBucketInMemory(bucketName)
+	if err != nil {
+		return []Object{}, err
 	}
-	return objects, nil
+	return bucketInMemory.objects, nil
 }
 
 // GetObject get an object by bucket and name
 func (s *StorageMemory) GetObject(bucketName, objectName string) (Object, error) {
-	obj := Object{BucketName: bucketName, Name: objectName}
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
+	obj := Object{BucketName: bucketName, Name: objectName}
 	index := s.findObject(obj)
 	if index < 0 {
 		return obj, errors.New("object not found")
 	}
-	return s.buckets[bucketName][index], nil
+	return s.buckets[bucketName].objects[index], nil
 }
 
 // DeleteObject deletes an object by bucket and name
 func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	bucketInMemory, err := s.getBucketInMemory(bucketName)
+	if err != nil {
+		return err
+	}
 	obj := Object{BucketName: bucketName, Name: objectName}
 	index := s.findObject(obj)
 	if index < 0 {
 		return fmt.Errorf("no such object in bucket %s: %s", bucketName, objectName)
 	}
-	bucket := s.buckets[obj.BucketName]
-	bucket[index] = bucket[len(bucket)-1]
-	s.buckets[obj.BucketName] = bucket[:len(bucket)-1]
+	objects := bucketInMemory.objects
+	objects[index] = objects[len(objects)-1]
+	bucketInMemory.objects = objects[:len(objects)-1]
+	s.buckets[obj.BucketName] = bucketInMemory
 	return nil
 }

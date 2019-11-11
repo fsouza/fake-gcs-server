@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -72,6 +73,7 @@ func TestObjectCRUD(t *testing.T) {
 		// Create in non-existent case
 		noError(t, storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}))
 		// Get in existent case
+		t.Logf("%v", storage)
 		obj, err := storage.GetObject(bucketName, objectName)
 		noError(t, err)
 		if obj.BucketName != bucketName {
@@ -121,36 +123,64 @@ func TestObjectCRUD(t *testing.T) {
 }
 
 func TestBucketCreateGetList(t *testing.T) {
-	const bucketName = "prod-bucket"
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
-		_, err := storage.GetBucket(bucketName)
-		if err == nil {
-			t.Fatal("bucket exists before being created")
-		}
 		buckets, err := storage.ListBuckets()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if len(buckets) != 0 {
-			t.Fatalf("more than zero buckets found: %d", len(buckets))
+			t.Fatalf("more than zero buckets found: %d, and expecting zero when starting the test", len(buckets))
 		}
-		err = storage.CreateBucket(bucketName, false)
+		bucketsToTest := []Bucket{
+			{"prod-bucket", false},
+			{"prod-bucket-with-versioning", true},
+		}
+		for i, bucket := range bucketsToTest {
+			_, err := storage.GetBucket(bucket.Name)
+			if err == nil {
+				t.Fatalf("bucket %s, exists before being created", bucket.Name)
+			}
+			err = storage.CreateBucket(bucket.Name, bucket.VersioningEnabled)
+			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && bucket.VersioningEnabled {
+				if err == nil {
+					t.Fatal("fs storage should not accept creating buckets with versioning, but it's not failing")
+				}
+				continue
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			bucketFromStorage, err := storage.GetBucket(bucket.Name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bucketFromStorage != bucket {
+				t.Errorf("bucket %v does not have the expected props after retrieving. Expected %v", bucketFromStorage, bucket)
+			}
+			buckets, err = storage.ListBuckets()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(buckets) != i+1 {
+				t.Errorf("number of buckets does not match the times we have lopped. Expected %d, found %d", i, len(buckets))
+			}
+			if buckets[i].Name != bucket.Name {
+				t.Errorf("wrong bucket name; expected %s, got %s", bucket.Name, buckets[i].Name)
+			}
+		}
+	})
+}
+func TestBucketDuplication(t *testing.T) {
+	const bucketName = "prod-bucket"
+	testForStorageBackends(t, func(t *testing.T, storage Storage) {
+		err := storage.CreateBucket(bucketName, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = storage.GetBucket(bucketName)
-		if err != nil {
-			t.Fatal(err)
-		}
-		buckets, err = storage.ListBuckets()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(buckets) != 1 {
-			t.Fatalf("one bucket not found after creating it, found: %d", len(buckets))
-		}
-		if buckets[0].Name != bucketName {
-			t.Fatalf("wrong bucket name; expected %s, got %s", bucketName, buckets[0].Name)
+
+		err = storage.CreateBucket(bucketName, true)
+		if err == nil {
+			t.Fatal("we were expecting a bucket duplication error")
 		}
 	})
 }

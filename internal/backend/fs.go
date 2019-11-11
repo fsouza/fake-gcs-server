@@ -49,7 +49,7 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 // CreateBucket creates a bucket
 func (s *StorageFS) CreateBucket(name string, versioningEnabled bool) error {
 	if versioningEnabled {
-		return fmt.Errorf("fs storage type does not support versioning yet")
+		return fmt.Errorf("not implemented: fs storage type does not support versioning yet")
 	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
