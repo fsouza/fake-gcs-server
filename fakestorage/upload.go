@@ -26,7 +26,8 @@ import (
 const contentTypeHeader = "Content-Type"
 
 type multipartMetadata struct {
-	Name string `json:"name"`
+	ContentEncoding string `json:"contentEncoding"`
+	Name            string `json:"name"`
 }
 
 type contentRange struct {
@@ -176,13 +177,14 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	}
 
 	obj := Object{
-		BucketName:  bucketName,
-		Name:        objName,
-		Content:     content,
-		ContentType: contentType,
-		Crc32c:      encodedCrc32cChecksum(content),
-		Md5Hash:     encodedMd5Hash(content),
-		ACL:         getObjectACL(predefinedACL),
+		BucketName:      bucketName,
+		Name:            objName,
+		Content:         content,
+		ContentType:     contentType,
+		ContentEncoding: metadata.ContentEncoding,
+		Crc32c:          encodedCrc32cChecksum(content),
+		Md5Hash:         encodedMd5Hash(content),
+		ACL:             getObjectACL(predefinedACL),
 	}
 	err = s.createObject(obj)
 	if err != nil {
