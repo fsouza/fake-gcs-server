@@ -57,19 +57,21 @@ func newListObjectsResponse(objs []Object, prefixes []string) listResponse {
 }
 
 type objectResponse struct {
-	Kind            string `json:"kind"`
-	Name            string `json:"name"`
-	ID              string `json:"id"`
-	Bucket          string `json:"bucket"`
-	Size            int64  `json:"size,string"`
-	ContentType     string `json:"contentType,omitempty"`
-	ContentEncoding string `json:"contentEncoding,omitempty"`
-	Crc32c          string `json:"crc32c,omitempty"`
-	ACL             string `json:"acl,omitempty"`
-	Md5Hash         string `json:"md5hash,omitempty"`
+	Kind            string                         `json:"kind"`
+	Name            string                         `json:"name"`
+	ID              string                         `json:"id"`
+	Bucket          string                         `json:"bucket"`
+	Size            int64                          `json:"size,string"`
+	ContentType     string                         `json:"contentType,omitempty"`
+	ContentEncoding string                         `json:"contentEncoding,omitempty"`
+	Crc32c          string                         `json:"crc32c,omitempty"`
+	ACL             []*storage.ObjectAccessControl `json:"acl,omitempty"`
+	Md5Hash         string                         `json:"md5hash,omitempty"`
 }
 
 func newObjectResponse(obj Object) objectResponse {
+	acl := getAccessControlsListFromObject(obj)
+
 	return objectResponse{
 		Kind:            "storage#object",
 		ID:              obj.id(),
@@ -80,6 +82,7 @@ func newObjectResponse(obj Object) objectResponse {
 		ContentEncoding: obj.ContentEncoding,
 		Crc32c:          obj.Crc32c,
 		Md5Hash:         obj.Md5Hash,
+		ACL:             acl,
 	}
 }
 
@@ -88,15 +91,11 @@ type aclListResponse struct {
 }
 
 func newACLListResponse(obj Object) aclListResponse {
-	aclItems := make([]*storage.ObjectAccessControl, len(obj.ACL))
-	for idx, aclRule := range obj.ACL {
-		aclItems[idx] = &storage.ObjectAccessControl{
-			Bucket: obj.BucketName,
-			Entity: string(aclRule.Entity),
-			Object: obj.Name,
-			Role:   string(aclRule.Role),
-		}
+	if len(obj.ACL) == 0 {
+		return aclListResponse{}
 	}
+
+	aclItems := getAccessControlsListFromObject(obj)
 
 	return aclListResponse{
 		&storage.ObjectAccessControls{
@@ -106,6 +105,19 @@ func newACLListResponse(obj Object) aclListResponse {
 			Items: aclItems,
 		},
 	}
+}
+
+func getAccessControlsListFromObject(obj Object) []*storage.ObjectAccessControl {
+	aclItems := make([]*storage.ObjectAccessControl, len(obj.ACL))
+	for idx, aclRule := range obj.ACL {
+		aclItems[idx] = &storage.ObjectAccessControl{
+			Bucket: obj.BucketName,
+			Entity: string(aclRule.Entity),
+			Object: obj.Name,
+			Role:   string(aclRule.Role),
+		}
+	}
+	return aclItems
 }
 
 type rewriteResponse struct {
