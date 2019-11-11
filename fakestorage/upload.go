@@ -26,6 +26,7 @@ import (
 const contentTypeHeader = "Content-Type"
 
 type multipartMetadata struct {
+	ContentType     string `json:"contentType"`
 	ContentEncoding string `json:"contentEncoding"`
 	Name            string `json:"name"`
 }
@@ -63,6 +64,7 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if name == "" {
 		http.Error(w, "name is required for simple uploads", http.StatusBadRequest)
 		return
@@ -73,13 +75,14 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		return
 	}
 	obj := Object{
-		BucketName:  bucketName,
-		Name:        name,
-		Content:     data,
-		ContentType: r.Header.Get(contentTypeHeader),
-		Crc32c:      encodedCrc32cChecksum(data),
-		Md5Hash:     encodedMd5Hash(data),
-		ACL:         getObjectACL(predefinedACL),
+		BucketName:      bucketName,
+		Name:            name,
+		Content:         data,
+		ContentType:     r.Header.Get(contentTypeHeader),
+		ContentEncoding: contentEncoding,
+		Crc32c:          encodedCrc32cChecksum(data),
+		Md5Hash:         encodedMd5Hash(data),
+		ACL:             getObjectACL(predefinedACL),
 	}
 	err = s.createObject(obj)
 	if err != nil {
@@ -157,6 +160,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	for ; err == nil; part, err = reader.NextPart() {
 		if metadata == nil {
 			metadata, err = loadMetadata(part)
+			contentType = metadata.ContentType
 		} else {
 			contentType = part.Header.Get(contentTypeHeader)
 			content, err = loadContent(part)
@@ -198,6 +202,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	objName := r.URL.Query().Get("name")
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if objName == "" {
 		metadata, err := loadMetadata(r.Body)
 		if err != nil {
@@ -207,9 +212,10 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 		objName = metadata.Name
 	}
 	obj := Object{
-		BucketName: bucketName,
-		Name:       objName,
-		ACL:        getObjectACL(predefinedACL),
+		BucketName:      bucketName,
+		Name:            objName,
+		ContentEncoding: contentEncoding,
+		ACL:             getObjectACL(predefinedACL),
 	}
 	uploadID, err := generateUploadID()
 	if err != nil {

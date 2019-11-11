@@ -191,7 +191,8 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 
 	const data = "some nice content"
 	const contentType = "text/plain"
-	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?predefinedAcl=publicRead&uploadType=media&name=some/nice/object.txt", strings.NewReader(data))
+	const contentEncoding = "gzip"
+	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?predefinedAcl=publicRead&uploadType=media&name=some/nice/object.txt&contentEncoding="+contentEncoding, strings.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,6 +216,15 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 	obj, err := server.GetObject("other-bucket", "some/nice/object.txt")
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	attrs, err := server.Client().Bucket("other-bucket").Object("some/nice/object.txt").Attrs(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if attrs.ContentEncoding != contentEncoding {
+		t.Errorf("wrong contentEncoding\nwant %q\ngot %q", contentEncoding, attrs.ContentEncoding)
 	}
 
 	acl, err := server.Client().Bucket("other-bucket").Object("some/nice/object.txt").ACL().List(context.Background())
