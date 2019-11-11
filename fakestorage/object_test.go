@@ -31,21 +31,23 @@ func uint32Checksum(b []byte) uint32 {
 
 func TestServerClientObjectAttrs(t *testing.T) {
 	const (
-		bucketName  = "some-bucket"
-		objectName  = "img/hi-res/party-01.jpg"
-		content     = "some nice content"
-		contentType = "text/plain; charset=utf-8"
+		bucketName      = "some-bucket"
+		objectName      = "img/hi-res/party-01.jpg"
+		content         = "some nice content"
+		contentType     = "text/plain; charset=utf-8"
+		contentEncoding = "gzip"
 	)
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
 	objs := []Object{
 		{
-			BucketName:  bucketName,
-			Name:        objectName,
-			Content:     []byte(content),
-			ContentType: contentType,
-			Crc32c:      encodedChecksum(uint32ToBytes(checksum)),
-			Md5Hash:     encodedHash(hash),
+			BucketName:      bucketName,
+			Name:            objectName,
+			Content:         []byte(content),
+			ContentType:     contentType,
+			ContentEncoding: contentEncoding,
+			Crc32c:          encodedChecksum(uint32ToBytes(checksum)),
+			Md5Hash:         encodedHash(hash),
 		},
 	}
 
@@ -67,6 +69,9 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		}
 		if attrs.ContentType != contentType {
 			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
+		}
+		if attrs.ContentEncoding != contentEncoding {
+			t.Errorf("wrong content encoding\nwant %q\ngot  %q", contentEncoding, attrs.ContentEncoding)
 		}
 		if attrs.CRC32C != checksum {
 			t.Errorf("wrong checksum returned\nwant %d\ngot   %d", checksum, attrs.CRC32C)

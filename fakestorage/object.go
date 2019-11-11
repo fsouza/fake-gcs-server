@@ -19,10 +19,11 @@ import (
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName  string `json:"-"`
-	Name        string `json:"name"`
-	ContentType string `json:"contentType"`
-	Content     []byte `json:"-"`
+	BucketName      string `json:"-"`
+	Name            string `json:"name"`
+	ContentType     string `json:"contentType"`
+	ContentEncoding string `json:"contentEncoding"`
+	Content         []byte `json:"-"`
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string            `json:"crc32c,omitempty"`
 	Md5Hash string            `json:"md5hash,omitempty"`
@@ -99,13 +100,14 @@ func toBackendObjects(objects []Object) []backend.Object {
 	for _, o := range objects {
 		acl, _ := json.Marshal(o.ACL)
 		backendObjects = append(backendObjects, backend.Object{
-			BucketName:  o.BucketName,
-			Name:        o.Name,
-			Content:     o.Content,
-			ContentType: o.ContentType,
-			Crc32c:      o.Crc32c,
-			Md5Hash:     o.Md5Hash,
-			ACL:         acl,
+			BucketName:      o.BucketName,
+			Name:            o.Name,
+			Content:         o.Content,
+			ContentType:     o.ContentType,
+			ContentEncoding: o.ContentEncoding,
+			Crc32c:          o.Crc32c,
+			Md5Hash:         o.Md5Hash,
+			ACL:             acl,
 		})
 	}
 	return backendObjects
@@ -117,13 +119,14 @@ func fromBackendObjects(objects []backend.Object) []Object {
 		var acl []storage.ACLRule
 		_ = json.Unmarshal(o.ACL, &acl)
 		backendObjects = append(backendObjects, Object{
-			BucketName:  o.BucketName,
-			Name:        o.Name,
-			Content:     o.Content,
-			ContentType: o.ContentType,
-			Crc32c:      o.Crc32c,
-			Md5Hash:     o.Md5Hash,
-			ACL:         acl,
+			BucketName:      o.BucketName,
+			Name:            o.Name,
+			Content:         o.Content,
+			ContentType:     o.ContentType,
+			ContentEncoding: o.ContentEncoding,
+			Crc32c:          o.Crc32c,
+			Md5Hash:         o.Md5Hash,
+			ACL:             acl,
 		})
 	}
 	return backendObjects

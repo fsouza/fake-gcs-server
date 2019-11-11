@@ -57,26 +57,28 @@ func newListObjectsResponse(objs []Object, prefixes []string) listResponse {
 }
 
 type objectResponse struct {
-	Kind        string `json:"kind"`
-	Name        string `json:"name"`
-	ID          string `json:"id"`
-	Bucket      string `json:"bucket"`
-	Size        int64  `json:"size,string"`
-	ContentType string `json:"contentType,omitempty"`
-	Crc32c      string `json:"crc32c,omitempty"`
-	ACL         string `json:"acl,omitempty"`
-	Md5Hash     string `json:"md5hash,omitempty"`
+	Kind            string `json:"kind"`
+	Name            string `json:"name"`
+	ID              string `json:"id"`
+	Bucket          string `json:"bucket"`
+	Size            int64  `json:"size,string"`
+	ContentType     string `json:"contentType,omitempty"`
+	ContentEncoding string `json:"contentEncoding,omitempty"`
+	Crc32c          string `json:"crc32c,omitempty"`
+	ACL             string `json:"acl,omitempty"`
+	Md5Hash         string `json:"md5hash,omitempty"`
 }
 
 func newObjectResponse(obj Object) objectResponse {
 	return objectResponse{
-		Kind:        "storage#object",
-		ID:          obj.id(),
-		Bucket:      obj.BucketName,
-		Name:        obj.Name,
-		Size:        int64(len(obj.Content)),
-		ContentType: obj.ContentType,
-		Crc32c:      obj.Crc32c,
+		Kind:            "storage#object",
+		ID:              obj.id(),
+		Bucket:          obj.BucketName,
+		Name:            obj.Name,
+		Size:            int64(len(obj.Content)),
+		ContentType:     obj.ContentType,
+		ContentEncoding: obj.ContentEncoding,
+		Crc32c:          obj.Crc32c,
 		//ACL:         string(obj.ACL),
 		Md5Hash: obj.Md5Hash,
 	}
