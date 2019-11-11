@@ -164,8 +164,14 @@ func TestBucketCreateGetList(t *testing.T) {
 			if len(buckets) != i+1 {
 				t.Errorf("number of buckets does not match the times we have lopped. Expected %d, found %d", i, len(buckets))
 			}
-			if buckets[i].Name != bucket.Name {
-				t.Errorf("wrong bucket name; expected %s, got %s", bucket.Name, buckets[i].Name)
+			found := false
+			for _, listedBucket := range buckets {
+				if listedBucket.Name == bucket.Name {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("Bucket we have just created is not part of the bucket listing. Expected %s, results: %v", bucket.Name, buckets)
 			}
 		}
 	})
