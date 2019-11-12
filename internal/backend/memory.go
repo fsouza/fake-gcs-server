@@ -18,15 +18,71 @@ type StorageMemory struct {
 
 type bucketInMemory struct {
 	Bucket
-	objects []Object
+	activeObjects   []Object
+	archivedObjects []Object
 }
 
 func newBucketInMemory(name string, versioningEnabled bool) bucketInMemory {
-	return bucketInMemory{Bucket{name, versioningEnabled}, []Object{}}
+	return bucketInMemory{Bucket{name, versioningEnabled}, []Object{}, []Object{}}
 }
 
-func (bm *bucketInMemory) addObject(object Object) {
-	bm.objects = append(bm.objects, object)
+func (bm *bucketInMemory) addObject(obj Object) {
+	index := findObject(obj, bm.activeObjects)
+	if index >= 0 {
+		if bm.VersioningEnabled {
+			bm.cpToArchive(obj)
+		}
+		bm.activeObjects[index] = obj
+	} else {
+		bm.activeObjects = append(bm.activeObjects, obj)
+	}
+}
+
+func (bm *bucketInMemory) deleteObject(obj Object) {
+	index := findObject(obj, bm.activeObjects)
+	if index < 0 {
+		return
+	}
+	if bm.VersioningEnabled {
+		bm.mvToArchive(obj)
+	} else {
+		bm.deleteFromObjectList(obj, true)
+	}
+}
+
+func (bm *bucketInMemory) cpToArchive(obj Object) {
+	bm.archivedObjects = append(bm.archivedObjects, obj)
+}
+
+func (bm *bucketInMemory) mvToArchive(obj Object) {
+	bm.cpToArchive(obj)
+	bm.deleteFromObjectList(obj, true)
+}
+
+func (bm *bucketInMemory) deleteFromObjectList(obj Object, active bool) {
+	objects := bm.activeObjects
+	if !active {
+		objects = bm.archivedObjects
+	}
+	index := findObject(obj, objects)
+	objects[index] = objects[len(objects)-1]
+	if active {
+		bm.activeObjects = objects[:len(objects)-1]
+	} else {
+		bm.archivedObjects = objects[:len(objects)-1]
+	}
+
+}
+
+// findObject looks for an object in the given list and return the index where it
+// was found, or -1 if the object doesn't exist.
+func findObject(obj Object, objectList []Object) int {
+	for i, o := range objectList {
+		if obj.ID() == o.ID() {
+			return i
+		}
+	}
+	return -1
 }
 
 // NewStorageMemory creates an instance of StorageMemory
@@ -92,28 +148,9 @@ func (s *StorageMemory) CreateObject(obj Object) error {
 	if err != nil {
 		bucketInMemory = newBucketInMemory(obj.BucketName, false)
 	}
-	index := s.findObject(obj)
-	if index < 0 {
-		bucketInMemory.addObject(obj)
-	} else {
-		bucketInMemory.objects[index] = obj
-	}
+	bucketInMemory.addObject(obj)
 	s.buckets[obj.BucketName] = bucketInMemory
 	return nil
-}
-
-// findObject looks for an object in its bucket and return the index where it
-// was found, or -1 if the object doesn't exist.
-//
-// It doesn't lock the mutex, callers must lock the mutex before calling this
-// method.
-func (s *StorageMemory) findObject(obj Object) int {
-	for i, o := range s.buckets[obj.BucketName].objects {
-		if obj.ID() == o.ID() {
-			return i
-		}
-	}
-	return -1
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and delimeter
@@ -124,19 +161,23 @@ func (s *StorageMemory) ListObjects(bucketName string) ([]Object, error) {
 	if err != nil {
 		return []Object{}, err
 	}
-	return bucketInMemory.objects, nil
+	return bucketInMemory.activeObjects, nil
 }
 
 // GetObject get an object by bucket and name
 func (s *StorageMemory) GetObject(bucketName, objectName string) (Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
+	bucketInMemory, err := s.getBucketInMemory(bucketName)
+	if err != nil {
+		return Object{}, err
+	}
 	obj := Object{BucketName: bucketName, Name: objectName}
-	index := s.findObject(obj)
+	index := findObject(obj, bucketInMemory.activeObjects)
 	if index < 0 {
 		return obj, errors.New("object not found")
 	}
-	return s.buckets[bucketName].objects[index], nil
+	return bucketInMemory.activeObjects[index], nil
 }
 
 // GetObjectWithGeneration retrieves an specific version of the object
@@ -146,20 +187,16 @@ func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, g
 
 // DeleteObject deletes an object by bucket and name
 func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
+	obj, err := s.GetObject(bucketName, objectName)
+	if err != nil {
+		return err
+	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
 	if err != nil {
 		return err
 	}
-	obj := Object{BucketName: bucketName, Name: objectName}
-	index := s.findObject(obj)
-	if index < 0 {
-		return fmt.Errorf("no such object in bucket %s: %s", bucketName, objectName)
-	}
-	objects := bucketInMemory.objects
-	objects[index] = objects[len(objects)-1]
-	bucketInMemory.objects = objects[:len(objects)-1]
-	s.buckets[obj.BucketName] = bucketInMemory
+	bucketInMemory.deleteObject(obj)
 	return nil
 }
