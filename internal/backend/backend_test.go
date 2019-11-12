@@ -74,6 +74,104 @@ func TestObjectCRUD(t *testing.T) {
 		noError(t, storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}))
 		// Get in existent case
 		t.Logf("%v", storage)
+		firstObj, err := storage.GetObject(bucketName, objectName)
+		noError(t, err)
+		if firstObj.BucketName != bucketName {
+			t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, firstObj.BucketName)
+		}
+		if firstObj.Name != objectName {
+			t.Errorf("wrong object name\n want %q\ngot  %q", objectName, firstObj.Name)
+		}
+		if firstObj.Crc32c != crc1 {
+			t.Errorf("wrong crc\n want %q\ngot  %q", crc1, firstObj.Crc32c)
+		}
+		if firstObj.Md5Hash != md51 {
+			t.Errorf("wrong md5\n want %q\ngot  %q", md51, firstObj.Md5Hash)
+		}
+		if !bytes.Equal(firstObj.Content, content1) {
+			t.Errorf("wrong object content\n want %q\ngot  %q", content1, firstObj.Content)
+		}
+		// Create (update) in existent case
+		err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content2})
+		noError(t, err)
+		secondObj, err := storage.GetObject(bucketName, objectName)
+		noError(t, err)
+		if secondObj.BucketName != bucketName {
+			t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, secondObj.BucketName)
+		}
+		if secondObj.Name != objectName {
+			t.Errorf("wrong object name\n want %q\ngot  %q", objectName, secondObj.Name)
+		}
+		if !bytes.Equal(secondObj.Content, content2) {
+			t.Errorf("wrong object content\n want %q\ngot  %q", content2, secondObj.Content)
+		}
+		// Get object with the latest generation should behave the same in memory backends
+		secondObj, err = storage.GetObjectWithGeneration(bucketName, objectName, secondObj.Generation)
+		if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
+			shouldError(t, err, "FS storage type does not implement fetch with generation")
+		} else {
+			noError(t, err)
+			if secondObj.BucketName != bucketName {
+				t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, firstObj.BucketName)
+			}
+			if secondObj.Name != objectName {
+				t.Errorf("wrong object name\n want %q\ngot  %q", objectName, firstObj.Name)
+			}
+			if !bytes.Equal(secondObj.Content, content2) {
+				t.Errorf("wrong object content\n want %q\ngot  %q", content2, secondObj.Content)
+			}
+		}
+
+		// Get object against the original generation should fail - versioning is disabled
+		firstObj, err = storage.GetObjectWithGeneration(bucketName, objectName, firstObj.Generation)
+		if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
+			shouldError(t, err, "FS storage type does not implement fetch with generation")
+		} else {
+			shouldError(t, err, "Mem storage type has versioning disabled, so original object not found")
+		}
+
+		// List objects
+		objs, err := storage.ListObjects(bucketName)
+		noError(t, err)
+		if len(objs) != 1 {
+			t.Errorf("wrong number of objects returned\nwant 1\ngot  %d", len(objs))
+		}
+		if objs[0].Name != objectName {
+			t.Errorf("wrong object name\nwant %q\ngot  %q", objectName, objs[0].Name)
+		}
+
+		// Delete in existent case
+		err = storage.DeleteObject(bucketName, objectName)
+		noError(t, err)
+	})
+}
+
+func TestObjectCRUDWithVersioning(t *testing.T) {
+	const bucketName = "prod-bucket"
+	const objectName = "video/hi-res/best_video_1080p.mp4"
+	content1 := []byte("content1")
+	const crc1 = "crc1"
+	const md51 = "md51"
+	content2 := []byte("content2")
+	content3 := []byte("content3")
+	testForStorageBackends(t, func(t *testing.T, storage Storage) {
+		// Get in non-existent case
+		_, err := storage.GetObject(bucketName, objectName)
+		shouldError(t, err, "object found before being created")
+		// Delete in non-existent case
+		err = storage.DeleteObject(bucketName, objectName)
+		shouldError(t, err, "object successfully delete before being created")
+
+		err = storage.CreateBucket(bucketName, true)
+		if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
+			shouldError(t, err, "FS storage type does not implement fetch with generation")
+			return
+		}
+
+		// Create in non-existent case
+		noError(t, storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}))
+		// Get in existent case
+		t.Logf("%v", storage)
 		obj, err := storage.GetObject(bucketName, objectName)
 		noError(t, err)
 		if obj.BucketName != bucketName {
@@ -91,8 +189,9 @@ func TestObjectCRUD(t *testing.T) {
 		if !bytes.Equal(obj.Content, content1) {
 			t.Errorf("wrong object content\n want %q\ngot  %q", content1, obj.Content)
 		}
-		// Create (update) in existent case
-		err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content2})
+		// Create (update) in existent case with explicit generation
+		var generation int64 = 1234
+		err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: generation})
 		noError(t, err)
 		obj, err = storage.GetObject(bucketName, objectName)
 		noError(t, err)
@@ -104,6 +203,25 @@ func TestObjectCRUD(t *testing.T) {
 		}
 		if !bytes.Equal(obj.Content, content2) {
 			t.Errorf("wrong object content\n want %q\ngot  %q", content2, obj.Content)
+		}
+
+		// Override and  with generation
+		err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content3})
+		noError(t, err)
+		obj, err = storage.GetObjectWithGeneration(bucketName, objectName, generation)
+		if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
+			shouldError(t, err, "FS storage type does not implement fetch with generation")
+		} else {
+			noError(t, err)
+			if obj.BucketName != bucketName {
+				t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, obj.BucketName)
+			}
+			if obj.Name != objectName {
+				t.Errorf("wrong object name\n want %q\ngot  %q", objectName, obj.Name)
+			}
+			if !bytes.Equal(obj.Content, content3) {
+				t.Errorf("wrong object content\n want %q\ngot  %q", content3, obj.Content)
+			}
 		}
 
 		// List objects

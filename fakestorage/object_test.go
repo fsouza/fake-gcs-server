@@ -150,6 +150,49 @@ func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 	}
 }
 
+func TestServerClientObjectsAfterOverwriteWithVersioning(t *testing.T) {
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		const (
+			bucketName  = "some-bucket-with-ver"
+			content     = "some nice content"
+			content2    = "some nice content x2"
+			contentType = "text/plain; charset=utf-8"
+		)
+		server.CreateBucket(bucketName, true)
+		originalObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: encodedHash(md5Hash([]byte(content)))}
+		server.CreateObject(originalObj)
+		client := server.Client()
+		objHandle := client.Bucket(bucketName).Object(originalObj.Name)
+		originalObjAttrs, err := objHandle.Attrs(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkObjectAttrs(originalObj, originalObjAttrs, t)
+
+		latestObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content2), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content2)))), Md5Hash: encodedHash(md5Hash([]byte(content2)))}
+		server.CreateObject(latestObj)
+		objHandle = client.Bucket(bucketName).Object(latestObj.Name)
+		latestAttrs, err := objHandle.Attrs(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkObjectAttrs(latestObj, latestAttrs, t)
+
+		objHandle = client.Bucket(bucketName).Object(originalObj.Name).Generation(originalObjAttrs.Generation)
+		originalObjAttrsAfterOverwrite, err := objHandle.Attrs(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		originalObj.Generation = originalObjAttrs.Generation
+		checkObjectAttrs(originalObj, originalObjAttrsAfterOverwrite, t)
+	})
+
+}
+
+// TODO: test when multiple explicit generations of the same object exists
+
+// TODO: test no existent object generation fails
+
 func TestServerClientObjectAttrsErrors(t *testing.T) {
 	objs := []Object{
 		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
@@ -328,6 +371,7 @@ func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 	})
 }
 
+//TODO: test reader against an older generation
 func TestServerClientObjectReaderError(t *testing.T) {
 	objs := []Object{
 		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
@@ -485,6 +529,126 @@ func TestServiceClientListObjects(t *testing.T) {
 	})
 }
 
+// TODO
+// func TestServerClientListWhenMultipleGenerations(t *testing.T) {
+// 	objs := []Object{
+// 		{BucketName: "some-bucket", Name: "img/low-res/party-01.jpg"},
+// 		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
+// 		{BucketName: "some-bucket", Name: "img/low-res/party-02.jpg"},
+// 		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
+// 		{BucketName: "some-bucket", Name: "img/low-res/party-03.jpg"},
+// 		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
+// 		{BucketName: "some-bucket", Name: "img/brand.jpg"},
+// 		{BucketName: "some-bucket", Name: "video/hi-res/some_video_1080p.mp4"},
+// 		{BucketName: "other-bucket", Name: "static/css/style.css"},
+// 	}
+
+// 	runServersTest(t, objs, func(t *testing.T, server *Server) {
+// 		server.CreateBucket("empty-bucket", false)
+// 		tests := []struct {
+// 			testCase         string
+// 			bucketName       string
+// 			query            *storage.Query
+// 			expectedNames    []string
+// 			expectedPrefixes []string
+// 		}{
+// 			{
+// 				"no prefix, no delimiter, multiple objects",
+// 				"some-bucket",
+// 				nil,
+// 				[]string{
+// 					"img/brand.jpg",
+// 					"img/hi-res/party-01.jpg",
+// 					"img/hi-res/party-02.jpg",
+// 					"img/hi-res/party-03.jpg",
+// 					"img/low-res/party-01.jpg",
+// 					"img/low-res/party-02.jpg",
+// 					"img/low-res/party-03.jpg",
+// 					"video/hi-res/some_video_1080p.mp4",
+// 				},
+// 				nil,
+// 			},
+// 			{
+// 				"no prefix, no delimiter, single object",
+// 				"other-bucket",
+// 				nil,
+// 				[]string{"static/css/style.css"},
+// 				nil,
+// 			},
+// 			{
+// 				"no prefix, no delimiter, no objects",
+// 				"empty-bucket",
+// 				nil,
+// 				[]string{},
+// 				nil,
+// 			},
+// 			{
+// 				"filtering prefix only",
+// 				"some-bucket",
+// 				&storage.Query{Prefix: "img/"},
+// 				[]string{
+// 					"img/brand.jpg",
+// 					"img/hi-res/party-01.jpg",
+// 					"img/hi-res/party-02.jpg",
+// 					"img/hi-res/party-03.jpg",
+// 					"img/low-res/party-01.jpg",
+// 					"img/low-res/party-02.jpg",
+// 					"img/low-res/party-03.jpg",
+// 				},
+// 				nil,
+// 			},
+// 			{
+// 				"full prefix",
+// 				"some-bucket",
+// 				&storage.Query{Prefix: "img/brand.jpg"},
+// 				[]string{"img/brand.jpg"},
+// 				nil,
+// 			},
+// 			{
+// 				"filtering prefix and delimiter",
+// 				"some-bucket",
+// 				&storage.Query{Prefix: "img/", Delimiter: "/"},
+// 				[]string{"img/brand.jpg"},
+// 				[]string{"img/hi-res/", "img/low-res/"},
+// 			},
+// 			{
+// 				"filtering prefix, no objects",
+// 				"some-bucket",
+// 				&storage.Query{Prefix: "static/"},
+// 				[]string{},
+// 				nil,
+// 			},
+// 		}
+// 		client := server.Client()
+// 		for _, test := range tests {
+// 			test := test
+// 			t.Run(test.testCase, func(t *testing.T) {
+// 				iter := client.Bucket(test.bucketName).Objects(context.TODO(), test.query)
+// 				var prefixes []string
+// 				names := []string{}
+// 				obj, err := iter.Next()
+// 				for ; err == nil; obj, err = iter.Next() {
+// 					if obj.Name != "" {
+// 						names = append(names, obj.Name)
+// 					}
+// 					if obj.Prefix != "" {
+// 						prefixes = append(prefixes, obj.Prefix)
+// 					}
+// 				}
+// 				if err != iterator.Done {
+// 					t.Fatal(err)
+// 				}
+// 				if !reflect.DeepEqual(names, test.expectedNames) {
+// 					t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
+// 				}
+// 				if !reflect.DeepEqual(prefixes, test.expectedPrefixes) {
+// 					t.Errorf("wrong prefixes returned\nwant %#v\ngot  %#v", test.expectedPrefixes, prefixes)
+// 				}
+// 			})
+// 		}
+// 	})
+// }
+
 func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		iter := server.Client().Bucket("some-bucket").Objects(context.TODO(), nil)
@@ -589,6 +753,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 	})
 }
 
+// TODO: Delete works when bucket with versioning, keeping an archived version
 func TestServerClientObjectDelete(t *testing.T) {
 	const (
 		bucketName = "some-bucket"

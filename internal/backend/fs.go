@@ -134,6 +134,11 @@ func (s *StorageFS) GetObject(bucketName, objectName string) (Object, error) {
 	return s.getObject(bucketName, objectName)
 }
 
+// GetObjectWithGeneration retrieves an specific version of the object. Not implemented
+func (s *StorageFS) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
+	return Object{}, fmt.Errorf("not implemented: fs storage type does not support versioning yet")
+}
+
 func (s *StorageFS) getObject(bucketName, objectName string) (Object, error) {
 	encoded, err := ioutil.ReadFile(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
 	if err != nil {

@@ -13,5 +13,6 @@ type Storage interface {
 	CreateObject(obj Object) error
 	ListObjects(bucketName string) ([]Object, error)
 	GetObject(bucketName, objectName string) (Object, error)
+	GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error)
 	DeleteObject(bucketName, objectName string) error
 }

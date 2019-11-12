@@ -177,6 +177,15 @@ func (s *Server) GetObject(bucketName, objectName string) (Object, error) {
 	return obj, nil
 }
 
+func (s *Server) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
+	backendObj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, generation)
+	if err != nil {
+		return Object{}, err
+	}
+	obj := fromBackendObjects([]backend.Object{backendObj})[0]
+	return obj, nil
+}
+
 func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	bucketName := mux.Vars(r)["bucketName"]
 	prefix := r.URL.Query().Get("prefix")
@@ -201,7 +210,25 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	encoder := json.NewEncoder(w)
-	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	generationStr := r.FormValue("generation")
+	var (
+		obj Object
+		err error
+	)
+	if generationStr != "" {
+		generation, err := strconv.ParseInt(generationStr, 10, 64)
+		if err != nil {
+			fmt.Println(err)
+			errResp := newErrorResponse(http.StatusBadRequest, "Wrong generation ID", nil)
+			w.WriteHeader(http.StatusBadRequest)
+			encoder.Encode(errResp)
+			return
+		}
+		obj, err = s.GetObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
+	} else {
+		obj, err = s.GetObject(vars["bucketName"], vars["objectName"])
+	}
+
 	if err != nil {
 		errResp := newErrorResponse(http.StatusNotFound, "Not Found", nil)
 		w.WriteHeader(http.StatusNotFound)

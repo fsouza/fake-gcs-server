@@ -139,6 +139,11 @@ func (s *StorageMemory) GetObject(bucketName, objectName string) (Object, error)
 	return s.buckets[bucketName].objects[index], nil
 }
 
+// GetObjectWithGeneration retrieves an specific version of the object
+func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
+	return s.GetObject(bucketName, objectName)
+}
+
 // DeleteObject deletes an object by bucket and name
 func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
 	s.mtx.Lock()
