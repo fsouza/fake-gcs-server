@@ -75,13 +75,13 @@ jobs:
       - name: test-python-example
         uses: docker://python:3-alpine
         with:
-          entrypoint: bash
+          entrypoint: sh
           args: ci/run-python-example.sh
 
       - name: test-node-example
         uses: docker://node:10-alpine
         with:
-          entrypoint: bash
+          entrypoint: sh
           args: ci/run-node-example.sh
 
       - name: test-go-example
@@ -89,7 +89,7 @@ jobs:
         env:
           GOROOT: /usr/local/go
         with:
-          entrypoint: bash
+          entrypoint: sh
           args: ci/run-go-example.sh
 
       - name: docker-publish
