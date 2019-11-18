@@ -154,6 +154,12 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+
+	if alt := r.URL.Query().Get("alt"); alt == "media" {
+		s.downloadObject(w, r)
+		return
+	}
+
 	encoder := json.NewEncoder(w)
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {

@@ -84,6 +84,13 @@ func testDownloadObject(t *testing.T, server *Server) {
 			"body {display: none;}",
 		},
 		{
+			"GET: using storage api",
+			http.MethodGet,
+			"https://storage.googleapis.com/storage/v1/b/some-bucket/o/files/txt/text-01.txt?alt=media",
+			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
+			"something",
+		},
+		{
 			"HEAD: bucket in the path",
 			http.MethodHead,
 			"https://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
