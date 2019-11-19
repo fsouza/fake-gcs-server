@@ -186,7 +186,6 @@ func TestServerClientObjectsAfterOverwriteWithVersioning(t *testing.T) {
 		originalObj.Generation = originalObjAttrs.Generation
 		checkObjectAttrs(originalObj, originalObjAttrsAfterOverwrite, t)
 	})
-
 }
 
 // TODO: test when multiple explicit generations of the same object exists

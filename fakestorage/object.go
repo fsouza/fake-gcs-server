@@ -205,11 +205,12 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	encoder := json.NewEncoder(w)
 	generationStr := r.FormValue("generation")
 	var (
-		obj Object
-		err error
+		obj        Object
+		err        error
+		generation int64
 	)
 	if generationStr != "" {
-		generation, err := strconv.ParseInt(generationStr, 10, 64)
+		generation, err = strconv.ParseInt(generationStr, 10, 64)
 		if err != nil {
 			fmt.Println(err)
 			errResp := newErrorResponse(http.StatusBadRequest, "Wrong generation ID", nil)

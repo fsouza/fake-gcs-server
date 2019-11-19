@@ -144,10 +144,8 @@ func TestObjectCRUD(t *testing.T) {
 			}
 			t.Log("get object against the original generation, that should only fail when versioning is disabled or fs backend")
 			firstObj, err = storage.GetObjectWithGeneration(bucketName, objectName, firstObj.Generation)
-			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
-				shouldError(t, err, "FS storage type does not implement fetch with generation")
-			} else if !versioningEnabled {
-				shouldError(t, err, "Mem storage type has versioning disabled, so original object not found")
+			if !versioningEnabled {
+				shouldError(t, err, "versioning disabled, so original object not found")
 			} else {
 				noError(t, err)
 				if firstObj.BucketName != bucketName {
@@ -160,7 +158,6 @@ func TestObjectCRUD(t *testing.T) {
 					t.Errorf("wrong object content\n want %q\ngot  %q", content1, firstObj.Content)
 				}
 			}
-
 			t.Log("list objects")
 			objs, err := storage.ListObjects(bucketName)
 			noError(t, err)
@@ -174,6 +171,25 @@ func TestObjectCRUD(t *testing.T) {
 			t.Log("deleting object")
 			err = storage.DeleteObject(bucketName, objectName)
 			noError(t, err)
+			t.Log("fetching the object should no longer work")
+			_, err = storage.GetObject(bucketName, objectName)
+			shouldError(t, err, "object found after destroying")
+			t.Log("get object by generation should work when versioning is enabled")
+			secondObj, err = storage.GetObjectWithGeneration(bucketName, objectName, secondObj.Generation)
+			if !versioningEnabled {
+				shouldError(t, err, "versioning disabled, so original object not found")
+				return
+			}
+			noError(t, err)
+			if secondObj.BucketName != bucketName {
+				t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, firstObj.BucketName)
+			}
+			if secondObj.Name != objectName {
+				t.Errorf("wrong object name\n want %q\ngot  %q", objectName, firstObj.Name)
+			}
+			if !bytes.Equal(secondObj.Content, content2) {
+				t.Errorf("wrong object content\n want %q\ngot  %q", content2, secondObj.Content)
+			}
 		})
 	}
 }

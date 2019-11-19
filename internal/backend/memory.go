@@ -5,10 +5,10 @@
 package backend
 
 import (
-	"time"
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // StorageMemory is an implementation of the backend storage that stores data in memory
@@ -80,7 +80,6 @@ func (bm *bucketInMemory) deleteFromObjectList(obj Object, active bool) {
 	} else {
 		bm.archivedObjects = objects[:len(objects)-1]
 	}
-
 }
 
 // findObject looks for an object in the given list and return the index where it
@@ -195,12 +194,11 @@ func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, g
 	if generation != 0 {
 		matchGeneration = true
 		obj.Generation = generation
-		listToConsider = append(bucketInMemory.activeObjects, bucketInMemory.archivedObjects...)
+		listToConsider = append(listToConsider, bucketInMemory.archivedObjects...)
 	}
 	index := findObject(obj, listToConsider, matchGeneration)
 	if index < 0 {
 		return obj, errors.New("object not found")
-
 	}
 	return listToConsider[index], nil
 }
@@ -218,5 +216,6 @@ func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
 		return err
 	}
 	bucketInMemory.deleteObject(obj, true)
+	s.buckets[bucketName] = bucketInMemory
 	return nil
 }
