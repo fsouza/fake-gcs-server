@@ -5,7 +5,6 @@
 package backend
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -44,16 +43,48 @@ func testForStorageBackends(t *testing.T, test func(t *testing.T, storage Storag
 	}
 }
 
-func noError(t *testing.T, err error) {
+func noError(t *testing.T, err error, description string) {
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%s should not error, but got: %v", description, err)
 	}
 }
 
-func shouldError(t *testing.T, err error, message string) {
+func shouldError(t *testing.T, err error, description string) {
 	if err == nil {
-		t.Fatal(message)
+		t.Fatalf("%s should error, but error is nil", description)
 	}
+}
+
+func uploadAndCompare(t *testing.T, storage Storage, obj Object, description string) int64 {
+	isFSStorage := reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{})
+	err := storage.CreateObject(obj)
+	if isFSStorage && obj.Generation != 0 {
+		shouldError(t, err, description+" - FS should not support objects generation")
+		obj.Generation = 0
+		err = storage.CreateObject(obj)
+	}
+	noError(t, err, description+" - creating object")
+	activeObj, err := storage.GetObject(obj.BucketName, obj.Name)
+	noError(t, err, description+" - fetching active object")
+	if isFSStorage && activeObj.Generation != 0 {
+		t.Errorf("%s - FS should leave generation empty, as it does not persist it. Value: %d", description, activeObj.Generation)
+	}
+	if !isFSStorage && activeObj.Generation == 0 {
+		t.Errorf("%s - generation is empty, but we expect a unique int", description)
+	}
+	if err := activeObj.compare(obj); err != nil {
+		t.Errorf("%s - object retrieved differs from the created one. Descr: %v", description, err)
+	}
+	objFromGeneration, err := storage.GetObjectWithGeneration(obj.BucketName, obj.Name, activeObj.Generation)
+	if isFSStorage {
+		shouldError(t, err, description+" - FS does not implement fetch with generation")
+	} else {
+		noError(t, err, description+" - fetching object by generation")
+		if err := objFromGeneration.compare(obj); err != nil {
+			t.Errorf("%s - object retrieved differs from the created one. Descr: %v", description, err)
+		}
+	}
+	return activeObj.Generation
 }
 
 func TestObjectCRUD(t *testing.T) {
@@ -77,90 +108,25 @@ func TestObjectCRUD(t *testing.T) {
 				shouldError(t, err, "FS storage type does not implement versioning")
 				return
 			}
-			t.Log("creating the first object on an empty bucket with versioning", versioningEnabled)
-			noError(t, storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}))
-			t.Log("fetching the first object")
-			firstObj, err := storage.GetObject(bucketName, objectName)
-			noError(t, err)
-			if firstObj.BucketName != bucketName {
-				t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, firstObj.BucketName)
-			}
-			if firstObj.Name != objectName {
-				t.Errorf("wrong object name\n want %q\ngot  %q", objectName, firstObj.Name)
-			}
-			if firstObj.Crc32c != crc1 {
-				t.Errorf("wrong crc\n want %q\ngot  %q", crc1, firstObj.Crc32c)
-			}
-			if firstObj.Md5Hash != md51 {
-				t.Errorf("wrong md5\n want %q\ngot  %q", md51, firstObj.Md5Hash)
-			}
-			if !bytes.Equal(firstObj.Content, content1) {
-				t.Errorf("wrong object content\n want %q\ngot  %q", content1, firstObj.Content)
-			}
-			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && firstObj.Generation != 0 {
-				t.Errorf("FS storage type should leave generation empty, as it does not persist it. Value: %d", firstObj.Generation)
-			}
-			if reflect.TypeOf(storage) != reflect.TypeOf(&StorageFS{}) && firstObj.Generation == 0 {
-				t.Errorf("generation is empty, but we expect a unique int")
-			}
 
-			t.Log("create (update) in existent case with explicit generation")
-			var generation int64 = 1234
-			err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: generation})
-			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
-				shouldError(t, err, "FS storage type does not support objects generation")
-				err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: 0})
-			}
-			noError(t, err)
-			secondObj, err := storage.GetObject(bucketName, objectName)
-			t.Log("fetching the new version of the object")
-			noError(t, err)
-			if secondObj.BucketName != bucketName {
-				t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, secondObj.BucketName)
-			}
-			if secondObj.Name != objectName {
-				t.Errorf("wrong object name\n want %q\ngot  %q", objectName, secondObj.Name)
-			}
-			if !bytes.Equal(secondObj.Content, content2) {
-				t.Logf("object we got: %v", secondObj)
-				t.Errorf("wrong object content\n want %q\ngot  %q", content2, secondObj.Content)
-			}
+			initialObject := Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}
+			initialGeneration := uploadAndCompare(t, storage, initialObject, fmt.Sprintf("initial object on an empty bucket with versioning %t", versioningEnabled))
 
-			t.Log("get object with the latest generation should behave the same in memory backends")
-			secondObj, err = storage.GetObjectWithGeneration(bucketName, objectName, generation)
-			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
-				shouldError(t, err, "FS storage type does not implement fetch with generation")
-			} else {
-				noError(t, err)
-				if secondObj.BucketName != bucketName {
-					t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, firstObj.BucketName)
-				}
-				if secondObj.Name != objectName {
-					t.Errorf("wrong object name\n want %q\ngot  %q", objectName, firstObj.Name)
-				}
-				if !bytes.Equal(secondObj.Content, content2) {
-					t.Errorf("wrong object content\n want %q\ngot  %q", content2, secondObj.Content)
-				}
-			}
-			t.Log("get object against the original generation, that should only fail when versioning is disabled or fs backend")
-			firstObj, err = storage.GetObjectWithGeneration(bucketName, objectName, firstObj.Generation)
+			secondVersionWithGeneration := Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: 1234}
+			uploadAndCompare(t, storage, secondVersionWithGeneration, fmt.Sprintf("create (update) in existent case with explicit generation and versioning %t", versioningEnabled))
+
+			initialObjectFromGeneration, err := storage.GetObjectWithGeneration(initialObject.BucketName, initialObject.Name, initialGeneration)
 			if !versioningEnabled {
-				shouldError(t, err, "versioning disabled, so original object not found")
+				shouldError(t, err, "versioning disabled, so initial object not found")
 			} else {
-				noError(t, err)
-				if firstObj.BucketName != bucketName {
-					t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, firstObj.BucketName)
-				}
-				if firstObj.Name != objectName {
-					t.Errorf("wrong object name\n want %q\ngot  %q", objectName, firstObj.Name)
-				}
-				if !bytes.Equal(firstObj.Content, content1) {
-					t.Errorf("wrong object content\n want %q\ngot  %q", content1, firstObj.Content)
+				noError(t, err, "get initial generation - fetching object by generation")
+				if err := initialObjectFromGeneration.compare(initialObject); err != nil {
+					t.Errorf("get initial generation - object retrieved differs from the created one. Descr: %v", err)
 				}
 			}
-			t.Log("list objects")
+
 			objs, err := storage.ListObjects(bucketName)
-			noError(t, err)
+			noError(t, err, "list objects")
 			if len(objs) != 1 {
 				t.Errorf("wrong number of objects returned\nwant 1\ngot  %d", len(objs))
 			}
@@ -168,27 +134,20 @@ func TestObjectCRUD(t *testing.T) {
 				t.Errorf("wrong object name\nwant %q\ngot  %q", objectName, objs[0].Name)
 			}
 
-			t.Log("deleting object")
 			err = storage.DeleteObject(bucketName, objectName)
-			noError(t, err)
-			t.Log("fetching the object should no longer work")
+			noError(t, err, "deleting object")
+
 			_, err = storage.GetObject(bucketName, objectName)
 			shouldError(t, err, "object found after destroying")
-			t.Log("get object by generation should work when versioning is enabled")
-			secondObj, err = storage.GetObjectWithGeneration(bucketName, objectName, secondObj.Generation)
+
+			retrievedObject, err := storage.GetObjectWithGeneration(secondVersionWithGeneration.BucketName, secondVersionWithGeneration.Name, secondVersionWithGeneration.Generation)
 			if !versioningEnabled {
-				shouldError(t, err, "versioning disabled, so original object not found")
+				shouldError(t, err, "versioning disabled, so previous object not found")
 				return
 			}
-			noError(t, err)
-			if secondObj.BucketName != bucketName {
-				t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, firstObj.BucketName)
-			}
-			if secondObj.Name != objectName {
-				t.Errorf("wrong object name\n want %q\ngot  %q", objectName, firstObj.Name)
-			}
-			if !bytes.Equal(secondObj.Content, content2) {
-				t.Errorf("wrong object content\n want %q\ngot  %q", content2, secondObj.Content)
+			noError(t, err, "get object by generation after removal")
+			if err := retrievedObject.compare(secondVersionWithGeneration); err != nil {
+				t.Errorf("get object by generation after removal - object retrieved differs from the created one. Descr: %v", err)
 			}
 		})
 	}
