@@ -4,7 +4,11 @@
 
 package backend
 
-import "cloud.google.com/go/storage"
+import (
+	"fmt"
+
+	"cloud.google.com/go/storage"
+)
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
@@ -24,5 +28,10 @@ type Object struct {
 
 // ID is useful for comparing objects
 func (o *Object) ID() string {
-	return o.BucketName + "/" + o.Name
+	return fmt.Sprintf("%s#%d", o.IDNoGen(), o.Generation)
+}
+
+// IDNoGen does not consider the generation field
+func (o *Object) IDNoGen() string {
+	return fmt.Sprintf("%s/%s", o.BucketName, o.Name)
 }

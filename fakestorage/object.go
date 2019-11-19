@@ -108,13 +108,6 @@ func getCurrentIfZero(date time.Time) time.Time {
 	return date
 }
 
-func getNewGenerationIfZero(generation int64) int64 {
-	if generation == 0 {
-		return time.Now().UnixNano()
-	}
-	return generation
-}
-
 func toBackendObjects(objects []Object) []backend.Object {
 	backendObjects := []backend.Object{}
 	for _, o := range objects {
@@ -130,7 +123,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Created:         getCurrentIfZero(o.Created).Format(time.RFC3339),
 			Deleted:         o.Deleted.Format(time.RFC3339),
 			Updated:         getCurrentIfZero(o.Updated).Format(time.RFC3339),
-			Generation:      getNewGenerationIfZero(o.Generation),
+			Generation:      o.Generation,
 		})
 	}
 	return backendObjects

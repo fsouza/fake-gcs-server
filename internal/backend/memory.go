@@ -5,6 +5,7 @@
 package backend
 
 import (
+	"time"
 	"errors"
 	"fmt"
 	"sync"
@@ -27,10 +28,11 @@ func newBucketInMemory(name string, versioningEnabled bool) bucketInMemory {
 }
 
 func (bm *bucketInMemory) addObject(obj Object) {
-	index := findObject(obj, bm.activeObjects)
+	obj.Generation = getNewGenerationIfZero(obj.Generation)
+	index := findObject(obj, bm.activeObjects, false)
 	if index >= 0 {
 		if bm.VersioningEnabled {
-			bm.cpToArchive(obj)
+			bm.cpToArchive(bm.activeObjects[index])
 		}
 		bm.activeObjects[index] = obj
 	} else {
@@ -38,8 +40,15 @@ func (bm *bucketInMemory) addObject(obj Object) {
 	}
 }
 
-func (bm *bucketInMemory) deleteObject(obj Object) {
-	index := findObject(obj, bm.activeObjects)
+func getNewGenerationIfZero(generation int64) int64 {
+	if generation == 0 {
+		return time.Now().UnixNano()
+	}
+	return generation
+}
+
+func (bm *bucketInMemory) deleteObject(obj Object, matchGeneration bool) {
+	index := findObject(obj, bm.activeObjects, matchGeneration)
 	if index < 0 {
 		return
 	}
@@ -64,7 +73,7 @@ func (bm *bucketInMemory) deleteFromObjectList(obj Object, active bool) {
 	if !active {
 		objects = bm.archivedObjects
 	}
-	index := findObject(obj, objects)
+	index := findObject(obj, objects, !active)
 	objects[index] = objects[len(objects)-1]
 	if active {
 		bm.activeObjects = objects[:len(objects)-1]
@@ -76,9 +85,12 @@ func (bm *bucketInMemory) deleteFromObjectList(obj Object, active bool) {
 
 // findObject looks for an object in the given list and return the index where it
 // was found, or -1 if the object doesn't exist.
-func findObject(obj Object, objectList []Object) int {
+func findObject(obj Object, objectList []Object, matchGeneration bool) int {
 	for i, o := range objectList {
-		if obj.ID() == o.ID() {
+		if matchGeneration && obj.ID() == o.ID() {
+			return i
+		}
+		if !matchGeneration && obj.IDNoGen() == o.IDNoGen() {
 			return i
 		}
 	}
@@ -166,23 +178,31 @@ func (s *StorageMemory) ListObjects(bucketName string) ([]Object, error) {
 
 // GetObject get an object by bucket and name
 func (s *StorageMemory) GetObject(bucketName, objectName string) (Object, error) {
+	return s.GetObjectWithGeneration(bucketName, objectName, 0)
+}
+
+// GetObjectWithGeneration retrieves an specific version of the object
+func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
 	if err != nil {
 		return Object{}, err
 	}
+	matchGeneration := false
 	obj := Object{BucketName: bucketName, Name: objectName}
-	index := findObject(obj, bucketInMemory.activeObjects)
+	listToConsider := bucketInMemory.activeObjects
+	if generation != 0 {
+		matchGeneration = true
+		obj.Generation = generation
+		listToConsider = append(bucketInMemory.activeObjects, bucketInMemory.archivedObjects...)
+	}
+	index := findObject(obj, listToConsider, matchGeneration)
 	if index < 0 {
 		return obj, errors.New("object not found")
-	}
-	return bucketInMemory.activeObjects[index], nil
-}
 
-// GetObjectWithGeneration retrieves an specific version of the object
-func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
-	return s.GetObject(bucketName, objectName)
+	}
+	return listToConsider[index], nil
 }
 
 // DeleteObject deletes an object by bucket and name
@@ -197,6 +217,6 @@ func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
 	if err != nil {
 		return err
 	}
-	bucketInMemory.deleteObject(obj)
+	bucketInMemory.deleteObject(obj, true)
 	return nil
 }

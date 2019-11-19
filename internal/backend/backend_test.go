@@ -74,12 +74,12 @@ func TestObjectCRUD(t *testing.T) {
 			shouldError(t, err, "object successfully delete before being created")
 			err = storage.CreateBucket(bucketName, versioningEnabled)
 			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && versioningEnabled {
-				shouldError(t, err, "FS storage type does not implement fetch with generation")
+				shouldError(t, err, "FS storage type does not implement versioning")
 				return
 			}
-			// Create in non-existent case
+			t.Log("creating the first object on an empty bucket with versioning", versioningEnabled)
 			noError(t, storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}))
-			// Get in existent case
+			t.Log("fetching the first object")
 			firstObj, err := storage.GetObject(bucketName, objectName)
 			noError(t, err)
 			if firstObj.BucketName != bucketName {
@@ -97,12 +97,23 @@ func TestObjectCRUD(t *testing.T) {
 			if !bytes.Equal(firstObj.Content, content1) {
 				t.Errorf("wrong object content\n want %q\ngot  %q", content1, firstObj.Content)
 			}
+			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && firstObj.Generation != 0 {
+				t.Errorf("FS storage type should leave generation empty, as it does not persist it. Value: %d", firstObj.Generation)
+			}
+			if reflect.TypeOf(storage) != reflect.TypeOf(&StorageFS{}) && firstObj.Generation == 0 {
+				t.Errorf("generation is empty, but we expect a unique int")
+			}
 
-			// Create (update) in existent case with explicit generation
+			t.Log("create (update) in existent case with explicit generation")
 			var generation int64 = 1234
 			err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: generation})
+			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
+				shouldError(t, err, "FS storage type does not support objects generation")
+				err = storage.CreateObject(Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: 0})
+			}
 			noError(t, err)
 			secondObj, err := storage.GetObject(bucketName, objectName)
+			t.Log("fetching the new version of the object")
 			noError(t, err)
 			if secondObj.BucketName != bucketName {
 				t.Errorf("wrong bucket name\nwant %q\ngot  %q", bucketName, secondObj.BucketName)
@@ -111,9 +122,11 @@ func TestObjectCRUD(t *testing.T) {
 				t.Errorf("wrong object name\n want %q\ngot  %q", objectName, secondObj.Name)
 			}
 			if !bytes.Equal(secondObj.Content, content2) {
+				t.Logf("object we got: %v", secondObj)
 				t.Errorf("wrong object content\n want %q\ngot  %q", content2, secondObj.Content)
 			}
-			// Get object with the latest generation should behave the same in memory backends
+
+			t.Log("get object with the latest generation should behave the same in memory backends")
 			secondObj, err = storage.GetObjectWithGeneration(bucketName, objectName, generation)
 			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
 				shouldError(t, err, "FS storage type does not implement fetch with generation")
@@ -129,8 +142,7 @@ func TestObjectCRUD(t *testing.T) {
 					t.Errorf("wrong object content\n want %q\ngot  %q", content2, secondObj.Content)
 				}
 			}
-
-			// Get object against the original generation should fail when versioning is disabled or fs backend
+			t.Log("get object against the original generation, that should only fail when versioning is disabled or fs backend")
 			firstObj, err = storage.GetObjectWithGeneration(bucketName, objectName, firstObj.Generation)
 			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) {
 				shouldError(t, err, "FS storage type does not implement fetch with generation")
@@ -149,7 +161,7 @@ func TestObjectCRUD(t *testing.T) {
 				}
 			}
 
-			// List objects
+			t.Log("list objects")
 			objs, err := storage.ListObjects(bucketName)
 			noError(t, err)
 			if len(objs) != 1 {
@@ -159,7 +171,7 @@ func TestObjectCRUD(t *testing.T) {
 				t.Errorf("wrong object name\nwant %q\ngot  %q", objectName, objs[0].Name)
 			}
 
-			// Delete in existent case
+			t.Log("deleting object")
 			err = storage.DeleteObject(bucketName, objectName)
 			noError(t, err)
 		})
