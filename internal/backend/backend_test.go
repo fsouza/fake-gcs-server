@@ -155,6 +155,24 @@ func TestObjectCRUD(t *testing.T) {
 	}
 }
 
+func TestObjectQueryErrors(t *testing.T) {
+	for _, versioningEnabled := range []bool{true, false} {
+		versioningEnabled := versioningEnabled
+		testForStorageBackends(t, func(t *testing.T, storage Storage) {
+			const bucketName = "random-bucket"
+			err := storage.CreateBucket(bucketName, versioningEnabled)
+			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && versioningEnabled {
+				shouldError(t, err, "FS storage type does not implement versioning")
+				return
+			}
+			validObject := Object{BucketName: bucketName, Name: "random-object", Content: []byte("random-content")}
+			err = storage.CreateObject(validObject)
+			noError(t, err, "creating an simple object")
+			_, err = storage.GetObjectWithGeneration(validObject.BucketName, validObject.Name, 33333)
+			shouldError(t, err, "random generation query should fail")
+		})
+	}
+}
 func TestBucketCreateGetList(t *testing.T) {
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		buckets, err := storage.ListBuckets()

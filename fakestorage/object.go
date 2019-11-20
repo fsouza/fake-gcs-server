@@ -170,6 +170,8 @@ func (s *Server) GetObject(bucketName, objectName string) (Object, error) {
 	return obj, nil
 }
 
+// GetObjectWithGeneration returns the object with the given name and given generation ID in the given bucket,
+// or an error if the object doesn't exist. If versioning is enabled, archived versions are considered
 func (s *Server) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
 	backendObj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, generation)
 	if err != nil {
@@ -316,7 +318,23 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	var (
+		obj        Object
+		err        error
+		generation int64
+	)
+	generationStr := r.FormValue("generation")
+	if generationStr != "" {
+		generation, err = strconv.ParseInt(generationStr, 10, 64)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "Wrong generation ID", http.StatusBadRequest)
+			return
+		}
+		obj, err = s.GetObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
+	} else {
+		obj, err = s.GetObject(vars["bucketName"], vars["objectName"])
+	}
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

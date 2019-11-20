@@ -150,7 +150,7 @@ func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 	}
 }
 
-func TestServerClientObjectsAfterOverwriteWithVersioning(t *testing.T) {
+func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		const (
 			bucketName  = "some-bucket-with-ver"
@@ -159,38 +159,37 @@ func TestServerClientObjectsAfterOverwriteWithVersioning(t *testing.T) {
 			contentType = "text/plain; charset=utf-8"
 		)
 		server.CreateBucket(bucketName, true)
-		originalObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: encodedHash(md5Hash([]byte(content)))}
-		server.CreateObject(originalObj)
+		initialObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: encodedHash(md5Hash([]byte(content)))}
+		server.CreateObject(initialObj)
 		client := server.Client()
-		objHandle := client.Bucket(bucketName).Object(originalObj.Name)
+		objHandle := client.Bucket(bucketName).Object(initialObj.Name)
 		originalObjAttrs, err := objHandle.Attrs(context.TODO())
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkObjectAttrs(originalObj, originalObjAttrs, t)
+		t.Logf("checking initial object attributes")
+		checkObjectAttrs(initialObj, originalObjAttrs, t)
 
-		latestObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content2), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content2)))), Md5Hash: encodedHash(md5Hash([]byte(content2)))}
-		server.CreateObject(latestObj)
-		objHandle = client.Bucket(bucketName).Object(latestObj.Name)
+		latestObjVersion := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content2), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content2)))), Md5Hash: encodedHash(md5Hash([]byte(content2)))}
+		server.CreateObject(latestObjVersion)
+		objHandle = client.Bucket(bucketName).Object(latestObjVersion.Name)
 		latestAttrs, err := objHandle.Attrs(context.TODO())
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkObjectAttrs(latestObj, latestAttrs, t)
+		t.Logf("checking object attributes after overwrite")
+		checkObjectAttrs(latestObjVersion, latestAttrs, t)
 
-		objHandle = client.Bucket(bucketName).Object(originalObj.Name).Generation(originalObjAttrs.Generation)
+		objHandle = client.Bucket(bucketName).Object(initialObj.Name).Generation(originalObjAttrs.Generation)
 		originalObjAttrsAfterOverwrite, err := objHandle.Attrs(context.TODO())
 		if err != nil {
 			t.Fatal(err)
 		}
-		originalObj.Generation = originalObjAttrs.Generation
-		checkObjectAttrs(originalObj, originalObjAttrsAfterOverwrite, t)
+		t.Logf("checking initial object attributes after overwrite")
+		initialObj.Generation = originalObjAttrs.Generation
+		checkObjectAttrs(initialObj, originalObjAttrsAfterOverwrite, t)
 	})
 }
-
-// TODO: test when multiple explicit generations of the same object exists
-
-// TODO: test no existent object generation fails
 
 func TestServerClientObjectAttrsErrors(t *testing.T) {
 	objs := []Object{
@@ -370,7 +369,61 @@ func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 	})
 }
 
-//TODO: test reader against an older generation
+func TestServerClientObjectReaderAgainstSpecificGenerations(t *testing.T) {
+	const (
+		bucketName  = "staging-bucket"
+		objectName  = "items/data-overwritten.txt"
+		content     = "data inside the object"
+		contentType = "text/plain; charset=iso-8859"
+	)
+
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		server.CreateBucket(bucketName, true)
+		object1 := Object{
+			BucketName:  bucketName,
+			Name:        objectName,
+			Content:     []byte(content),
+			ContentType: contentType,
+			Generation:  1111,
+		}
+		server.CreateObject(object1)
+		object2 := Object{
+			BucketName:  bucketName,
+			Name:        objectName,
+			Content:     []byte(content + "2"),
+			ContentType: contentType,
+		}
+		server.CreateObject(object2)
+		client := server.Client()
+		latestHandle := client.Bucket(bucketName).Object(objectName)
+		latestAttrs, err := latestHandle.Attrs(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		object2.Generation = latestAttrs.Generation
+		t.Logf("storage status %#v", server.backend)
+		for _, object := range []Object{object1, object2} {
+			t.Log("about to get contents by generation for object", object)
+			objHandle := client.Bucket(bucketName).Object(objectName).Generation(object.Generation)
+			reader, err := objHandle.NewReader(context.TODO())
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := ioutil.ReadAll(reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != string(object.Content) {
+				t.Errorf("wrong data returned\nwant %q\ngot  %q", string(object.Content), string(data))
+			}
+			if ct := reader.Attrs.ContentType; ct != object.ContentType {
+				t.Errorf("wrong content type\nwant %q\ngot  %q", object.ContentType, ct)
+			}
+			reader.Close()
+		}
+	})
+}
+
 func TestServerClientObjectReaderError(t *testing.T) {
 	objs := []Object{
 		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
