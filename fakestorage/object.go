@@ -98,7 +98,6 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []
 func toBackendObjects(objects []Object) []backend.Object {
 	backendObjects := []backend.Object{}
 	for _, o := range objects {
-		acl, _ := json.Marshal(o.ACL)
 		backendObjects = append(backendObjects, backend.Object{
 			BucketName:      o.BucketName,
 			Name:            o.Name,
@@ -107,7 +106,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			ContentEncoding: o.ContentEncoding,
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
-			ACL:             acl,
+			ACL:             o.ACL,
 		})
 	}
 	return backendObjects
@@ -116,8 +115,6 @@ func toBackendObjects(objects []Object) []backend.Object {
 func fromBackendObjects(objects []backend.Object) []Object {
 	backendObjects := []Object{}
 	for _, o := range objects {
-		var acl []storage.ACLRule
-		_ = json.Unmarshal(o.ACL, &acl)
 		backendObjects = append(backendObjects, Object{
 			BucketName:      o.BucketName,
 			Name:            o.Name,
@@ -126,7 +123,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			ContentEncoding: o.ContentEncoding,
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
-			ACL:             acl,
+			ACL:             o.ACL,
 		})
 	}
 	return backendObjects
