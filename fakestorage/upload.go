@@ -19,13 +19,16 @@ import (
 	"strconv"
 	"strings"
 
+	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
 )
 
 const contentTypeHeader = "Content-Type"
 
 type multipartMetadata struct {
-	Name string `json:"name"`
+	ContentType     string `json:"contentType"`
+	ContentEncoding string `json:"contentEncoding"`
+	Name            string `json:"name"`
 }
 
 type contentRange struct {
@@ -60,6 +63,8 @@ func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
+	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if name == "" {
 		http.Error(w, "name is required for simple uploads", http.StatusBadRequest)
 		return
@@ -70,12 +75,14 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		return
 	}
 	obj := Object{
-		BucketName:  bucketName,
-		Name:        name,
-		Content:     data,
-		ContentType: r.Header.Get(contentTypeHeader),
-		Crc32c:      encodedCrc32cChecksum(data),
-		Md5Hash:     encodedMd5Hash(data),
+		BucketName:      bucketName,
+		Name:            name,
+		Content:         data,
+		ContentType:     r.Header.Get(contentTypeHeader),
+		ContentEncoding: contentEncoding,
+		Crc32c:          encodedCrc32cChecksum(data),
+		Md5Hash:         encodedMd5Hash(data),
+		ACL:             getObjectACL(predefinedACL),
 	}
 	err = s.createObject(obj)
 	if err != nil {
@@ -84,6 +91,24 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
+}
+
+func getObjectACL(predefinedACL string) []storage.ACLRule {
+	if predefinedACL == "publicRead" {
+		return []storage.ACLRule{
+			{
+				Entity: "allUsers",
+				Role:   "READER",
+			},
+		}
+	}
+
+	return []storage.ACLRule{
+		{
+			Entity: "projectOwner",
+			Role:   "OWNER",
+		},
+	}
 }
 
 var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
@@ -120,6 +145,7 @@ func encodedMd5Hash(content []byte) string {
 func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	_, params, err := mime.ParseMediaType(r.Header.Get(contentTypeHeader))
+
 	if err != nil {
 		http.Error(w, "invalid Content-Type header", http.StatusBadRequest)
 		return
@@ -134,6 +160,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	for ; err == nil; part, err = reader.NextPart() {
 		if metadata == nil {
 			metadata, err = loadMetadata(part)
+			contentType = metadata.ContentType
 		} else {
 			contentType = part.Header.Get(contentTypeHeader)
 			content, err = loadContent(part)
@@ -148,17 +175,20 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	}
 
 	objName := r.URL.Query().Get("name")
+	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	if objName == "" {
 		objName = metadata.Name
 	}
 
 	obj := Object{
-		BucketName:  bucketName,
-		Name:        objName,
-		Content:     content,
-		ContentType: contentType,
-		Crc32c:      encodedCrc32cChecksum(content),
-		Md5Hash:     encodedMd5Hash(content),
+		BucketName:      bucketName,
+		Name:            objName,
+		Content:         content,
+		ContentType:     contentType,
+		ContentEncoding: metadata.ContentEncoding,
+		Crc32c:          encodedCrc32cChecksum(content),
+		Md5Hash:         encodedMd5Hash(content),
+		ACL:             getObjectACL(predefinedACL),
 	}
 	err = s.createObject(obj)
 	if err != nil {
@@ -171,6 +201,8 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 
 func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	objName := r.URL.Query().Get("name")
+	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if objName == "" {
 		metadata, err := loadMetadata(r.Body)
 		if err != nil {
@@ -180,8 +212,10 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 		objName = metadata.Name
 	}
 	obj := Object{
-		BucketName: bucketName,
-		Name:       objName,
+		BucketName:      bucketName,
+		Name:            objName,
+		ContentEncoding: contentEncoding,
+		ACL:             getObjectACL(predefinedACL),
 	}
 	uploadID, err := generateUploadID()
 	if err != nil {

@@ -19,14 +19,15 @@ import (
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName  string `json:"-"`
-	Name        string `json:"name"`
-	ContentType string `json:"contentType"`
-	Content     []byte `json:"-"`
+	BucketName      string `json:"-"`
+	Name            string `json:"name"`
+	ContentType     string `json:"contentType"`
+	ContentEncoding string `json:"contentEncoding"`
+	Content         []byte `json:"-"`
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string            `json:"crc32c,omitempty"`
 	Md5Hash string            `json:"md5hash,omitempty"`
-	ACL     storage.ACLEntity `json:"acl,omitempty"`
+	ACL     []storage.ACLRule `json:"acl,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -97,14 +98,16 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []
 func toBackendObjects(objects []Object) []backend.Object {
 	backendObjects := []backend.Object{}
 	for _, o := range objects {
+		acl, _ := json.Marshal(o.ACL)
 		backendObjects = append(backendObjects, backend.Object{
-			BucketName:  o.BucketName,
-			Name:        o.Name,
-			Content:     o.Content,
-			ContentType: o.ContentType,
-			Crc32c:      o.Crc32c,
-			Md5Hash:     o.Md5Hash,
-			ACL:         string(o.ACL),
+			BucketName:      o.BucketName,
+			Name:            o.Name,
+			Content:         o.Content,
+			ContentType:     o.ContentType,
+			ContentEncoding: o.ContentEncoding,
+			Crc32c:          o.Crc32c,
+			Md5Hash:         o.Md5Hash,
+			ACL:             acl,
 		})
 	}
 	return backendObjects
@@ -113,14 +116,17 @@ func toBackendObjects(objects []Object) []backend.Object {
 func fromBackendObjects(objects []backend.Object) []Object {
 	backendObjects := []Object{}
 	for _, o := range objects {
+		var acl []storage.ACLRule
+		_ = json.Unmarshal(o.ACL, &acl)
 		backendObjects = append(backendObjects, Object{
-			BucketName:  o.BucketName,
-			Name:        o.Name,
-			Content:     o.Content,
-			ContentType: o.ContentType,
-			Crc32c:      o.Crc32c,
-			Md5Hash:     o.Md5Hash,
-			ACL:         storage.ACLEntity(o.ACL),
+			BucketName:      o.BucketName,
+			Name:            o.Name,
+			Content:         o.Content,
+			ContentType:     o.ContentType,
+			ContentEncoding: o.ContentEncoding,
+			Crc32c:          o.Crc32c,
+			Md5Hash:         o.Md5Hash,
+			ACL:             acl,
 		})
 	}
 	return backendObjects
@@ -201,14 +207,29 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
-	entity := storage.ACLEntity(vars["entity"])
 
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
-	obj.ACL = entity
+	var data struct {
+		Entity string
+		Role   string
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&data); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	entity := storage.ACLEntity(data.Entity)
+	role := storage.ACLRole(data.Role)
+	obj.ACL = []storage.ACLRule{{
+		Entity: entity,
+		Role:   role,
+	}}
 
 	s.CreateObject(obj)
 
