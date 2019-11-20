@@ -55,33 +55,33 @@ func shouldError(t *testing.T, err error, description string) {
 	}
 }
 
-func uploadAndCompare(t *testing.T, storage Storage, obj Object, description string) int64 {
+func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	isFSStorage := reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{})
 	err := storage.CreateObject(obj)
 	if isFSStorage && obj.Generation != 0 {
-		shouldError(t, err, description+" - FS should not support objects generation")
+		shouldError(t, err, "FS should not support objects generation")
 		obj.Generation = 0
 		err = storage.CreateObject(obj)
 	}
-	noError(t, err, description+" - creating object")
+	noError(t, err, "creating object")
 	activeObj, err := storage.GetObject(obj.BucketName, obj.Name)
-	noError(t, err, description+" - fetching active object")
+	noError(t, err, "fetching active object")
 	if isFSStorage && activeObj.Generation != 0 {
-		t.Errorf("%s - FS should leave generation empty, as it does not persist it. Value: %d", description, activeObj.Generation)
+		t.Errorf("FS should leave generation empty, as it does not persist it. Value: %d", activeObj.Generation)
 	}
 	if !isFSStorage && activeObj.Generation == 0 {
-		t.Errorf("%s - generation is empty, but we expect a unique int", description)
+		t.Errorf("generation is empty, but we expect a unique int")
 	}
 	if err := activeObj.compare(obj); err != nil {
-		t.Errorf("%s - object retrieved differs from the created one. Descr: %v", description, err)
+		t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 	}
 	objFromGeneration, err := storage.GetObjectWithGeneration(obj.BucketName, obj.Name, activeObj.Generation)
 	if isFSStorage {
-		shouldError(t, err, description+" - FS does not implement fetch with generation")
+		shouldError(t, err, "FS does not implement fetch with generation")
 	} else {
-		noError(t, err, description+" - fetching object by generation")
+		noError(t, err, "fetching object by generation")
 		if err := objFromGeneration.compare(obj); err != nil {
-			t.Errorf("%s - object retrieved differs from the created one. Descr: %v", description, err)
+			t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 		}
 	}
 	return activeObj.Generation
@@ -110,10 +110,12 @@ func TestObjectCRUD(t *testing.T) {
 			}
 
 			initialObject := Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}
-			initialGeneration := uploadAndCompare(t, storage, initialObject, fmt.Sprintf("initial object on an empty bucket with versioning %t", versioningEnabled))
+			t.Logf("Create an initial object on an empty bucket with versioning %t", versioningEnabled)
+			initialGeneration := uploadAndCompare(t, storage, initialObject)
 
+			t.Logf("create (update) in existent case with explicit generation and versioning %t", versioningEnabled)
 			secondVersionWithGeneration := Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: 1234}
-			uploadAndCompare(t, storage, secondVersionWithGeneration, fmt.Sprintf("create (update) in existent case with explicit generation and versioning %t", versioningEnabled))
+			uploadAndCompare(t, storage, secondVersionWithGeneration)
 
 			initialObjectFromGeneration, err := storage.GetObjectWithGeneration(initialObject.BucketName, initialObject.Name, initialGeneration)
 			if !versioningEnabled {

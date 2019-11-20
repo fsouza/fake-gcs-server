@@ -37,7 +37,7 @@ func (o *Object) IDNoGen() string {
 	return fmt.Sprintf("%s/%s", o.BucketName, o.Name)
 }
 
-// compare also bears in mind most of the attributes, but generation if one is 0 and times
+// compare also bears in mind most of the attributes, but generation if one is 0 and timestamp fields
 func (o *Object) compare(o2 Object) error {
 	if o.BucketName != o2.BucketName {
 		return fmt.Errorf("bucket name differs:\nmain %q\narg  %q", o.BucketName, o2.BucketName)
@@ -45,17 +45,23 @@ func (o *Object) compare(o2 Object) error {
 	if o.Name != o2.Name {
 		return fmt.Errorf("wrong object name:\nmain %q\narg  %q", o.Name, o2.Name)
 	}
+	if o.ContentType != o2.ContentType {
+		return fmt.Errorf("wrong object contenttype:\nmain %q\narg  %q", o.ContentType, o2.ContentType)
+	}
 	if o.Crc32c != o2.Crc32c {
 		return fmt.Errorf("wrong crc:\nmain %q\narg  %q", o.Crc32c, o2.Crc32c)
 	}
 	if o.Md5Hash != o2.Md5Hash {
 		return fmt.Errorf("wrong md5:\nmain %q\narg  %q", o.Md5Hash, o2.Md5Hash)
 	}
-	if !bytes.Equal(o.Content, o2.Content) {
-		return fmt.Errorf("wrong object content:\nmain %q\narg  %q", o.Content, o2.Content)
+	if o.ACL != o2.ACL {
+		return fmt.Errorf("wrong ACL:\nmain %q\narg  %q", o.ACL, o2.ACL)
 	}
 	if o.Generation != 0 && o2.Generation != 0 && o.Generation != o2.Generation {
 		return fmt.Errorf("generations different from 0, but not equal:\nmain %q\narg  %q", o.Generation, o2.Generation)
+	}
+	if !bytes.Equal(o.Content, o2.Content) {
+		return fmt.Errorf("wrong object content:\nmain %q\narg  %q", o.Content, o2.Content)
 	}
 	return nil
 }
