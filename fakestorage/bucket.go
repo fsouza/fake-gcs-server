@@ -14,7 +14,7 @@ import (
 // CreateBucket creates a bucket inside the server, so any API calls that
 // require the bucket name will recognize this bucket.
 //
-// If the bucket already exists, this method does nothing.
+// If the bucket already exists, this method does nothing but panics if props differs
 func (s *Server) CreateBucket(name string, versioningEnabled bool) {
 	err := s.backend.CreateBucket(name, versioningEnabled)
 	if err != nil {
