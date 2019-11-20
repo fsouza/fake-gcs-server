@@ -1,5 +1,1 @@
 fake-gcs-server
-.pulumi/
-Pulumi.*.yaml
-*.pyc
-venv/
