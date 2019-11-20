@@ -53,6 +53,7 @@ func (bm *bucketInMemory) deleteObject(obj Object, matchGeneration bool) {
 		return
 	}
 	if bm.VersioningEnabled {
+		obj.Deleted = time.Now().Format(time.RFC3339)
 		bm.mvToArchive(obj)
 	} else {
 		bm.deleteFromObjectList(obj, true)

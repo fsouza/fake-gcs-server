@@ -581,125 +581,129 @@ func TestServiceClientListObjects(t *testing.T) {
 	})
 }
 
-// TODO
-// func TestServerClientListWhenMultipleGenerations(t *testing.T) {
-// 	objs := []Object{
-// 		{BucketName: "some-bucket", Name: "img/low-res/party-01.jpg"},
-// 		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
-// 		{BucketName: "some-bucket", Name: "img/low-res/party-02.jpg"},
-// 		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
-// 		{BucketName: "some-bucket", Name: "img/low-res/party-03.jpg"},
-// 		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
-// 		{BucketName: "some-bucket", Name: "img/brand.jpg"},
-// 		{BucketName: "some-bucket", Name: "video/hi-res/some_video_1080p.mp4"},
-// 		{BucketName: "other-bucket", Name: "static/css/style.css"},
-// 	}
+func TestServerClientListAfterCreateAndMultipleGenerations(t *testing.T) {
+	objs := []Object{
+		{BucketName: "some-bucket", Name: "img/low-res/party-01.jpg"},
+		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
+		{BucketName: "some-bucket", Name: "img/low-res/party-02.jpg"},
+		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
+		{BucketName: "some-bucket", Name: "img/low-res/party-03.jpg"},
+		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
+		{BucketName: "some-bucket", Name: "img/brand.jpg"},
+		{BucketName: "some-bucket", Name: "video/hi-res/some_video_1080p.mp4"},
+		{BucketName: "other-bucket", Name: "static/css/style.css"},
+	}
 
-// 	runServersTest(t, objs, func(t *testing.T, server *Server) {
-// 		server.CreateBucket("empty-bucket", false)
-// 		tests := []struct {
-// 			testCase         string
-// 			bucketName       string
-// 			query            *storage.Query
-// 			expectedNames    []string
-// 			expectedPrefixes []string
-// 		}{
-// 			{
-// 				"no prefix, no delimiter, multiple objects",
-// 				"some-bucket",
-// 				nil,
-// 				[]string{
-// 					"img/brand.jpg",
-// 					"img/hi-res/party-01.jpg",
-// 					"img/hi-res/party-02.jpg",
-// 					"img/hi-res/party-03.jpg",
-// 					"img/low-res/party-01.jpg",
-// 					"img/low-res/party-02.jpg",
-// 					"img/low-res/party-03.jpg",
-// 					"video/hi-res/some_video_1080p.mp4",
-// 				},
-// 				nil,
-// 			},
-// 			{
-// 				"no prefix, no delimiter, single object",
-// 				"other-bucket",
-// 				nil,
-// 				[]string{"static/css/style.css"},
-// 				nil,
-// 			},
-// 			{
-// 				"no prefix, no delimiter, no objects",
-// 				"empty-bucket",
-// 				nil,
-// 				[]string{},
-// 				nil,
-// 			},
-// 			{
-// 				"filtering prefix only",
-// 				"some-bucket",
-// 				&storage.Query{Prefix: "img/"},
-// 				[]string{
-// 					"img/brand.jpg",
-// 					"img/hi-res/party-01.jpg",
-// 					"img/hi-res/party-02.jpg",
-// 					"img/hi-res/party-03.jpg",
-// 					"img/low-res/party-01.jpg",
-// 					"img/low-res/party-02.jpg",
-// 					"img/low-res/party-03.jpg",
-// 				},
-// 				nil,
-// 			},
-// 			{
-// 				"full prefix",
-// 				"some-bucket",
-// 				&storage.Query{Prefix: "img/brand.jpg"},
-// 				[]string{"img/brand.jpg"},
-// 				nil,
-// 			},
-// 			{
-// 				"filtering prefix and delimiter",
-// 				"some-bucket",
-// 				&storage.Query{Prefix: "img/", Delimiter: "/"},
-// 				[]string{"img/brand.jpg"},
-// 				[]string{"img/hi-res/", "img/low-res/"},
-// 			},
-// 			{
-// 				"filtering prefix, no objects",
-// 				"some-bucket",
-// 				&storage.Query{Prefix: "static/"},
-// 				[]string{},
-// 				nil,
-// 			},
-// 		}
-// 		client := server.Client()
-// 		for _, test := range tests {
-// 			test := test
-// 			t.Run(test.testCase, func(t *testing.T) {
-// 				iter := client.Bucket(test.bucketName).Objects(context.TODO(), test.query)
-// 				var prefixes []string
-// 				names := []string{}
-// 				obj, err := iter.Next()
-// 				for ; err == nil; obj, err = iter.Next() {
-// 					if obj.Name != "" {
-// 						names = append(names, obj.Name)
-// 					}
-// 					if obj.Prefix != "" {
-// 						prefixes = append(prefixes, obj.Prefix)
-// 					}
-// 				}
-// 				if err != iterator.Done {
-// 					t.Fatal(err)
-// 				}
-// 				if !reflect.DeepEqual(names, test.expectedNames) {
-// 					t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
-// 				}
-// 				if !reflect.DeepEqual(prefixes, test.expectedPrefixes) {
-// 					t.Errorf("wrong prefixes returned\nwant %#v\ngot  %#v", test.expectedPrefixes, prefixes)
-// 				}
-// 			})
-// 		}
-// 	})
-// }
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		server.CreateBucket("empty-bucket", true)
+		for _, obj := range objs {
+			server.CreateObject(obj)
+			obj.Content = []byte("final content")
+			server.CreateObject(obj)
+		}
+		tests := []struct {
+			testCase         string
+			bucketName       string
+			query            *storage.Query
+			expectedNames    []string
+			expectedPrefixes []string
+		}{
+			{
+				"no prefix, no delimiter, multiple objects",
+				"some-bucket",
+				nil,
+				[]string{
+					"img/brand.jpg",
+					"img/hi-res/party-01.jpg",
+					"img/hi-res/party-02.jpg",
+					"img/hi-res/party-03.jpg",
+					"img/low-res/party-01.jpg",
+					"img/low-res/party-02.jpg",
+					"img/low-res/party-03.jpg",
+					"video/hi-res/some_video_1080p.mp4",
+				},
+				nil,
+			},
+			{
+				"no prefix, no delimiter, single object",
+				"other-bucket",
+				nil,
+				[]string{"static/css/style.css"},
+				nil,
+			},
+			{
+				"no prefix, no delimiter, no objects",
+				"empty-bucket",
+				nil,
+				[]string{},
+				nil,
+			},
+			{
+				"filtering prefix only",
+				"some-bucket",
+				&storage.Query{Prefix: "img/"},
+				[]string{
+					"img/brand.jpg",
+					"img/hi-res/party-01.jpg",
+					"img/hi-res/party-02.jpg",
+					"img/hi-res/party-03.jpg",
+					"img/low-res/party-01.jpg",
+					"img/low-res/party-02.jpg",
+					"img/low-res/party-03.jpg",
+				},
+				nil,
+			},
+			{
+				"full prefix",
+				"some-bucket",
+				&storage.Query{Prefix: "img/brand.jpg"},
+				[]string{"img/brand.jpg"},
+				nil,
+			},
+			{
+				"filtering prefix and delimiter",
+				"some-bucket",
+				&storage.Query{Prefix: "img/", Delimiter: "/"},
+				[]string{"img/brand.jpg"},
+				[]string{"img/hi-res/", "img/low-res/"},
+			},
+			{
+				"filtering prefix, no objects",
+				"some-bucket",
+				&storage.Query{Prefix: "static/"},
+				[]string{},
+				nil,
+			},
+		}
+		client := server.Client()
+		for _, test := range tests {
+			test := test
+			t.Run(test.testCase, func(t *testing.T) {
+				iter := client.Bucket(test.bucketName).Objects(context.TODO(), test.query)
+				var prefixes []string
+				names := []string{}
+				obj, err := iter.Next()
+				for ; err == nil; obj, err = iter.Next() {
+					if obj.Name != "" {
+						names = append(names, obj.Name)
+					}
+					if obj.Prefix != "" {
+						prefixes = append(prefixes, obj.Prefix)
+					}
+				}
+				if err != iterator.Done {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(names, test.expectedNames) {
+					t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
+				}
+				if !reflect.DeepEqual(prefixes, test.expectedPrefixes) {
+					t.Errorf("wrong prefixes returned\nwant %#v\ngot  %#v", test.expectedPrefixes, prefixes)
+				}
+			})
+		}
+	})
+}
 
 func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
@@ -805,7 +809,6 @@ func TestServiceClientRewriteObject(t *testing.T) {
 	})
 }
 
-// TODO: Delete works when bucket with versioning, keeping an archived version
 func TestServerClientObjectDelete(t *testing.T) {
 	const (
 		bucketName = "some-bucket"
@@ -825,7 +828,35 @@ func TestServerClientObjectDelete(t *testing.T) {
 		}
 		obj, err := server.GetObject(bucketName, objectName)
 		if err == nil {
-			t.Fatalf("unexpected nil error. obj: %#v", obj)
+			t.Fatalf("unexpected success. obj: %#v", obj)
+		}
+	})
+}
+
+func TestServerClientObjectDeleteWithVersioning(t *testing.T) {
+	obj := Object{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg", Content: []byte("some nice content"), Generation: 123}
+
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		server.CreateBucket(obj.BucketName, true)
+		server.CreateObject(obj)
+
+		client := server.Client()
+		objHandle := client.Bucket(obj.BucketName).Object(obj.Name)
+		err := objHandle.Delete(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		objAfterDelete, err := server.GetObject(obj.BucketName, obj.Name)
+		if err == nil {
+			t.Fatalf("unexpected success. obj: %#v", objAfterDelete)
+		}
+		t.Log(server.backend)
+		objWithGen, err := server.GetObjectWithGeneration(obj.BucketName, obj.Name, obj.Generation)
+		if err != nil {
+			t.Fatalf("unable to retrieve archived object. err: %v", err)
+		}
+		if objWithGen.Deleted.IsZero() || objWithGen.Deleted.Before(objWithGen.Created) {
+			t.Errorf("unexpected delete time, %v", objWithGen.Deleted)
 		}
 	})
 }
