@@ -46,10 +46,7 @@ func createObjectTestCases() testCases {
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
 
-	tests := []struct {
-		testCase string
-		obj      Object
-	}{
+	tests := testCases{
 		{
 			"object but no creation nor modification date",
 			Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash)},

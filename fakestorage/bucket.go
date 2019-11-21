@@ -59,11 +59,7 @@ func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	bucketNames := []string{}
-	for _, bucket := range buckets {
-		bucketNames = append(bucketNames, bucket.Name)
-	}
-	resp := newListBucketsResponse(bucketNames)
+	resp := newListBucketsResponse(buckets)
 	json.NewEncoder(w).Encode(resp)
 }
 

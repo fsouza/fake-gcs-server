@@ -6,9 +6,9 @@ package fakestorage
 
 import (
 	"net/http"
-	"sort"
 	"time"
 
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/storage/v1"
 )
@@ -19,14 +19,13 @@ type listResponse struct {
 	Prefixes []string      `json:"prefixes"`
 }
 
-func newListBucketsResponse(bucketNames []string) listResponse {
+func newListBucketsResponse(buckets []backend.Bucket) listResponse {
 	resp := listResponse{
 		Kind:  "storage#buckets",
-		Items: make([]interface{}, len(bucketNames)),
+		Items: make([]interface{}, len(buckets)),
 	}
-	sort.Strings(bucketNames)
-	for i, name := range bucketNames {
-		resp.Items[i] = newBucketResponse(name, false)
+	for i, bucket := range buckets {
+		resp.Items[i] = newBucketResponse(bucket.Name, bucket.VersioningEnabled)
 	}
 	return resp
 }
@@ -44,12 +43,10 @@ type bucketVersioning struct {
 
 func newBucketResponse(bucketName string, versioningEnabled bool) (br bucketResponse) {
 	br = bucketResponse{
-		Kind: "storage#bucket",
-		ID:   bucketName,
-		Name: bucketName,
-	}
-	if versioningEnabled {
-		br.Versioning = &bucketVersioning{true}
+		Kind:       "storage#bucket",
+		ID:         bucketName,
+		Name:       bucketName,
+		Versioning: &bucketVersioning{versioningEnabled},
 	}
 	return
 }
