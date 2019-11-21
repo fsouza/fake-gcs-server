@@ -594,6 +594,8 @@ func TestServerClientListAfterCreateAndMultipleGenerations(t *testing.T) {
 	}
 
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		server.CreateBucket("some-bucket", true)
+		server.CreateBucket("other-bucket", true)
 		server.CreateBucket("empty-bucket", true)
 		for _, obj := range objs {
 			server.CreateObject(obj)
