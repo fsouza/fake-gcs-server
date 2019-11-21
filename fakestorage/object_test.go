@@ -53,7 +53,7 @@ func createObjectTestCases() testCases {
 		},
 		{
 			"object with creation and modification dates",
-			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testExecTime, Updated: testExecTime},
+			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime},
 		},
 		{
 			"object with creation, modification dates, and generation",

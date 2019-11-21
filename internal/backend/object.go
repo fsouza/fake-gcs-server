@@ -54,9 +54,6 @@ func (o *Object) compare(o2 Object) error {
 	if o.Md5Hash != o2.Md5Hash {
 		return fmt.Errorf("wrong md5:\nmain %q\narg  %q", o.Md5Hash, o2.Md5Hash)
 	}
-	if o.ACL != o2.ACL {
-		return fmt.Errorf("wrong ACL:\nmain %q\narg  %q", o.ACL, o2.ACL)
-	}
 	if o.Generation != 0 && o2.Generation != 0 && o.Generation != o2.Generation {
 		return fmt.Errorf("generations different from 0, but not equal:\nmain %q\narg  %q", o.Generation, o2.Generation)
 	}

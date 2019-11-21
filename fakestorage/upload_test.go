@@ -187,7 +187,7 @@ func TestServerClientSimpleUpload(t *testing.T) {
 func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()
-	server.CreateBucket("other-bucket")
+	server.CreateBucket("other-bucket", false)
 
 	const data = "some nice content"
 	const contentType = "text/plain"
