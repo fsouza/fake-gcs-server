@@ -667,6 +667,145 @@ func TestServerClientListAfterCreate(t *testing.T) {
 	}
 }
 
+func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
+	const initialGeneration = 1234
+	const finalGeneration = initialGeneration + 1
+	type listTestForQueryWithVersions struct {
+		listTest
+		versioningEnabled bool
+		withOverwrites    bool
+	}
+	tests := []listTestForQueryWithVersions{
+		{
+			listTest{"no prefix, no delimiter, multiple objects, with versioning and overwrites",
+				"some-bucket",
+				&storage.Query{Versions: true},
+				[]string{
+					fmt.Sprintf("img/brand.jpg#%d", finalGeneration),
+					fmt.Sprintf("img/brand.jpg#%d", initialGeneration),
+					fmt.Sprintf("img/hi-res/party-01.jpg#%d", finalGeneration),
+					fmt.Sprintf("img/hi-res/party-01.jpg#%d", initialGeneration),
+					fmt.Sprintf("img/hi-res/party-02.jpg#%d", finalGeneration),
+					fmt.Sprintf("img/hi-res/party-02.jpg#%d", initialGeneration),
+					fmt.Sprintf("img/hi-res/party-03.jpg#%d", finalGeneration),
+					fmt.Sprintf("img/hi-res/party-03.jpg#%d", initialGeneration),
+					fmt.Sprintf("img/low-res/party-01.jpg#%d", finalGeneration),
+					fmt.Sprintf("img/low-res/party-01.jpg#%d", initialGeneration),
+					fmt.Sprintf("img/low-res/party-02.jpg#%d", finalGeneration),
+					fmt.Sprintf("img/low-res/party-02.jpg#%d", initialGeneration),
+					fmt.Sprintf("img/low-res/party-03.jpg#%d", finalGeneration),
+					fmt.Sprintf("img/low-res/party-03.jpg#%d", initialGeneration),
+					fmt.Sprintf("video/hi-res/some_video_1080p.mp4#%d", finalGeneration),
+					fmt.Sprintf("video/hi-res/some_video_1080p.mp4#%d", initialGeneration),
+				},
+				nil},
+			true,
+			true,
+		},
+		{
+			listTest{"no prefix, no delimiter, single object, with versioning and overwrites",
+				"other-bucket",
+				&storage.Query{Versions: true},
+				[]string{
+					fmt.Sprintf("static/css/style.css#%d", finalGeneration),
+					fmt.Sprintf("static/css/style.css#%d", initialGeneration),
+				},
+				nil},
+			true,
+			true,
+		},
+		{
+			listTest{"no prefix, no delimiter, single object, without versioning and overwrites",
+				"other-bucket",
+				&storage.Query{Versions: true},
+				[]string{
+					fmt.Sprintf("static/css/style.css#%d", finalGeneration),
+				},
+				nil},
+			false,
+			true,
+		},
+		{
+			listTest{"no prefix, no delimiter, single object, without versioning neither overwrites",
+				"other-bucket",
+				&storage.Query{Versions: true},
+				[]string{
+					fmt.Sprintf("static/css/style.css#%d", initialGeneration),
+				},
+				nil},
+			false,
+			false,
+		},
+		{
+			listTest{"no prefix, no delimiter, single object, with versioning but no overwrites",
+				"other-bucket",
+				&storage.Query{Versions: true},
+				[]string{
+					fmt.Sprintf("static/css/style.css#%d", initialGeneration),
+				},
+				nil},
+			true,
+			false,
+		},
+		{
+			listTest{"no prefix, no delimiter, no objects, versioning and overwrites",
+				"empty-bucket",
+				nil,
+				[]string{},
+				nil},
+			true,
+			true,
+		},
+	}
+	for _, test := range tests {
+		test := test
+		runServersTest(t, nil, func(t *testing.T, server *Server) {
+			server.CreateBucket("some-bucket", test.versioningEnabled)
+			server.CreateBucket("other-bucket", test.versioningEnabled)
+			server.CreateBucket("empty-bucket", test.versioningEnabled)
+			for _, obj := range getObjectsForListTests() {
+				if test.versioningEnabled {
+					obj.Generation = initialGeneration
+				}
+				server.CreateObject(obj)
+				if test.withOverwrites {
+					if test.versioningEnabled {
+						obj.Generation = finalGeneration
+					}
+					obj.Content = []byte("final content")
+					server.CreateObject(obj)
+				}
+			}
+			client := server.Client()
+			t.Run(test.testCase, func(t *testing.T) {
+				iter := client.Bucket(test.bucketName).Objects(context.TODO(), test.query)
+				var prefixes []string
+				names := []string{}
+				obj, err := iter.Next()
+				for ; err == nil; obj, err = iter.Next() {
+					if obj.Name != "" {
+						names = append(names, obj.Name)
+					}
+					if obj.Prefix != "" {
+						prefixes = append(prefixes, obj.Prefix)
+					}
+				}
+				if err != iterator.Done {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(names, test.expectedNames) {
+					t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
+				}
+				if !reflect.DeepEqual(prefixes, test.expectedPrefixes) {
+					t.Errorf("wrong prefixes returned\nwant %#v\ngot  %#v", test.expectedPrefixes, prefixes)
+				}
+			})
+
+		})
+	}
+
+}
+
 func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		iter := server.Client().Bucket("some-bucket").Objects(context.TODO(), nil)
