@@ -32,6 +32,7 @@ func (bm *bucketInMemory) addObject(obj Object) {
 	index := findObject(obj, bm.activeObjects, false)
 	if index >= 0 {
 		if bm.VersioningEnabled {
+			bm.activeObjects[index].Deleted = time.Now().Format(time.RFC3339)
 			bm.cpToArchive(bm.activeObjects[index])
 		}
 		bm.activeObjects[index] = obj

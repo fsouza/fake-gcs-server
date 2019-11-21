@@ -188,6 +188,9 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 		t.Logf("checking initial object attributes after overwrite")
 		initialObj.Generation = originalObjAttrs.Generation
 		checkObjectAttrs(initialObj, originalObjAttrsAfterOverwrite, t)
+		if originalObjAttrsAfterOverwrite.Deleted.IsZero() || originalObjAttrsAfterOverwrite.Deleted.Before(originalObjAttrsAfterOverwrite.Created) {
+			t.Errorf("unexpected delete time, %v", originalObjAttrsAfterOverwrite.Deleted)
+		}
 	})
 }
 
