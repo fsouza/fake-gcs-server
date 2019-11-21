@@ -401,7 +401,6 @@ func TestServerClientObjectReaderAgainstSpecificGenerations(t *testing.T) {
 			t.Fatal(err)
 		}
 		object2.Generation = latestAttrs.Generation
-		t.Logf("storage status %#v", server.backend)
 		for _, object := range []Object{object1, object2} {
 			t.Log("about to get contents by generation for object", object)
 			objHandle := client.Bucket(bucketName).Object(objectName).Generation(object.Generation)
@@ -850,7 +849,6 @@ func TestServerClientObjectDeleteWithVersioning(t *testing.T) {
 		if err == nil {
 			t.Fatalf("unexpected success. obj: %#v", objAfterDelete)
 		}
-		t.Log(server.backend)
 		objWithGen, err := server.GetObjectWithGeneration(obj.BucketName, obj.Name, obj.Generation)
 		if err != nil {
 			t.Fatalf("unable to retrieve archived object. err: %v", err)

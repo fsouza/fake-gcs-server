@@ -176,7 +176,7 @@ func TestServerClientListObjects(t *testing.T) {
 			objAttrs, err := it.Next()
 			for ; err == nil; objAttrs, err = it.Next() {
 				seenFiles[objAttrs.Name] = struct{}{}
-				t.Logf("Seen file %s", objAttrs.Name)
+				t.Logf("seen file %s", objAttrs.Name)
 			}
 			if len(objects) != len(seenFiles) {
 				t.Errorf("wrong number of files\nwant %d\ngot %d", len(objects), len(seenFiles))

@@ -110,7 +110,7 @@ func TestObjectCRUD(t *testing.T) {
 			}
 
 			initialObject := Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}
-			t.Logf("Create an initial object on an empty bucket with versioning %t", versioningEnabled)
+			t.Logf("create an initial object on an empty bucket with versioning %t", versioningEnabled)
 			initialGeneration := uploadAndCompare(t, storage, initialObject)
 
 			t.Logf("create (update) in existent case with explicit generation and versioning %t", versioningEnabled)
