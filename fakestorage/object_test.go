@@ -667,13 +667,24 @@ func TestServerClientListAfterCreate(t *testing.T) {
 	}
 }
 
+func contains(s []int64, e int64) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
 func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 	const initialGeneration = 1234
 	const finalGeneration = initialGeneration + 1
 	type listTestForQueryWithVersions struct {
 		listTest
-		versioningEnabled bool
-		withOverwrites    bool
+		expectedGenerations []int64
+		expectedNumObjects  int
+		versioningEnabled   bool
+		withOverwrites      bool
 	}
 	tests := []listTestForQueryWithVersions{
 		{
@@ -681,24 +692,18 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 				"some-bucket",
 				&storage.Query{Versions: true},
 				[]string{
-					fmt.Sprintf("img/brand.jpg#%d", finalGeneration),
-					fmt.Sprintf("img/brand.jpg#%d", initialGeneration),
-					fmt.Sprintf("img/hi-res/party-01.jpg#%d", finalGeneration),
-					fmt.Sprintf("img/hi-res/party-01.jpg#%d", initialGeneration),
-					fmt.Sprintf("img/hi-res/party-02.jpg#%d", finalGeneration),
-					fmt.Sprintf("img/hi-res/party-02.jpg#%d", initialGeneration),
-					fmt.Sprintf("img/hi-res/party-03.jpg#%d", finalGeneration),
-					fmt.Sprintf("img/hi-res/party-03.jpg#%d", initialGeneration),
-					fmt.Sprintf("img/low-res/party-01.jpg#%d", finalGeneration),
-					fmt.Sprintf("img/low-res/party-01.jpg#%d", initialGeneration),
-					fmt.Sprintf("img/low-res/party-02.jpg#%d", finalGeneration),
-					fmt.Sprintf("img/low-res/party-02.jpg#%d", initialGeneration),
-					fmt.Sprintf("img/low-res/party-03.jpg#%d", finalGeneration),
-					fmt.Sprintf("img/low-res/party-03.jpg#%d", initialGeneration),
-					fmt.Sprintf("video/hi-res/some_video_1080p.mp4#%d", finalGeneration),
-					fmt.Sprintf("video/hi-res/some_video_1080p.mp4#%d", initialGeneration),
+					"img/brand.jpg",
+					"img/hi-res/party-01.jpg",
+					"img/hi-res/party-02.jpg",
+					"img/hi-res/party-03.jpg",
+					"img/low-res/party-01.jpg",
+					"img/low-res/party-02.jpg",
+					"img/low-res/party-03.jpg",
+					"video/hi-res/some_video_1080p.mp4",
 				},
 				nil},
+			[]int64{initialGeneration, finalGeneration},
+			8 * 2,
 			true,
 			true,
 		},
@@ -707,10 +712,11 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 				"other-bucket",
 				&storage.Query{Versions: true},
 				[]string{
-					fmt.Sprintf("static/css/style.css#%d", finalGeneration),
-					fmt.Sprintf("static/css/style.css#%d", initialGeneration),
+					"static/css/style.css",
 				},
 				nil},
+			[]int64{initialGeneration, finalGeneration},
+			2,
 			true,
 			true,
 		},
@@ -719,9 +725,11 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 				"other-bucket",
 				&storage.Query{Versions: true},
 				[]string{
-					fmt.Sprintf("static/css/style.css#%d", finalGeneration),
+					"static/css/style.css",
 				},
 				nil},
+			[]int64{finalGeneration},
+			1,
 			false,
 			true,
 		},
@@ -730,9 +738,11 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 				"other-bucket",
 				&storage.Query{Versions: true},
 				[]string{
-					fmt.Sprintf("static/css/style.css#%d", initialGeneration),
+					"static/css/style.css",
 				},
 				nil},
+			[]int64{initialGeneration},
+			1,
 			false,
 			false,
 		},
@@ -741,9 +751,11 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 				"other-bucket",
 				&storage.Query{Versions: true},
 				[]string{
-					fmt.Sprintf("static/css/style.css#%d", initialGeneration),
+					"static/css/style.css",
 				},
 				nil},
+			[]int64{initialGeneration},
+			1,
 			true,
 			false,
 		},
@@ -753,6 +765,8 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 				nil,
 				[]string{},
 				nil},
+			[]int64{},
+			0,
 			true,
 			true,
 		},
@@ -764,14 +778,10 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 			server.CreateBucket("other-bucket", test.versioningEnabled)
 			server.CreateBucket("empty-bucket", test.versioningEnabled)
 			for _, obj := range getObjectsForListTests() {
-				if test.versioningEnabled {
-					obj.Generation = initialGeneration
-				}
+				obj.Generation = initialGeneration
 				server.CreateObject(obj)
 				if test.withOverwrites {
-					if test.versioningEnabled {
-						obj.Generation = finalGeneration
-					}
+					obj.Generation = finalGeneration
 					obj.Content = []byte("final content")
 					server.CreateObject(obj)
 				}
@@ -779,25 +789,23 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 			client := server.Client()
 			t.Run(test.testCase, func(t *testing.T) {
 				iter := client.Bucket(test.bucketName).Objects(context.TODO(), test.query)
-				var prefixes []string
 				names := []string{}
 				obj, err := iter.Next()
 				for ; err == nil; obj, err = iter.Next() {
-					if obj.Name != "" {
-						names = append(names, obj.Name)
-					}
-					if obj.Prefix != "" {
-						prefixes = append(prefixes, obj.Prefix)
+					names = append(names, obj.Name)
+					if !contains(test.expectedGenerations, obj.Generation) {
+						t.Errorf("unexpected generation\nwant in %v\ngot    %d", test.expectedGenerations, obj.Generation)
 					}
 				}
 				if err != iterator.Done {
 					t.Fatal(err)
 				}
+				if len(names) != test.expectedNumObjects {
+					t.Errorf("wrong number objects\nwant %d\ngot  %d", test.expectedNumObjects, len(names))
+				}
+
 				if !reflect.DeepEqual(names, test.expectedNames) {
 					t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
-				}
-				if !reflect.DeepEqual(prefixes, test.expectedPrefixes) {
-					t.Errorf("wrong prefixes returned\nwant %#v\ngot  %#v", test.expectedPrefixes, prefixes)
 				}
 			})
 
