@@ -132,13 +132,24 @@ func TestObjectCRUD(t *testing.T) {
 				}
 			}
 
-			objs, err := storage.ListObjects(bucketName)
+			t.Logf("checking active object is the expected one when versioning is %t", versioningEnabled)
+			objs, err := storage.ListObjects(bucketName, false)
 			noError(t, err)
 			if len(objs) != 1 {
 				t.Errorf("wrong number of objects returned\nwant 1\ngot  %d", len(objs))
 			}
 			if objs[0].Name != objectName {
 				t.Errorf("wrong object name\nwant %q\ngot  %q", objectName, objs[0].Name)
+			}
+
+			t.Logf("checking all object listing is the expected one when versioning is %t", versioningEnabled)
+			objs, err = storage.ListObjects(bucketName, true)
+			noError(t, err, "list all objects")
+			if versioningEnabled && len(objs) != 2 {
+				t.Errorf("wrong number of objects returned\nwant 2\ngot  %d", len(objs))
+			}
+			if !versioningEnabled && len(objs) != 1 {
+				t.Errorf("wrong number of objects returned\nwant 1\ngot  %d", len(objs))
 			}
 
 			err = storage.DeleteObject(bucketName, objectName)

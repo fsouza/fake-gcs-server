@@ -762,7 +762,7 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 		{
 			listTest{"no prefix, no delimiter, no objects, versioning and overwrites",
 				"empty-bucket",
-				nil,
+				&storage.Query{Versions: true},
 				[]string{},
 				nil},
 			[]int64{},

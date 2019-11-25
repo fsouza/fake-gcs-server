@@ -74,8 +74,8 @@ func (s *Server) createObject(obj Object) error {
 
 // ListObjects returns a sorted list of objects that match the given criteria,
 // or an error if the bucket doesn't exist.
-func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []string, error) {
-	backendObjects, err := s.backend.ListObjects(bucketName)
+func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool) ([]Object, []string, error) {
+	backendObjects, err := s.backend.ListObjects(bucketName, versions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -186,7 +186,9 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	bucketName := mux.Vars(r)["bucketName"]
 	prefix := r.URL.Query().Get("prefix")
 	delimiter := r.URL.Query().Get("delimiter")
-	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter)
+	versions := r.URL.Query().Get("versions")
+
+	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter, versions == "true")
 	encoder := json.NewEncoder(w)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
