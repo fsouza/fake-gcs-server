@@ -676,6 +676,17 @@ func contains(s []int64, e int64) bool {
 	return false
 }
 
+func unique(in []string) (out []string) {
+	found := make(map[string]bool)
+	for _, entry := range in {
+		if _, value := found[entry]; !value {
+			found[entry] = true
+			out = append(out, entry)
+		}
+	}
+	return out
+}
+
 func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 	const initialGeneration = 1234
 	const finalGeneration = initialGeneration + 1
@@ -804,7 +815,7 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 					t.Errorf("wrong number objects\nwant %d\ngot  %d", test.expectedNumObjects, len(names))
 				}
 
-				if !reflect.DeepEqual(names, test.expectedNames) {
+				if !reflect.DeepEqual(unique(names), test.expectedNames) {
 					t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
 				}
 			})
