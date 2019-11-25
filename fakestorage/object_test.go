@@ -676,7 +676,8 @@ func contains(s []int64, e int64) bool {
 	return false
 }
 
-func unique(in []string) (out []string) {
+func unique(in []string) []string {
+	out := []string{}
 	found := make(map[string]bool)
 	for _, entry := range in {
 		if _, value := found[entry]; !value {
@@ -819,10 +820,8 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 					t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
 				}
 			})
-
 		})
 	}
-
 }
 
 func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
