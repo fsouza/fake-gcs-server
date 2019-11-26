@@ -37,7 +37,7 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		content         = "some nice content"
 		contentType     = "text/plain; charset=utf-8"
 		contentEncoding = "gzip"
-		metaValue   = "MetaValue"
+		metaValue       = "MetaValue"
 	)
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
@@ -50,7 +50,7 @@ func TestServerClientObjectAttrs(t *testing.T) {
 			ContentEncoding: contentEncoding,
 			Crc32c:          encodedChecksum(uint32ToBytes(checksum)),
 			Md5Hash:         encodedHash(hash),
-			Metadata:    map[string]string{"MetaHeader": metaValue},
+			Metadata:        map[string]string{"MetaHeader": metaValue},
 		},
 	}
 
