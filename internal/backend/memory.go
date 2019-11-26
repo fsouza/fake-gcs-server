@@ -43,7 +43,7 @@ func (bm *bucketInMemory) addObject(obj Object) {
 
 func getNewGenerationIfZero(generation int64) int64 {
 	if generation == 0 {
-		return time.Now().UnixNano()
+		return time.Now().UnixNano() / 1000
 	}
 	return generation
 }
