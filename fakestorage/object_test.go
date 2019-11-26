@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"hash/crc32"
 	"io/ioutil"
 	"reflect"
@@ -36,6 +37,7 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		content         = "some nice content"
 		contentType     = "text/plain; charset=utf-8"
 		contentEncoding = "gzip"
+		metaValue   = "MetaValue"
 	)
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
@@ -48,6 +50,7 @@ func TestServerClientObjectAttrs(t *testing.T) {
 			ContentEncoding: contentEncoding,
 			Crc32c:          encodedChecksum(uint32ToBytes(checksum)),
 			Md5Hash:         encodedHash(hash),
+			Metadata:    map[string]string{"MetaHeader": metaValue},
 		},
 	}
 
@@ -67,6 +70,11 @@ func TestServerClientObjectAttrs(t *testing.T) {
 		if attrs.Size != int64(len(content)) {
 			t.Errorf("wrong size returned\nwant %d\ngot  %d", len(content), attrs.Size)
 		}
+
+		if val, err := getMetadataHeaderFromAttrs(attrs, "MetaHeader"); err != nil || val != metaValue {
+			t.Errorf("wrong MetaHeader returned\nwant %s\ngot %v", metaValue, val)
+		}
+
 		if attrs.ContentType != contentType {
 			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
 		}
@@ -88,11 +96,13 @@ func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 			bucketName  = "prod-bucket"
 			objectName  = "video/hi-res/best_video_1080p.mp4"
 			contentType = "text/html; charset=utf-8"
+			metaValue   = "MetaValue"
 		)
 		server.CreateObject(Object{
 			BucketName:  bucketName,
 			Name:        objectName,
 			ContentType: contentType,
+			Metadata:    map[string]string{"MetaHeader": metaValue},
 		})
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(objectName)
@@ -109,7 +119,21 @@ func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 		if attrs.ContentType != contentType {
 			t.Errorf("wrong content type\n want %q\ngot  %q", contentType, attrs.ContentType)
 		}
+
+		if val, err := getMetadataHeaderFromAttrs(attrs, "MetaHeader"); err != nil || val != metaValue {
+			t.Errorf("wrong MetaHeader returned\nwant %s\ngot %v", metaValue, val)
+		}
 	})
+}
+
+func getMetadataHeaderFromAttrs(attrs *storage.ObjectAttrs, headerName string) (string, error) {
+	if attrs.Metadata != nil {
+		if val, ok := attrs.Metadata[headerName]; ok {
+			return val, nil
+		}
+	}
+
+	return "", errors.New("header does not exists")
 }
 
 func TestServerClientObjectAttrsErrors(t *testing.T) {
