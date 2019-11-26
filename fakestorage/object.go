@@ -25,9 +25,9 @@ type Object struct {
 	ContentEncoding string `json:"contentEncoding"`
 	Content         []byte `json:"-"`
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
-	Crc32c  string            `json:"crc32c,omitempty"`
-	Md5Hash string            `json:"md5hash,omitempty"`
-	ACL     []storage.ACLRule `json:"acl,omitempty"`
+	Crc32c   string            `json:"crc32c,omitempty"`
+	Md5Hash  string            `json:"md5hash,omitempty"`
+	ACL      []storage.ACLRule `json:"acl,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
@@ -108,7 +108,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			ACL:             o.ACL,
-			Metadata:    o.Metadata,
+			Metadata:        o.Metadata,
 		})
 	}
 	return backendObjects
@@ -126,7 +126,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			ACL:             o.ACL,
-			Metadata:    o.Metadata,
+			Metadata:        o.Metadata,
 		})
 	}
 	return backendObjects
