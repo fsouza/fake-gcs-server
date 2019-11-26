@@ -4,15 +4,18 @@
 
 package backend
 
+import "cloud.google.com/go/storage"
+
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName  string `json:"-"`
-	Name        string `json:"-"`
-	ContentType string
-	Content     []byte
-	Crc32c      string
-	Md5Hash     string
-	ACL         string
+	BucketName      string `json:"-"`
+	Name            string `json:"-"`
+	ContentType     string
+	ContentEncoding string
+	Content         []byte
+	Crc32c          string
+	Md5Hash         string
+	ACL             []storage.ACLRule
 }
 
 // ID is useful for comparing objects

@@ -1,5 +1,5 @@
 process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
-process.on("unhandledRejection", err => { throw err });
+process.on("unhandledRejection", err => {throw err});
 
 async function listBuckets() {
   // [START storage_list_buckets]

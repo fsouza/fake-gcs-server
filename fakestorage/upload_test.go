@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
 )
 
@@ -183,6 +184,66 @@ func TestServerClientSimpleUpload(t *testing.T) {
 	checkChecksum(t, []byte(data), obj)
 }
 
+func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	server.CreateBucket("other-bucket")
+
+	const data = "some nice content"
+	const contentType = "text/plain"
+	const contentEncoding = "gzip"
+	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?predefinedAcl=publicRead&uploadType=media&name=some/nice/object.txt&contentEncoding="+contentEncoding, strings.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", contentType)
+	client := http.Client{
+		Transport: &http.Transport{
+			// #nosec
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	expectedStatus := http.StatusOK
+	if resp.StatusCode != expectedStatus {
+		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
+	}
+
+	obj, err := server.GetObject("other-bucket", "some/nice/object.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	attrs, err := server.Client().Bucket("other-bucket").Object("some/nice/object.txt").Attrs(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if attrs.ContentEncoding != contentEncoding {
+		t.Errorf("wrong contentEncoding\nwant %q\ngot %q", contentEncoding, attrs.ContentEncoding)
+	}
+
+	acl, err := server.Client().Bucket("other-bucket").Object("some/nice/object.txt").ACL().List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !isACLPublic(acl) {
+		t.Errorf("wrong acl\ngot %+v", acl)
+	}
+	if string(obj.Content) != data {
+		t.Errorf("wrong content\nwant %q\ngot  %q", string(obj.Content), data)
+	}
+	if obj.ContentType != contentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+	}
+	checkChecksum(t, []byte(data), obj)
+}
+
 func TestServerClientSimpleUploadNoName(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()
@@ -289,4 +350,13 @@ func TestParseContentRange(t *testing.T) {
 			}
 		})
 	}
+}
+
+func isACLPublic(acl []storage.ACLRule) bool {
+	for _, entry := range acl {
+		if entry.Entity == storage.AllUsers && entry.Role == storage.RoleReader {
+			return true
+		}
+	}
+	return false
 }

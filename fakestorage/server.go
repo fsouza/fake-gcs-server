@@ -145,21 +145,30 @@ func (s *Server) setTransportToMux() {
 }
 
 func (s *Server) buildMuxer() {
+	const apiPrefix = "/storage/v1"
 	s.mux = mux.NewRouter()
+
+	routers := []*mux.Router{
+		s.mux.PathPrefix(apiPrefix).Subrouter(),
+		s.mux.Host(s.publicHost).PathPrefix(apiPrefix).Subrouter(),
+	}
+
+	for _, r := range routers {
+		r.Path("/b").Methods("GET").HandlerFunc(s.listBuckets)
+		r.Path("/b").Methods("POST").HandlerFunc(s.createBucketByPost)
+		r.Path("/b/{bucketName}").Methods("GET").HandlerFunc(s.getBucket)
+		r.Path("/b/{bucketName}/o").Methods("GET").HandlerFunc(s.listObjects)
+		r.Path("/b/{bucketName}/o").Methods("POST").HandlerFunc(s.insertObject)
+		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods("GET").HandlerFunc(s.listObjectACL)
+		r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods("PUT").HandlerFunc(s.setObjectACL)
+		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.getObject)
+		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("DELETE").HandlerFunc(s.deleteObject)
+		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/rewriteTo/b/{destinationBucket}/o/{destinationObject:.+}").HandlerFunc(s.rewriteObject)
+	}
+
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
-	r := s.mux.PathPrefix("/storage/v1").Subrouter()
-	r.Path("/b").Methods("GET").HandlerFunc(s.listBuckets)
-	r.Path("/b").Methods("POST").HandlerFunc(s.createBucketByPost)
-	r.Path("/b/{bucketName}").Methods("GET").HandlerFunc(s.getBucket)
-	r.Path("/b/{bucketName}/o").Methods("GET").HandlerFunc(s.listObjects)
-	r.Path("/b/{bucketName}/o").Methods("POST").HandlerFunc(s.insertObject)
-	r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods("GET").HandlerFunc(s.listObjectACL)
-	r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods("PUT").HandlerFunc(s.setObjectACL)
-	r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.getObject)
-	r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("DELETE").HandlerFunc(s.deleteObject)
-	r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/rewriteTo/b/{destinationBucket}/o/{destinationObject:.+}").HandlerFunc(s.rewriteObject)
 	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.downloadObject)
 	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods("POST").HandlerFunc(s.insertObject)
 	s.mux.Path("/upload/resumable/{uploadId}").Methods("PUT", "POST").HandlerFunc(s.uploadFileContent)
