@@ -24,9 +24,10 @@ type Object struct {
 	ContentType string `json:"contentType"`
 	Content     []byte `json:"-"`
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
-	Crc32c  string            `json:"crc32c,omitempty"`
-	Md5Hash string            `json:"md5hash,omitempty"`
-	ACL     storage.ACLEntity `json:"acl,omitempty"`
+	Crc32c   string            `json:"crc32c,omitempty"`
+	Md5Hash  string            `json:"md5hash,omitempty"`
+	ACL      storage.ACLEntity `json:"acl,omitempty"`
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -105,6 +106,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Crc32c:      o.Crc32c,
 			Md5Hash:     o.Md5Hash,
 			ACL:         string(o.ACL),
+			Metadata:    o.Metadata,
 		})
 	}
 	return backendObjects
@@ -121,6 +123,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			Crc32c:      o.Crc32c,
 			Md5Hash:     o.Md5Hash,
 			ACL:         storage.ACLEntity(o.ACL),
+			Metadata:    o.Metadata,
 		})
 	}
 	return backendObjects
@@ -226,6 +229,7 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 		Md5Hash:     obj.Md5Hash,
 		ContentType: obj.ContentType,
 		ACL:         obj.ACL,
+		Metadata:    obj.Metadata,
 	}
 	s.CreateObject(newObject)
 	w.Header().Set("Content-Type", "application/json")

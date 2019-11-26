@@ -58,15 +58,16 @@ func newListObjectsResponse(objs []Object, prefixes []string) listResponse {
 }
 
 type objectResponse struct {
-	Kind        string `json:"kind"`
-	Name        string `json:"name"`
-	ID          string `json:"id"`
-	Bucket      string `json:"bucket"`
-	Size        int64  `json:"size,string"`
-	ContentType string `json:"contentType,omitempty"`
-	Crc32c      string `json:"crc32c,omitempty"`
-	ACL         string `json:"acl,omitempty"`
-	Md5Hash     string `json:"md5hash,omitempty"`
+	Kind        string            `json:"kind"`
+	Name        string            `json:"name"`
+	ID          string            `json:"id"`
+	Bucket      string            `json:"bucket"`
+	Size        int64             `json:"size,string"`
+	ContentType string            `json:"contentType,omitempty"`
+	Crc32c      string            `json:"crc32c,omitempty"`
+	ACL         string            `json:"acl,omitempty"`
+	Md5Hash     string            `json:"md5hash,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 func newObjectResponse(obj Object) objectResponse {
@@ -80,6 +81,7 @@ func newObjectResponse(obj Object) objectResponse {
 		Crc32c:      obj.Crc32c,
 		ACL:         string(obj.ACL),
 		Md5Hash:     obj.Md5Hash,
+		Metadata:    obj.Metadata,
 	}
 }
 

@@ -13,6 +13,7 @@ type Object struct {
 	Crc32c      string
 	Md5Hash     string
 	ACL         string
+	Metadata    map[string]string
 }
 
 // ID is useful for comparing objects
