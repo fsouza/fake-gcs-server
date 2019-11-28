@@ -298,7 +298,23 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	obj, err := s.GetObject(vars["sourceBucket"], vars["sourceObject"])
+	generationStr := r.FormValue("sourceGeneration")
+	var (
+		obj        Object
+		err        error
+		generation int64
+	)
+	if generationStr != "" {
+		generation, err = strconv.ParseInt(generationStr, 10, 64)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "Wrong generation ID", http.StatusBadRequest)
+			return
+		}
+		obj, err = s.GetObjectWithGeneration(vars["sourceBucket"], vars["sourceObject"], generation)
+	} else {
+		obj, err = s.GetObject(vars["sourceBucket"], vars["sourceObject"])
+	}
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
