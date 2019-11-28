@@ -842,12 +842,23 @@ func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 
 func TestServiceClientRewriteObject(t *testing.T) {
 	const (
-		content     = "some content"
-		contentType = "text/plain; charset=utf-8"
+		overwrittenContent    = "i was there"
+		overwrittenGeneration = 123
+		content               = "some content"
+		contentType           = "text/plain; charset=utf-8"
 	)
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
 	objs := []Object{
+		{
+			BucketName:  "first-bucket",
+			Name:        "files/some-file.txt",
+			Content:     []byte(overwrittenContent),
+			ContentType: contentType,
+			Crc32c:      encodedChecksum(uint32ToBytes(checksum)),
+			Md5Hash:     encodedHash(hash),
+			Generation:  overwrittenGeneration,
+		},
 		{
 			BucketName:  "first-bucket",
 			Name:        "files/some-file.txt",
@@ -861,11 +872,12 @@ func TestServiceClientRewriteObject(t *testing.T) {
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
 		tests := []struct {
-			testCase   string
-			bucketName string
-			objectName string
-			crc32c     uint32
-			md5hash    string
+			testCase            string
+			bucketName          string
+			objectName          string
+			crc32c              uint32
+			md5hash             string
+			verifyOldGeneration bool
 		}{
 			{
 				"same bucket",
@@ -873,6 +885,31 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				"files/other-file.txt",
 				checksum,
 				encodedHash(hash),
+				false,
+			},
+			{
+				"same bucket from old gen",
+				"first-bucket",
+				"files/other-file.txt",
+				checksum,
+				encodedHash(hash),
+				true,
+			},
+			{
+				"same bucket same file",
+				"first-bucket",
+				"files/some-file.txt",
+				checksum,
+				encodedHash(hash),
+				false,
+			},
+			{
+				"same bucket same file from old gen",
+				"first-bucket",
+				"files/some-file.txt",
+				checksum,
+				encodedHash(hash),
+				true,
 			},
 			{
 				"different bucket",
@@ -880,6 +917,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				"some/interesting/file.txt",
 				checksum,
 				encodedHash(hash),
+				false,
 			},
 		}
 		for _, test := range tests {
@@ -887,6 +925,11 @@ func TestServiceClientRewriteObject(t *testing.T) {
 			t.Run(test.testCase, func(t *testing.T) {
 				client := server.Client()
 				sourceObject := client.Bucket("first-bucket").Object("files/some-file.txt")
+				expectedContent := content
+				if test.verifyOldGeneration {
+					sourceObject = sourceObject.Generation(overwrittenGeneration)
+					expectedContent = overwrittenContent
+				}
 				dstObject := client.Bucket(test.bucketName).Object(test.objectName)
 				attrs, err := dstObject.CopierFrom(sourceObject).Run(context.TODO())
 				if err != nil {
@@ -898,8 +941,8 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				if attrs.Name != test.objectName {
 					t.Errorf("wrong name in copied object attrs\nwant %q\ngot  %q", test.objectName, attrs.Name)
 				}
-				if attrs.Size != int64(len(content)) {
-					t.Errorf("wrong size in copied object attrs\nwant %d\ngot  %d", len(content), attrs.Size)
+				if attrs.Size != int64(len(expectedContent)) {
+					t.Errorf("wrong size in copied object attrs\nwant %d\ngot  %d", len(expectedContent), attrs.Size)
 				}
 				if attrs.CRC32C != checksum {
 					t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", checksum, attrs.CRC32C)
@@ -914,8 +957,8 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if string(obj.Content) != content {
-					t.Errorf("wrong content on object\nwant %q\ngot  %q", content, string(obj.Content))
+				if string(obj.Content) != expectedContent {
+					t.Errorf("wrong content on object\nwant %q\ngot  %q", expectedContent, string(obj.Content))
 				}
 				if expect := encodedChecksum(uint32ToBytes(checksum)); expect != obj.Crc32c {
 					t.Errorf("wrong checksum on object\nwant %s\ngot  %s", expect, obj.Crc32c)
