@@ -70,7 +70,12 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the created bucket:
-	resp := newBucketResponse(name, versioning)
+	bucket, err := s.backend.GetBucket(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	resp := newBucketResponse(bucket)
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -94,7 +99,7 @@ func (s *Server) getBucket(w http.ResponseWriter, r *http.Request) {
 		encoder.Encode(err)
 		return
 	}
-	resp := newBucketResponse(bucket.Name, bucket.VersioningEnabled)
+	resp := newBucketResponse(bucket)
 	w.WriteHeader(http.StatusOK)
 	encoder.Encode(resp)
 }

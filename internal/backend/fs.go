@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
+	"time"
 )
 
 // StorageFS is an implementation of the backend storage that stores data on disk
@@ -82,12 +84,21 @@ func (s *StorageFS) ListBuckets() ([]Bucket, error) {
 	return buckets, nil
 }
 
+func timespecToTime(ts syscall.Timespec) time.Time {
+	return time.Unix(ts.Sec, ts.Nsec)
+}
+
 // GetBucket checks if a bucket exists
 func (s *StorageFS) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
-	_, err := os.Stat(filepath.Join(s.rootDir, url.PathEscape(name)))
-	return Bucket{Name: name}, err
+	dirInfo, err := os.Stat(filepath.Join(s.rootDir, url.PathEscape(name)))
+	if err != nil {
+		return Bucket{}, err
+	}
+	statT := dirInfo.Sys().(*syscall.Stat_t)
+	// not true: Ctime is not created time, but not creating a file to persist this metadata, yet...
+	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(statT.Ctim)}, err
 }
 
 // CreateObject stores an object

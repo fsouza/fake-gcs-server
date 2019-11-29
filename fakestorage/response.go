@@ -25,28 +25,30 @@ func newListBucketsResponse(buckets []backend.Bucket) listResponse {
 		Items: make([]interface{}, len(buckets)),
 	}
 	for i, bucket := range buckets {
-		resp.Items[i] = newBucketResponse(bucket.Name, bucket.VersioningEnabled)
+		resp.Items[i] = newBucketResponse(bucket)
 	}
 	return resp
 }
 
 type bucketResponse struct {
-	Kind       string            `json:"kind"`
-	ID         string            `json:"id"`
-	Name       string            `json:"name"`
-	Versioning *bucketVersioning `json:"versioning,omitempty"`
+	Kind        string            `json:"kind"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Versioning  *bucketVersioning `json:"versioning,omitempty"`
+	TimeCreated string            `json:"timeCreated,omitempty"`
 }
 
 type bucketVersioning struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
-func newBucketResponse(bucketName string, versioningEnabled bool) bucketResponse {
+func newBucketResponse(bucket backend.Bucket) bucketResponse {
 	return bucketResponse{
-		Kind:       "storage#bucket",
-		ID:         bucketName,
-		Name:       bucketName,
-		Versioning: &bucketVersioning{versioningEnabled},
+		Kind:        "storage#bucket",
+		ID:          bucket.Name,
+		Name:        bucket.Name,
+		Versioning:  &bucketVersioning{bucket.VersioningEnabled},
+		TimeCreated: bucket.TimeCreated.Format(time.RFC3339),
 	}
 }
 
