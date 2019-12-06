@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-FROM golang:1.13.4-alpine AS builder
+FROM golang:1.13.5-alpine AS builder
 
 WORKDIR /code
 ENV CGO_ENABLED=0
