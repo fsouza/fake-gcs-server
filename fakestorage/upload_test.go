@@ -47,7 +47,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				const contentType = "text/plain; charset=utf-8"
-				server.CreateBucket(test.bucketName, false)
+				server.CreateBucketWithOpts(CreateBucketOpts{Name: test.bucketName})
 				client := server.Client()
 
 				objHandle := client.Bucket(test.bucketName).Object(test.objectName)
@@ -146,7 +146,7 @@ func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
 func TestServerClientSimpleUpload(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()
-	server.CreateBucket("other-bucket", false)
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
 
 	const data = "some nice content"
 	const contentType = "text/plain"
@@ -187,7 +187,7 @@ func TestServerClientSimpleUpload(t *testing.T) {
 func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()
-	server.CreateBucket("other-bucket", false)
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
 
 	const data = "some nice content"
 	const contentType = "text/plain"
@@ -247,7 +247,7 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 func TestServerClientSimpleUploadNoName(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()
-	server.CreateBucket("other-bucket", false)
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
 
 	const data = "some nice content"
 	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?uploadType=media", strings.NewReader(data))
@@ -274,7 +274,7 @@ func TestServerClientSimpleUploadNoName(t *testing.T) {
 func TestServerInvalidUploadType(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()
-	server.CreateBucket("other-bucket", false)
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
 	const data = "some nice content"
 	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?uploadType=bananas&name=some-object.txt", strings.NewReader(data))
 	if err != nil {

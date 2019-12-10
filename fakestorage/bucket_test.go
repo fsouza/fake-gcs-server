@@ -43,7 +43,7 @@ func TestServerClientBucketAttrsAfterCreateBucket(t *testing.T) {
 		versioningEnabled := versioningEnabled
 		runServersTest(t, nil, func(t *testing.T, server *Server) {
 			const bucketName = "best-bucket-ever"
-			server.CreateBucket(bucketName, versioningEnabled)
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: versioningEnabled})
 			client := server.Client()
 			attrs, err := client.Bucket(bucketName).Attrs(context.Background())
 			if err != nil {

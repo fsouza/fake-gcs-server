@@ -156,7 +156,7 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 			content2    = "some nice content x2"
 			contentType = "text/plain; charset=utf-8"
 		)
-		server.CreateBucket(bucketName, true)
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: true})
 		initialObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: encodedHash(md5Hash([]byte(content)))}
 		server.CreateObject(initialObj)
 		client := server.Client()
@@ -379,7 +379,7 @@ func TestServerClientObjectReaderAgainstSpecificGenerations(t *testing.T) {
 	)
 
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
-		server.CreateBucket(bucketName, true)
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: true})
 		object1 := Object{
 			BucketName:  bucketName,
 			Name:        objectName,
@@ -557,7 +557,7 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 
 func TestServiceClientListObjects(t *testing.T) {
 	runServersTest(t, getObjectsForListTests(), func(t *testing.T, server *Server) {
-		server.CreateBucket("empty-bucket", false)
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
 		tests := getTestCasesForListTests(false, false)
 		client := server.Client()
 		for _, test := range tests {
@@ -595,9 +595,12 @@ func TestServerClientListAfterCreate(t *testing.T) {
 			versioningEnabled := versioningEnabled
 			withOverwrites := withOverwrites
 			runServersTest(t, nil, func(t *testing.T, server *Server) {
-				server.CreateBucket("some-bucket", versioningEnabled)
-				server.CreateBucket("other-bucket", versioningEnabled)
-				server.CreateBucket("empty-bucket", versioningEnabled)
+				for _, bucketName := range []string{"some-bucket", "other-bucket", "empty-bucket"} {
+					server.CreateBucketWithOpts(CreateBucketOpts{
+						Name:              bucketName,
+						VersioningEnabled: versioningEnabled,
+					})
+				}
 				for _, obj := range getObjectsForListTests() {
 					server.CreateObject(obj)
 					if withOverwrites {
@@ -670,7 +673,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
-		server.CreateBucket("empty-bucket", false)
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
 		tests := []struct {
 			testCase   string
 			bucketName string
@@ -770,7 +773,7 @@ func TestServerClientObjectDeleteWithVersioning(t *testing.T) {
 	obj := Object{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg", Content: []byte("some nice content"), Generation: 123}
 
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
-		server.CreateBucket(obj.BucketName, true)
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: obj.BucketName, VersioningEnabled: true})
 		server.CreateObject(obj)
 
 		client := server.Client()
