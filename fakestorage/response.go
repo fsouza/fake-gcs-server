@@ -42,7 +42,7 @@ type bucketVersioning struct {
 }
 
 func newBucketResponse(bucketName string, versioningEnabled bool) (br bucketResponse) {
-	br = bucketResponse{
+	return bucketResponse{
 		Kind:       "storage#bucket",
 		ID:         bucketName,
 		Name:       bucketName,
