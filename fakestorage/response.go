@@ -48,7 +48,6 @@ func newBucketResponse(bucketName string, versioningEnabled bool) (br bucketResp
 		Name:       bucketName,
 		Versioning: &bucketVersioning{versioningEnabled},
 	}
-	return
 }
 
 func newListObjectsResponse(objs []Object, prefixes []string) listResponse {
