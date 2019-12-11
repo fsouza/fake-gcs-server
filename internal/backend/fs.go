@@ -139,7 +139,7 @@ func (s *StorageFS) GetObject(bucketName, objectName string) (Object, error) {
 
 // GetObjectWithGeneration retrieves an specific version of the object. Not implemented
 func (s *StorageFS) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
-	return Object{}, fmt.Errorf("not implemented: fs storage type does not support versioning yet")
+	return Object{}, errors.New("not implemented: fs storage type does not support versioning yet")
 }
 
 func (s *StorageFS) getObject(bucketName, objectName string) (Object, error) {
