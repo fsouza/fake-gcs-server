@@ -43,16 +43,17 @@ func testForStorageBackends(t *testing.T, test func(t *testing.T, storage Storag
 	}
 }
 
-func noError(t *testing.T, err error, description string) {
+func noError(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
-		t.Fatalf("%s should not error, but got: %v", description, err)
+		t.Fatalf("should not error, but got: %v", err)
 	}
 }
 
-func shouldError(t *testing.T, err error, description string) {
+func shouldError(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {
-		t.Fatalf("%s should error, but error is nil", description)
+		t.Fatalf("should error, but error is nil")
 	}
 }
 
@@ -60,13 +61,14 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	isFSStorage := reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{})
 	err := storage.CreateObject(obj)
 	if isFSStorage && obj.Generation != 0 {
-		shouldError(t, err, "FS should not support objects generation")
+		t.Log("FS should not support objects generation")
+		shouldError(t, err)
 		obj.Generation = 0
 		err = storage.CreateObject(obj)
 	}
-	noError(t, err, "creating object")
+	noError(t, err)
 	activeObj, err := storage.GetObject(obj.BucketName, obj.Name)
-	noError(t, err, "fetching active object")
+	noError(t, err)
 	if isFSStorage && activeObj.Generation != 0 {
 		t.Errorf("FS should leave generation empty, as it does not persist it. Value: %d", activeObj.Generation)
 	}
@@ -78,9 +80,10 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	}
 	objFromGeneration, err := storage.GetObjectWithGeneration(obj.BucketName, obj.Name, activeObj.Generation)
 	if isFSStorage {
-		shouldError(t, err, "FS does not implement fetch with generation")
+		t.Log("FS should not implement fetch with generation")
+		shouldError(t, err)
 	} else {
-		noError(t, err, "fetching object by generation")
+		noError(t, err)
 		if err := objFromGeneration.compare(obj); err != nil {
 			t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 		}
@@ -100,13 +103,14 @@ func TestObjectCRUD(t *testing.T) {
 		testForStorageBackends(t, func(t *testing.T, storage Storage) {
 			// Get in non-existent case
 			_, err := storage.GetObject(bucketName, objectName)
-			shouldError(t, err, "object found before being created")
+			shouldError(t, err)
 			// Delete in non-existent case
 			err = storage.DeleteObject(bucketName, objectName)
-			shouldError(t, err, "object successfully delete before being created")
+			shouldError(t, err)
 			err = storage.CreateBucket(bucketName, versioningEnabled)
 			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && versioningEnabled {
-				shouldError(t, err, "FS storage type does not implement versioning")
+				t.Log("FS storage type should not implement versioning")
+				shouldError(t, err)
 				return
 			}
 
@@ -120,16 +124,16 @@ func TestObjectCRUD(t *testing.T) {
 
 			initialObjectFromGeneration, err := storage.GetObjectWithGeneration(initialObject.BucketName, initialObject.Name, initialGeneration)
 			if !versioningEnabled {
-				shouldError(t, err, "versioning disabled, so initial object not found")
+				shouldError(t, err)
 			} else {
-				noError(t, err, "get initial generation - fetching object by generation")
+				noError(t, err)
 				if err := initialObjectFromGeneration.compare(initialObject); err != nil {
 					t.Errorf("get initial generation - object retrieved differs from the created one. Descr: %v", err)
 				}
 			}
 
 			objs, err := storage.ListObjects(bucketName)
-			noError(t, err, "list objects")
+			noError(t, err)
 			if len(objs) != 1 {
 				t.Errorf("wrong number of objects returned\nwant 1\ngot  %d", len(objs))
 			}
@@ -138,17 +142,17 @@ func TestObjectCRUD(t *testing.T) {
 			}
 
 			err = storage.DeleteObject(bucketName, objectName)
-			noError(t, err, "deleting object")
+			noError(t, err)
 
 			_, err = storage.GetObject(bucketName, objectName)
-			shouldError(t, err, "object found after destroying")
+			shouldError(t, err)
 
 			retrievedObject, err := storage.GetObjectWithGeneration(secondVersionWithGeneration.BucketName, secondVersionWithGeneration.Name, secondVersionWithGeneration.Generation)
 			if !versioningEnabled {
-				shouldError(t, err, "versioning disabled, so previous object not found")
+				shouldError(t, err)
 				return
 			}
-			noError(t, err, "get object by generation after removal")
+			noError(t, err)
 			if err := retrievedObject.compare(secondVersionWithGeneration); err != nil {
 				t.Errorf("get object by generation after removal - object retrieved differs from the created one. Descr: %v", err)
 			}
@@ -163,14 +167,15 @@ func TestObjectQueryErrors(t *testing.T) {
 			const bucketName = "random-bucket"
 			err := storage.CreateBucket(bucketName, versioningEnabled)
 			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && versioningEnabled {
-				shouldError(t, err, "FS storage type does not implement versioning")
+				t.Log("FS storage type should not implement versioning")
+				shouldError(t, err)
 				return
 			}
 			validObject := Object{BucketName: bucketName, Name: "random-object", Content: []byte("random-content")}
 			err = storage.CreateObject(validObject)
-			noError(t, err, "creating an simple object")
+			noError(t, err)
 			_, err = storage.GetObjectWithGeneration(validObject.BucketName, validObject.Name, 33333)
-			shouldError(t, err, "random generation query should fail")
+			shouldError(t, err)
 		})
 	}
 }
