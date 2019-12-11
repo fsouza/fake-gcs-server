@@ -153,10 +153,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 
 // https://github.com/googleapis/google-cloud-go/blob/2f857649c55302802e95b96119dd05032a61c87a/storage/storage.go#L1023
 func convertTimeWithoutError(t string) time.Time {
-	var r time.Time
-	if t != "" {
-		r, _ = time.Parse(time.RFC3339, t)
-	}
+	r, _ := time.Parse(time.RFC3339, t)
 	return r
 }
 
@@ -215,7 +212,6 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	if generationStr != "" {
 		generation, err = strconv.ParseInt(generationStr, 10, 64)
 		if err != nil {
-			fmt.Println(err)
 			errResp := newErrorResponse(http.StatusBadRequest, "Wrong generation ID", nil)
 			w.WriteHeader(http.StatusBadRequest)
 			encoder.Encode(errResp)
@@ -328,7 +324,6 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	if generationStr != "" {
 		generation, err = strconv.ParseInt(generationStr, 10, 64)
 		if err != nil {
-			fmt.Println(err)
 			http.Error(w, "Wrong generation ID", http.StatusBadRequest)
 			return
 		}

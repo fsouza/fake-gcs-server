@@ -41,7 +41,7 @@ type bucketVersioning struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
-func newBucketResponse(bucketName string, versioningEnabled bool) (br bucketResponse) {
+func newBucketResponse(bucketName string, versioningEnabled bool) bucketResponse {
 	return bucketResponse{
 		Kind:       "storage#bucket",
 		ID:         bucketName,
