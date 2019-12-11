@@ -92,7 +92,7 @@ func (s *StorageFS) GetBucket(name string) (Bucket, error) {
 // CreateObject stores an object
 func (s *StorageFS) CreateObject(obj Object) error {
 	if obj.Generation > 0 {
-		return fmt.Errorf("not implemented: fs storage type does not support objects generation yet")
+		return errors.New("not implemented: fs storage type does not support objects generation yet")
 	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
