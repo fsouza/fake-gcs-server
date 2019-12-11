@@ -11,11 +11,13 @@ RUN go test -race -vet all -mod readonly ./...
 
 FROM golangci/golangci-lint AS linter
 WORKDIR /code
-ADD . ./
+COPY --from=tester /go/pkg /go/pkg
+COPY --from=tester /code .
 RUN golangci-lint run --enable-all \
     -D errcheck -D lll -D dupl -D gochecknoglobals -D unparam \
     --deadline 5m \
-    ./...
+    ./... \
+    && rm -rf /root/.cache
 
 FROM golang:1.13.5-alpine AS builder
 WORKDIR /code
