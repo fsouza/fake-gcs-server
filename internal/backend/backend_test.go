@@ -50,6 +50,7 @@ func noError(t *testing.T, err error, description string) {
 }
 
 func shouldError(t *testing.T, err error, description string) {
+	t.Helper()
 	if err == nil {
 		t.Fatalf("%s should error, but error is nil", description)
 	}
