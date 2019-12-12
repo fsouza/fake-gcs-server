@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -28,6 +29,12 @@ type Object struct {
 	Crc32c  string            `json:"crc32c,omitempty"`
 	Md5Hash string            `json:"md5hash,omitempty"`
 	ACL     []storage.ACLRule `json:"acl,omitempty"`
+	// Dates and generation can be manually injected, so you can do assertions on them,
+	// or let us fill these fields for you
+	Created    time.Time `json:"created,omitempty"`
+	Updated    time.Time `json:"updated,omitempty"`
+	Deleted    time.Time `json:"deleted,omitempty"`
+	Generation int64     `json:"generation,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -95,6 +102,13 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string) ([]Object, []
 	return respObjects, respPrefixes, nil
 }
 
+func getCurrentIfZero(date time.Time) time.Time {
+	if date.IsZero() {
+		return time.Now()
+	}
+	return date
+}
+
 func toBackendObjects(objects []Object) []backend.Object {
 	backendObjects := []backend.Object{}
 	for _, o := range objects {
@@ -107,6 +121,10 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			ACL:             o.ACL,
+			Created:         getCurrentIfZero(o.Created).Format(time.RFC3339),
+			Deleted:         o.Deleted.Format(time.RFC3339),
+			Updated:         getCurrentIfZero(o.Updated).Format(time.RFC3339),
+			Generation:      o.Generation,
 		})
 	}
 	return backendObjects
@@ -124,15 +142,36 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			ACL:             o.ACL,
+			Created:         convertTimeWithoutError(o.Created),
+			Deleted:         convertTimeWithoutError(o.Deleted),
+			Updated:         convertTimeWithoutError(o.Updated),
+			Generation:      o.Generation,
 		})
 	}
 	return backendObjects
+}
+
+// https://github.com/googleapis/google-cloud-go/blob/2f857649c55302802e95b96119dd05032a61c87a/storage/storage.go#L1023
+func convertTimeWithoutError(t string) time.Time {
+	r, _ := time.Parse(time.RFC3339, t)
+	return r
 }
 
 // GetObject returns the object with the given name in the given bucket, or an
 // error if the object doesn't exist.
 func (s *Server) GetObject(bucketName, objectName string) (Object, error) {
 	backendObj, err := s.backend.GetObject(bucketName, objectName)
+	if err != nil {
+		return Object{}, err
+	}
+	obj := fromBackendObjects([]backend.Object{backendObj})[0]
+	return obj, nil
+}
+
+// GetObjectWithGeneration returns the object with the given name and given generation ID in the given bucket,
+// or an error if the object doesn't exist. If versioning is enabled, archived versions are considered
+func (s *Server) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
+	backendObj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, generation)
 	if err != nil {
 		return Object{}, err
 	}
@@ -164,7 +203,25 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	encoder := json.NewEncoder(w)
-	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	generationStr := r.FormValue("generation")
+	var (
+		obj        Object
+		err        error
+		generation int64
+	)
+	if generationStr != "" {
+		generation, err = strconv.ParseInt(generationStr, 10, 64)
+		if err != nil {
+			errResp := newErrorResponse(http.StatusBadRequest, "Wrong generation ID", nil)
+			w.WriteHeader(http.StatusBadRequest)
+			encoder.Encode(errResp)
+			return
+		}
+		obj, err = s.GetObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
+	} else {
+		obj, err = s.GetObject(vars["bucketName"], vars["objectName"])
+	}
+
 	if err != nil {
 		errResp := newErrorResponse(http.StatusNotFound, "Not Found", nil)
 		w.WriteHeader(http.StatusNotFound)
@@ -258,7 +315,22 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	var (
+		obj        Object
+		err        error
+		generation int64
+	)
+	generationStr := r.FormValue("generation")
+	if generationStr != "" {
+		generation, err = strconv.ParseInt(generationStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Wrong generation ID", http.StatusBadRequest)
+			return
+		}
+		obj, err = s.GetObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
+	} else {
+		obj, err = s.GetObject(vars["bucketName"], vars["objectName"])
+	}
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

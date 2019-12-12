@@ -40,7 +40,7 @@ func main() {
 	}
 	logger.Infof("server started at %s", server.URL())
 	for _, bucketName := range emptyBuckets {
-		server.CreateBucket(bucketName)
+		server.CreateBucketWithOpts(fakestorage.CreateBucketOpts{Name: bucketName})
 	}
 
 	ch := make(chan os.Signal, 1)
