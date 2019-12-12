@@ -11,6 +11,7 @@ RUN go test -race -vet all -mod readonly ./...
 
 FROM golangci/golangci-lint AS linter
 WORKDIR /code
+ENV GOPROXY=off
 COPY --from=tester /go/pkg /go/pkg
 COPY --from=tester /code .
 RUN golangci-lint run \
@@ -18,7 +19,7 @@ RUN golangci-lint run \
 
 FROM golang:1.13.5-alpine AS builder
 WORKDIR /code
-ENV CGO_ENABLED=0
+ENV CGO_ENABLED=0 GOPROXY=off
 COPY --from=tester /go/pkg /go/pkg
 COPY --from=tester /code .
 RUN go build -o fake-gcs-server
