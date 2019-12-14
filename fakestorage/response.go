@@ -77,6 +77,7 @@ type objectResponse struct {
 	TimeDeleted     string                         `json:"timeDeleted,omitempty"`
 	Updated         string                         `json:"updated,omitempty"`
 	Generation      int64                          `json:"generation,string"`
+	Metadata        map[string]string              `json:"metadata,omitempty"`
 }
 
 func newObjectResponse(obj Object) objectResponse {
@@ -93,6 +94,7 @@ func newObjectResponse(obj Object) objectResponse {
 		Crc32c:          obj.Crc32c,
 		Md5Hash:         obj.Md5Hash,
 		ACL:             acl,
+		Metadata:        obj.Metadata,
 		TimeCreated:     obj.Created.Format(time.RFC3339),
 		TimeDeleted:     obj.Deleted.Format(time.RFC3339),
 		Updated:         obj.Updated.Format(time.RFC3339),

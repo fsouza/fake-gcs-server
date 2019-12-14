@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
@@ -42,6 +43,7 @@ func getObjectTestCases() objectTestCases {
 		content         = "some nice content"
 		contentType     = "text/plain; charset=utf-8"
 		contentEncoding = "gzip"
+		metaValue       = "MetaValue"
 	)
 	testInitExecTime := time.Now()
 	checksum := uint32Checksum([]byte(content))
@@ -59,6 +61,10 @@ func getObjectTestCases() objectTestCases {
 		{
 			"object with creation, modification dates, and generation",
 			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime, Generation: testInitExecTime.UnixNano()},
+		},
+		{
+			"object with everything",
+			Object{BucketName: bucketName, Name: "img/location/meta.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Metadata: map[string]string{"MetaHeader": metaValue}},
 		},
 		{
 			"object with no contents neither dates",
@@ -111,6 +117,11 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	if testObj.Content != nil && !bytes.Equal(attrs.MD5, md5Hash(testObj.Content)) {
 		t.Errorf("wrong hash returned\nwant %d\ngot   %d", md5Hash(testObj.Content), attrs.MD5)
 	}
+	if testObj.Metadata != nil {
+		if val, err := getMetadataHeaderFromAttrs(attrs, "MetaHeader"); err != nil || val != testObj.Metadata["MetaHeader"] {
+			t.Errorf("wrong MetaHeader returned\nwant %s\ngot %v", testObj.Metadata["MetaHeader"], val)
+		}
+	}
 }
 
 func TestServerClientObjectAttrs(t *testing.T) {
@@ -155,9 +166,10 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 			content     = "some nice content"
 			content2    = "some nice content x2"
 			contentType = "text/plain; charset=utf-8"
+			metaValue   = "MetaValue"
 		)
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: true})
-		initialObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: encodedHash(md5Hash([]byte(content)))}
+		initialObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: encodedHash(md5Hash([]byte(content))), Metadata: map[string]string{"MetaHeader": metaValue}}
 		server.CreateObject(initialObj)
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(initialObj.Name)
@@ -189,7 +201,21 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 		if originalObjAttrsAfterOverwrite.Deleted.IsZero() || originalObjAttrsAfterOverwrite.Deleted.Before(originalObjAttrsAfterOverwrite.Created) {
 			t.Errorf("unexpected delete time, %v", originalObjAttrsAfterOverwrite.Deleted)
 		}
+
+		if val, err := getMetadataHeaderFromAttrs(originalObjAttrsAfterOverwrite, "MetaHeader"); err != nil || val != metaValue {
+			t.Errorf("wrong MetaHeader returned\nwant %s\ngot %v", metaValue, val)
+		}
 	})
+}
+
+func getMetadataHeaderFromAttrs(attrs *storage.ObjectAttrs, headerName string) (string, error) {
+	if attrs.Metadata != nil {
+		if val, ok := attrs.Metadata[headerName]; ok {
+			return val, nil
+		}
+	}
+
+	return "", errors.New("header does not exists")
 }
 
 func TestServerClientObjectAttrsErrors(t *testing.T) {

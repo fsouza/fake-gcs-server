@@ -21,6 +21,7 @@ type Object struct {
 	Crc32c          string
 	Md5Hash         string
 	ACL             []storage.ACLRule
+	Metadata        map[string]string
 	Created         string
 	Deleted         string
 	Updated         string

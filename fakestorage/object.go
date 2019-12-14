@@ -31,10 +31,11 @@ type Object struct {
 	ACL     []storage.ACLRule `json:"acl,omitempty"`
 	// Dates and generation can be manually injected, so you can do assertions on them,
 	// or let us fill these fields for you
-	Created    time.Time `json:"created,omitempty"`
-	Updated    time.Time `json:"updated,omitempty"`
-	Deleted    time.Time `json:"deleted,omitempty"`
-	Generation int64     `json:"generation,omitempty"`
+	Created    time.Time         `json:"created,omitempty"`
+	Updated    time.Time         `json:"updated,omitempty"`
+	Deleted    time.Time         `json:"deleted,omitempty"`
+	Generation int64             `json:"generation,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
 func (o *Object) id() string {
@@ -125,6 +126,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Deleted:         o.Deleted.Format(time.RFC3339),
 			Updated:         getCurrentIfZero(o.Updated).Format(time.RFC3339),
 			Generation:      o.Generation,
+			Metadata:        o.Metadata,
 		})
 	}
 	return backendObjects
@@ -146,6 +148,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			Deleted:         convertTimeWithoutError(o.Deleted),
 			Updated:         convertTimeWithoutError(o.Updated),
 			Generation:      o.Generation,
+			Metadata:        o.Metadata,
 		})
 	}
 	return backendObjects
@@ -307,6 +310,7 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 		Md5Hash:     obj.Md5Hash,
 		ContentType: obj.ContentType,
 		ACL:         obj.ACL,
+		Metadata:    obj.Metadata,
 	}
 	s.CreateObject(newObject)
 	w.Header().Set("Content-Type", "application/json")
