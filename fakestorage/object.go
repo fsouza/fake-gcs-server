@@ -31,11 +31,11 @@ type Object struct {
 	ACL     []storage.ACLRule `json:"acl,omitempty"`
 	// Dates and generation can be manually injected, so you can do assertions on them,
 	// or let us fill these fields for you
-	Created    time.Time `json:"created,omitempty"`
-	Updated    time.Time `json:"updated,omitempty"`
-	Deleted    time.Time `json:"deleted,omitempty"`
-	Generation int64     `json:"generation,omitempty"`
-	Metadata map[string]string `json:"metadata,omitempty"`
+	Created    time.Time         `json:"created,omitempty"`
+	Updated    time.Time         `json:"updated,omitempty"`
+	Deleted    time.Time         `json:"deleted,omitempty"`
+	Generation int64             `json:"generation,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
 func (o *Object) id() string {
