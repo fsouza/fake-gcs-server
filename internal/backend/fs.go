@@ -6,6 +6,7 @@ package backend
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -47,7 +48,10 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 }
 
 // CreateBucket creates a bucket
-func (s *StorageFS) CreateBucket(name string) error {
+func (s *StorageFS) CreateBucket(name string, versioningEnabled bool) error {
+	if versioningEnabled {
+		return fmt.Errorf("not implemented: fs storage type does not support versioning yet")
+	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	return s.createBucket(name)
@@ -58,36 +62,39 @@ func (s *StorageFS) createBucket(name string) error {
 }
 
 // ListBuckets lists buckets
-func (s *StorageFS) ListBuckets() ([]string, error) {
+func (s *StorageFS) ListBuckets() ([]Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	infos, err := ioutil.ReadDir(s.rootDir)
 	if err != nil {
 		return nil, err
 	}
-	buckets := []string{}
+	buckets := []Bucket{}
 	for _, info := range infos {
 		if info.IsDir() {
 			unescaped, err := url.PathUnescape(info.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to unescape object name %s: %s", info.Name(), err)
 			}
-			buckets = append(buckets, unescaped)
+			buckets = append(buckets, Bucket{Name: unescaped})
 		}
 	}
 	return buckets, nil
 }
 
 // GetBucket checks if a bucket exists
-func (s *StorageFS) GetBucket(name string) error {
+func (s *StorageFS) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	_, err := os.Stat(filepath.Join(s.rootDir, url.PathEscape(name)))
-	return err
+	return Bucket{Name: name}, err
 }
 
 // CreateObject stores an object
 func (s *StorageFS) CreateObject(obj Object) error {
+	if obj.Generation > 0 {
+		return errors.New("not implemented: fs storage type does not support objects generation yet")
+	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	err := s.createBucket(obj.BucketName)
@@ -129,6 +136,11 @@ func (s *StorageFS) GetObject(bucketName, objectName string) (Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	return s.getObject(bucketName, objectName)
+}
+
+// GetObjectWithGeneration retrieves an specific version of the object. Not implemented
+func (s *StorageFS) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
+	return Object{}, errors.New("not implemented: fs storage type does not support versioning yet")
 }
 
 func (s *StorageFS) getObject(bucketName, objectName string) (Object, error) {

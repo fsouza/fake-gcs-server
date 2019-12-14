@@ -6,8 +6,9 @@ package fakestorage
 
 import (
 	"net/http"
-	"sort"
+	"time"
 
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/storage/v1"
 )
@@ -18,29 +19,34 @@ type listResponse struct {
 	Prefixes []string      `json:"prefixes"`
 }
 
-func newListBucketsResponse(bucketNames []string) listResponse {
+func newListBucketsResponse(buckets []backend.Bucket) listResponse {
 	resp := listResponse{
 		Kind:  "storage#buckets",
-		Items: make([]interface{}, len(bucketNames)),
+		Items: make([]interface{}, len(buckets)),
 	}
-	sort.Strings(bucketNames)
-	for i, name := range bucketNames {
-		resp.Items[i] = newBucketResponse(name)
+	for i, bucket := range buckets {
+		resp.Items[i] = newBucketResponse(bucket.Name, bucket.VersioningEnabled)
 	}
 	return resp
 }
 
 type bucketResponse struct {
-	Kind string `json:"kind"`
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	Kind       string            `json:"kind"`
+	ID         string            `json:"id"`
+	Name       string            `json:"name"`
+	Versioning *bucketVersioning `json:"versioning,omitempty"`
 }
 
-func newBucketResponse(bucketName string) bucketResponse {
+type bucketVersioning struct {
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+func newBucketResponse(bucketName string, versioningEnabled bool) bucketResponse {
 	return bucketResponse{
-		Kind: "storage#bucket",
-		ID:   bucketName,
-		Name: bucketName,
+		Kind:       "storage#bucket",
+		ID:         bucketName,
+		Name:       bucketName,
+		Versioning: &bucketVersioning{versioningEnabled},
 	}
 }
 
@@ -67,6 +73,10 @@ type objectResponse struct {
 	Crc32c          string                         `json:"crc32c,omitempty"`
 	ACL             []*storage.ObjectAccessControl `json:"acl,omitempty"`
 	Md5Hash         string                         `json:"md5hash,omitempty"`
+	TimeCreated     string                         `json:"timeCreated,omitempty"`
+	TimeDeleted     string                         `json:"timeDeleted,omitempty"`
+	Updated         string                         `json:"updated,omitempty"`
+	Generation      int64                          `json:"generation,string"`
 	Metadata        map[string]string              `json:"metadata,omitempty"`
 }
 
@@ -85,6 +95,10 @@ func newObjectResponse(obj Object) objectResponse {
 		Md5Hash:         obj.Md5Hash,
 		ACL:             acl,
 		Metadata:        obj.Metadata,
+		TimeCreated:     obj.Created.Format(time.RFC3339),
+		TimeDeleted:     obj.Deleted.Format(time.RFC3339),
+		Updated:         obj.Updated.Format(time.RFC3339),
+		Generation:      obj.Generation,
 	}
 }
 

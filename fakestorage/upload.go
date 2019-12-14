@@ -41,7 +41,7 @@ type contentRange struct {
 
 func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 	bucketName := mux.Vars(r)["bucketName"]
-	if err := s.backend.GetBucket(bucketName); err != nil {
+	if _, err := s.backend.GetBucket(bucketName); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		err := newErrorResponse(http.StatusNotFound, "Not found", nil)
 		json.NewEncoder(w).Encode(err)

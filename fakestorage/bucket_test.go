@@ -8,9 +8,9 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"testing"
 
+	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
 )
 
@@ -32,40 +32,60 @@ func TestServerClientBucketAttrs(t *testing.T) {
 		if attrs.Name != expectedName {
 			t.Errorf("wrong bucket name returned\nwant %q\ngot  %q", expectedName, attrs.Name)
 		}
+		if attrs.VersioningEnabled != false {
+			t.Errorf("wrong bucket props for %q\nexpecting no versioning by default, got it enabled", expectedName)
+		}
 	})
 }
 
 func TestServerClientBucketAttrsAfterCreateBucket(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
-		const bucketName = "best-bucket-ever"
-		server.CreateBucket(bucketName)
-		client := server.Client()
-		attrs, err := client.Bucket(bucketName).Attrs(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if attrs.Name != bucketName {
-			t.Errorf("wrong bucket name returned\nwant %q\ngot  %q", bucketName, attrs.Name)
-		}
-	})
+	for _, versioningEnabled := range []bool{true, false} {
+		versioningEnabled := versioningEnabled
+		runServersTest(t, nil, func(t *testing.T, server *Server) {
+			const bucketName = "best-bucket-ever"
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: versioningEnabled})
+			client := server.Client()
+			attrs, err := client.Bucket(bucketName).Attrs(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if attrs.Name != bucketName {
+				t.Errorf("wrong bucket name returned\nwant %q\ngot  %q", bucketName, attrs.Name)
+			}
+			if attrs.VersioningEnabled != versioningEnabled {
+				t.Errorf("wrong bucket props for %q:\nwant versioningEnabled: %t\ngot versioningEnabled: %t", bucketName, versioningEnabled, attrs.VersioningEnabled)
+			}
+		})
+	}
 }
 
 func TestServerClientBucketAttrsAfterCreateBucketByPost(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
-		const bucketName = "post-bucket"
-		client := server.Client()
-		bucket := client.Bucket(bucketName)
-		if err := bucket.Create(context.Background(), "whatever", nil); err != nil {
-			t.Fatal(err)
-		}
-		attrs, err := client.Bucket(bucketName).Attrs(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if attrs.Name != bucketName {
-			t.Errorf("wrong bucket name returned\nwant %q\ngot  %q", bucketName, attrs.Name)
-		}
-	})
+	for _, versioningEnabled := range []bool{true, false} {
+		versioningEnabled := versioningEnabled
+		runServersTest(t, nil, func(t *testing.T, server *Server) {
+			const bucketName = "post-bucket"
+			client := server.Client()
+			bucket := client.Bucket(bucketName)
+
+			bucketAttrs := storage.BucketAttrs{
+				VersioningEnabled: versioningEnabled,
+			}
+			if err := bucket.Create(context.Background(), "whatever", &bucketAttrs); err != nil {
+				t.Fatal(err)
+			}
+			attrs, err := client.Bucket(bucketName).Attrs(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if attrs.Name != bucketName {
+				t.Errorf("wrong bucket name returned\nwant %q\ngot  %q", bucketName, attrs.Name)
+			}
+
+			if attrs.VersioningEnabled != bucketAttrs.VersioningEnabled {
+				t.Errorf("wrong bucket props for %q:\nwant versioningEnabled: %t\ngot versioningEnabled: %t", bucketName, bucketAttrs.VersioningEnabled, attrs.VersioningEnabled)
+			}
+		})
+	}
 }
 
 func TestServerClientBucketAttrsNotFound(t *testing.T) {
@@ -91,18 +111,35 @@ func TestServerClientListBuckets(t *testing.T) {
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
 		client := server.Client()
+		const versionedBucketName = "post-bucket-with-versioning"
+		versionedBucketAttrs := storage.BucketAttrs{
+			VersioningEnabled: true,
+		}
+		if err := client.Bucket(versionedBucketName).Create(context.Background(), "whatever", &versionedBucketAttrs); err != nil {
+			t.Fatal(err)
+		}
 		it := client.Buckets(context.Background(), "whatever")
-		var returnedNames []string
+		expectedBuckets := map[string]bool{
+			"other-bucket": false, "some-bucket": false, versionedBucketName: true}
 		b, err := it.Next()
+		numberOfBuckets := 0
 		for ; err == nil; b, err = it.Next() {
-			returnedNames = append(returnedNames, b.Name)
+			numberOfBuckets++
+			versioning, found := expectedBuckets[b.Name]
+			if !found {
+				t.Errorf("unexpected bucket found\nname %s", b.Name)
+				continue
+			}
+			if versioning != b.VersioningEnabled {
+				t.Errorf("unexpected versioning value for %s\nwant %t\ngot  %t", b.Name, versioning, b.VersioningEnabled)
+			}
 		}
 		if err != iterator.Done {
 			t.Fatal(err)
 		}
-		expectedNames := []string{"other-bucket", "some-bucket"}
-		if !reflect.DeepEqual(returnedNames, expectedNames) {
-			t.Errorf("wrong names returned\nwant %#v\ngot  %#v", expectedNames, returnedNames)
+
+		if len(expectedBuckets) != numberOfBuckets {
+			t.Errorf("wrong number of buckets returned\nwant %d\ngot  %d", len(expectedBuckets), numberOfBuckets)
 		}
 	})
 }
@@ -139,7 +176,7 @@ func TestServerClientListObjects(t *testing.T) {
 			objAttrs, err := it.Next()
 			for ; err == nil; objAttrs, err = it.Next() {
 				seenFiles[objAttrs.Name] = struct{}{}
-				t.Logf("Seen file %s", objAttrs.Name)
+				t.Logf("seen file %s", objAttrs.Name)
 			}
 			if len(objects) != len(seenFiles) {
 				t.Errorf("wrong number of files\nwant %d\ngot %d", len(objects), len(seenFiles))
