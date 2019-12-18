@@ -42,6 +42,8 @@ func NewServer(objects []Object) *Server {
 }
 
 // NewServerWithHostPort creates a new server that listens on a custom host and port
+//
+// Deprecated: use NewServerWithOptions()
 func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server, error) {
 	return NewServerWithOptions(Options{
 		InitialObjects: objects,
