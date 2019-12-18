@@ -5,7 +5,7 @@ require (
 	github.com/google/go-cmp v0.3.2-0.20191216211814-5a6f75716e12
 	github.com/gorilla/mux v1.7.3
 	github.com/sirupsen/logrus v1.4.2
-	google.golang.org/api v0.14.0
+	google.golang.org/api v0.15.0
 )
 
 go 1.13
