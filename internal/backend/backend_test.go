@@ -144,7 +144,7 @@ func TestObjectCRUD(t *testing.T) {
 
 			t.Logf("checking all object listing is the expected one when versioning is %t", versioningEnabled)
 			objs, err = storage.ListObjects(bucketName, true)
-			noError(t, err, "list all objects")
+			noError(t, err)
 			if versioningEnabled && len(objs) != 2 {
 				t.Errorf("wrong number of objects returned\nwant 2\ngot  %d", len(objs))
 			}

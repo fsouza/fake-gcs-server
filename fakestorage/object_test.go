@@ -786,9 +786,12 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		runServersTest(t, nil, func(t *testing.T, server *Server) {
-			server.CreateBucket("some-bucket", test.versioningEnabled)
-			server.CreateBucket("other-bucket", test.versioningEnabled)
-			server.CreateBucket("empty-bucket", test.versioningEnabled)
+			for _, bucketName := range []string{"some-bucket", "other-bucket", "empty-bucket"} {
+				server.CreateBucketWithOpts(CreateBucketOpts{
+					Name:              bucketName,
+					VersioningEnabled: test.versioningEnabled,
+				})
+			}
 			for _, obj := range getObjectsForListTests() {
 				obj.Generation = initialGeneration
 				server.CreateObject(obj)
