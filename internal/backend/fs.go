@@ -109,9 +109,10 @@ func (s *StorageFS) CreateObject(obj Object) error {
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and delimeter
-func (s *StorageFS) ListObjects(bucketName string) ([]Object, error) {
+func (s *StorageFS) ListObjects(bucketName string, versions bool) ([]Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
+
 	infos, err := ioutil.ReadDir(path.Join(s.rootDir, url.PathEscape(bucketName)))
 	if err != nil {
 		return nil, err

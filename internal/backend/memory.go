@@ -167,14 +167,17 @@ func (s *StorageMemory) CreateObject(obj Object) error {
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and delimeter
-func (s *StorageMemory) ListObjects(bucketName string) ([]Object, error) {
+func (s *StorageMemory) ListObjects(bucketName string, versions bool) ([]Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
 	if err != nil {
 		return []Object{}, err
 	}
-	return bucketInMemory.activeObjects, nil
+	if !versions {
+		return bucketInMemory.activeObjects, nil
+	}
+	return append(bucketInMemory.activeObjects, bucketInMemory.archivedObjects...), nil
 }
 
 // GetObject get an object by bucket and name
