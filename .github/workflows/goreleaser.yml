@@ -14,4 +14,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           entrypoint: bash
-          args: -c "git fetch --tags && goreleaser release -f ci/.goreleaser.yml"
+          args: -c "git fetch --tags --prune --prune-tags --force && goreleaser release -f ci/.goreleaser.yml"
