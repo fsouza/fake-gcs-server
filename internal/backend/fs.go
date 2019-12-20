@@ -96,9 +96,7 @@ func (s *StorageFS) GetBucket(name string) (Bucket, error) {
 	if err != nil {
 		return Bucket{}, err
 	}
-	statT := dirInfo.Sys().(*syscall.Stat_t)
-	// not true: Ctime is not created time, but not creating a file to persist this metadata, yet...
-	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(statT.Ctim)}, err
+	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo))}, err
 }
 
 // CreateObject stores an object
