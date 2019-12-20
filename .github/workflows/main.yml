@@ -16,9 +16,12 @@ jobs:
           - 1.12.x
           - 1.13.x
           - 1.14.x
+        os:
+          - macos
+          - ubuntu
 
-    name: lint-and-test (go ${{ matrix.go_version }})
-    runs-on: ubuntu-latest
+    name: lint-and-test (${{ matrix.os }}/go-${{ matrix.go_version }})
+    runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/setup-go@v1.0.2
         id: go
