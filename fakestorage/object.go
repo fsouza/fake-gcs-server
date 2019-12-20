@@ -307,7 +307,6 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 	if generationStr != "" {
 		generation, err = strconv.ParseInt(generationStr, 10, 64)
 		if err != nil {
-			fmt.Println(err)
 			http.Error(w, "Wrong generation ID", http.StatusBadRequest)
 			return
 		}
