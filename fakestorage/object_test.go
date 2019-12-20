@@ -1004,8 +1004,8 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			runServersTest(t, []Object{}, func(t *testing.T, server *Server) {
-				server.CreateBucket("empty-bucket", false)
-				server.CreateBucket("first-bucket", test.versioning)
+				server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket", VersioningEnabled: false})
+				server.CreateBucketWithOpts(CreateBucketOpts{Name: "first-bucket", VersioningEnabled: test.versioning})
 				for _, obj := range objs {
 					server.CreateObject(obj)
 				}
