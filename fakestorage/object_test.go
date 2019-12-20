@@ -868,6 +868,13 @@ func TestServiceClientRewriteObject(t *testing.T) {
 			md5hash    string
 		}{
 			{
+				"same bucket same file",
+				"first-bucket",
+				"files/some-file.txt",
+				checksum,
+				encodedHash(hash),
+			},
+			{
 				"same bucket",
 				"first-bucket",
 				"files/other-file.txt",
@@ -929,6 +936,129 @@ func TestServiceClientRewriteObject(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
+	const (
+		overwrittenContent    = "i was there"
+		overwrittenGeneration = 123
+		latestContent         = "some content"
+		contentType           = "text/plain; charset=utf-8"
+	)
+	objs := []Object{
+		{
+			BucketName:  "first-bucket",
+			Name:        "files/some-file.txt",
+			Content:     []byte(overwrittenContent),
+			ContentType: contentType,
+			Crc32c:      encodedChecksum(uint32ToBytes(uint32Checksum([]byte(overwrittenContent)))),
+			Md5Hash:     encodedHash(md5Hash([]byte(overwrittenContent))),
+			Generation:  overwrittenGeneration,
+		},
+		{
+			BucketName:  "first-bucket",
+			Name:        "files/some-file.txt",
+			Content:     []byte(latestContent),
+			ContentType: contentType,
+			Crc32c:      encodedChecksum(uint32ToBytes(uint32Checksum([]byte(latestContent)))),
+			Md5Hash:     encodedHash(md5Hash([]byte(latestContent))),
+		},
+	}
+	tests := []struct {
+		testCase   string
+		bucketName string
+		objectName string
+		versioning bool
+		expectErr  bool
+	}{
+		{
+			"same bucket from old gen",
+			"first-bucket",
+			"files/other-file.txt",
+			true,
+			false,
+		},
+		{
+			"same bucket same file from old gen",
+			"first-bucket",
+			"files/some-file.txt",
+			true,
+			false,
+		},
+		{
+			"different bucket",
+			"empty-bucket",
+			"some/interesting/file.txt",
+			true,
+			false,
+		},
+		{
+			"no versioning, no old gen",
+			"empty-bucket",
+			"some/interesting/file.txt",
+			false,
+			true,
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.testCase, func(t *testing.T) {
+			runServersTest(t, []Object{}, func(t *testing.T, server *Server) {
+				server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket", VersioningEnabled: false})
+				server.CreateBucketWithOpts(CreateBucketOpts{Name: "first-bucket", VersioningEnabled: test.versioning})
+				for _, obj := range objs {
+					server.CreateObject(obj)
+				}
+				client := server.Client()
+				sourceObject := client.Bucket("first-bucket").Object("files/some-file.txt").Generation(overwrittenGeneration)
+				expectedContent := overwrittenContent
+				expectedChecksum := uint32Checksum([]byte(overwrittenContent))
+				expectedHash := md5Hash([]byte(overwrittenContent))
+				dstObject := client.Bucket(test.bucketName).Object(test.objectName)
+				attrs, err := dstObject.CopierFrom(sourceObject).Run(context.TODO())
+				if err != nil {
+					if test.expectErr {
+						t.Skip("we were expecting an error for this test")
+					}
+					t.Fatal(err)
+				}
+				if attrs.Bucket != test.bucketName {
+					t.Errorf("wrong bucket in copied object attrs\nwant %q\ngot  %q", test.bucketName, attrs.Bucket)
+				}
+				if attrs.Name != test.objectName {
+					t.Errorf("wrong name in copied object attrs\nwant %q\ngot  %q", test.objectName, attrs.Name)
+				}
+				if attrs.Size != int64(len(expectedContent)) {
+					t.Errorf("wrong size in copied object attrs\nwant %d\ngot  %d", len(expectedContent), attrs.Size)
+				}
+				if attrs.CRC32C != expectedChecksum {
+					t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", expectedChecksum, attrs.CRC32C)
+				}
+				if attrs.ContentType != contentType {
+					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
+				}
+				if !bytes.Equal(attrs.MD5, expectedHash) {
+					t.Errorf("wrong hash returned\nwant %d\ngot   %d", expectedHash, attrs.MD5)
+				}
+				obj, err := server.GetObject(test.bucketName, test.objectName)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(obj.Content) != expectedContent {
+					t.Errorf("wrong content on object\nwant %q\ngot  %q", expectedContent, string(obj.Content))
+				}
+				if expect := encodedChecksum(uint32ToBytes(expectedChecksum)); expect != obj.Crc32c {
+					t.Errorf("wrong checksum on object\nwant %s\ngot  %s", expect, obj.Crc32c)
+				}
+				if expect := encodedHash(expectedHash); expect != obj.Md5Hash {
+					t.Errorf("wrong hash on object\nwant %s\ngot  %s", expect, obj.Md5Hash)
+				}
+				if obj.ContentType != contentType {
+					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+				}
+			})
+		})
+	}
 }
 
 func TestServerClientObjectDelete(t *testing.T) {
