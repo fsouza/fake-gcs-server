@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
@@ -21,7 +22,7 @@ func TestServerClientBucketAttrs(t *testing.T) {
 		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
 		{BucketName: "other-bucket", Name: "static/css/website.css"},
 	}
-
+	startTime := time.Now()
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
 		client := server.Client()
 		attrs, err := client.Bucket("some-bucket").Attrs(context.Background())
@@ -34,6 +35,9 @@ func TestServerClientBucketAttrs(t *testing.T) {
 		}
 		if attrs.VersioningEnabled != false {
 			t.Errorf("wrong bucket props for %q\nexpecting no versioning by default, got it enabled", expectedName)
+		}
+		if attrs.Created.Before(startTime.Truncate(time.Second)) || time.Now().Before(attrs.Created) {
+			t.Errorf("expecting bucket creation date between test start time %v and now %v, got %v", startTime, time.Now(), attrs.Created)
 		}
 	})
 }

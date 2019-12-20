@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func makeStorageBackends(t *testing.T) (map[string]Storage, func()) {
@@ -200,15 +201,17 @@ func TestBucketCreateGetList(t *testing.T) {
 			t.Fatalf("more than zero buckets found: %d, and expecting zero when starting the test", len(buckets))
 		}
 		bucketsToTest := []Bucket{
-			{"prod-bucket", false},
-			{"prod-bucket-with-versioning", true},
+			{"prod-bucket", false, time.Time{}},
+			{"prod-bucket-with-versioning", true, time.Time{}},
 		}
 		for i, bucket := range bucketsToTest {
 			_, err := storage.GetBucket(bucket.Name)
 			if err == nil {
 				t.Fatalf("bucket %s, exists before being created", bucket.Name)
 			}
+			timeBeforeCreation := time.Now().Truncate(time.Second) // we may lose precission
 			err = storage.CreateBucket(bucket.Name, bucket.VersioningEnabled)
+			timeAfterCreation := time.Now()
 			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && bucket.VersioningEnabled {
 				if err == nil {
 					t.Fatal("fs storage should not accept creating buckets with versioning, but it's not failing")
@@ -222,8 +225,9 @@ func TestBucketCreateGetList(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if bucketFromStorage != bucket {
-				t.Errorf("bucket %v does not have the expected props after retrieving. Expected %v", bucketFromStorage, bucket)
+			if !isBucketEquivalentTo(bucketFromStorage, bucket, timeBeforeCreation, timeAfterCreation) {
+				t.Errorf("bucket %v does not have the expected props after retrieving. Expected %v and time between %v and %v",
+					bucketFromStorage, bucket, timeBeforeCreation, timeAfterCreation)
 			}
 			buckets, err = storage.ListBuckets()
 			if err != nil {
@@ -244,6 +248,13 @@ func TestBucketCreateGetList(t *testing.T) {
 		}
 	})
 }
+
+func isBucketEquivalentTo(a, b Bucket, earliest, latest time.Time) bool {
+	return a.Name == b.Name &&
+		a.VersioningEnabled == b.VersioningEnabled &&
+		a.TimeCreated.After(earliest) && a.TimeCreated.Before(latest)
+}
+
 func TestBucketDuplication(t *testing.T) {
 	const bucketName = "prod-bucket"
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
