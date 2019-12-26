@@ -23,6 +23,7 @@ type Config struct {
 	Seed        string
 	publicHost  string
 	externalURL string
+	scheme      string
 	host        string
 	port        uint
 	backend     string
@@ -38,6 +39,7 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
 	fs.StringVar(&cfg.publicHost, "public-host", "storage.googleapis.com", "Optional URL for public host")
 	fs.StringVar(&cfg.externalURL, "external-url", "", "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
+	fs.StringVar(&cfg.scheme, "scheme", "https", "using http or https")
 	fs.StringVar(&cfg.host, "host", "0.0.0.0", "host to bind to")
 	fs.StringVar(&cfg.Seed, "data", "/data", "where to load data from (provided that the directory exists)")
 	fs.UintVar(&cfg.port, "port", 4443, "port to bind to")
@@ -55,6 +57,9 @@ func (c *Config) validate() error {
 	if c.backend == filesystemBackend && c.fsRoot == "" {
 		return fmt.Errorf("backend %q requires the filesystem-root to be defined", c.backend)
 	}
+	if c.scheme != "http" && c.scheme != "https" {
+		return fmt.Errorf(`invalid scheme %s, must be either "http"" or "https"`, c.scheme)
+	}
 	if c.port > math.MaxUint16 {
 		return fmt.Errorf("port %d is too high, maximum value is %d", c.port, math.MaxUint16)
 	}
@@ -68,6 +73,7 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 	}
 	return fakestorage.Options{
 		StorageRoot: storageRoot,
+		Scheme:      c.scheme,
 		Host:        c.host,
 		Port:        uint16(c.port),
 		PublicHost:  c.publicHost,

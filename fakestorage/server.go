@@ -56,6 +56,7 @@ func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server,
 type Options struct {
 	InitialObjects []Object
 	StorageRoot    string
+	Scheme         string
 	Host           string
 	Port           uint16
 
@@ -90,6 +91,10 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	}
 
 	s.ts = httptest.NewUnstartedServer(s.mux)
+	startFunc := s.ts.StartTLS
+	if options.Scheme == "http" {
+		startFunc = s.ts.Start
+	}
 	if options.Port != 0 {
 		addr := fmt.Sprintf("%s:%d", options.Host, options.Port)
 		l, err := net.Listen("tcp", addr)
@@ -98,10 +103,9 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		}
 		s.ts.Listener.Close()
 		s.ts.Listener = l
-		s.ts.StartTLS()
-	} else {
-		s.ts.StartTLS()
 	}
+	startFunc()
+
 	s.setTransportToAddr(s.ts.Listener.Addr().String())
 	return s, nil
 }

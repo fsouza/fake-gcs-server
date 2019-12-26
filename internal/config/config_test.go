@@ -29,6 +29,7 @@ func TestLoadConfig(t *testing.T) {
 				"-host", "127.0.0.1",
 				"-port", "443",
 				"-data", "/var/gcs",
+				"-scheme", "http",
 			},
 			expectedConfig: Config{
 				Seed:        "/var/gcs",
@@ -38,6 +39,7 @@ func TestLoadConfig(t *testing.T) {
 				externalURL: "https://myhost.example.com:8443",
 				host:        "127.0.0.1",
 				port:        443,
+				scheme:      "http",
 			},
 		},
 		{
@@ -50,6 +52,7 @@ func TestLoadConfig(t *testing.T) {
 				externalURL: "",
 				host:        "0.0.0.0",
 				port:        4443,
+				scheme:      "https",
 			},
 		},
 		{
