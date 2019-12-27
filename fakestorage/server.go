@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"google.golang.org/api/option"
 )
@@ -77,6 +79,9 @@ type Options struct {
 	// https://<bucket>.storage.gcs.127.0.0.1.nip.io:4443>/<bucket>/<object>
 	// If unset, the default is "storage.googleapis.com", the XML API
 	PublicHost string
+
+	// Destination for writing log.
+	Writer io.Writer
 }
 
 // NewServerWithOptions creates a new server with custom options
@@ -90,7 +95,12 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		return s, nil
 	}
 
-	s.ts = httptest.NewUnstartedServer(s.mux)
+	var handler http.Handler = s.mux
+	if options.Writer != nil {
+		handler = handlers.LoggingHandler(options.Writer, s.mux)
+	}
+
+	s.ts = httptest.NewUnstartedServer(handler)
 	startFunc := s.ts.StartTLS
 	if options.Scheme == "http" {
 		startFunc = s.ts.Start
