@@ -37,9 +37,11 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 	if !strings.HasSuffix(rootDir, "/") {
 		rootDir += "/"
 	}
-	s := &StorageFS{
-		rootDir: rootDir,
+	err := os.MkdirAll(rootDir, 0700)
+	if err != nil {
+		return nil, err
 	}
+	s := &StorageFS{rootDir: rootDir}
 	for _, o := range objects {
 		err := s.CreateObject(o)
 		if err != nil {
