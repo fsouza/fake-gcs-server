@@ -23,12 +23,12 @@ jobs:
     name: lint-and-test (${{ matrix.os }}/go-${{ matrix.go_version }})
     runs-on: ${{ matrix.os }}-latest
     steps:
-      - uses: actions/setup-go@v1.1.2
+      - uses: actions/setup-go@master
         id: go
         with:
           go-version: ${{ matrix.go_version }}
 
-      - uses: actions/checkout@v2.0.0
+      - uses: actions/checkout@master
 
       - name: install deps
         run: |
@@ -57,9 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-and-test
     steps:
-      - uses: actions/checkout@v2.0.0
+      - uses: actions/checkout@master
 
-      - uses: actions/setup-go@v1.1.2
+      - uses: actions/setup-go@master
         id: go
         with:
           go-version: 1.13.x
