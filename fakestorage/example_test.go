@@ -37,13 +37,17 @@ func ExampleServer_Client() {
 }
 
 func ExampleServer_with_host_port() {
-	server, err := fakestorage.NewServerWithHostPort([]fakestorage.Object{
-		{
-			BucketName: "some-bucket",
-			Name:       "some/object/file.txt",
-			Content:    []byte("inside the file"),
+	server, err := fakestorage.NewServerWithOptions(fakestorage.Options{
+		InitialObjects: []fakestorage.Object{
+			{
+				BucketName: "some-bucket",
+				Name:       "some/object/file.txt",
+				Content:    []byte("inside the file"),
+			},
 		},
-	}, "127.0.0.1", 8081)
+		Host: "127.0.0.1",
+		Port: 8081,
+	})
 	if err != nil {
 		panic(err)
 	}
