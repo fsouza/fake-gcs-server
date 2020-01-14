@@ -12,6 +12,7 @@ import (
 	"math"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -78,5 +79,6 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 		Port:        uint16(c.port),
 		PublicHost:  c.publicHost,
 		ExternalURL: c.externalURL,
+		Writer:      logrus.New().Writer(),
 	}
 }
