@@ -5,6 +5,8 @@
 package fakestorage
 
 import (
+	"bytes"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -48,6 +50,31 @@ func TestNewServerExternalHost(t *testing.T) {
 	url := server.URL()
 	if url != "https://gcs.example.com" {
 		t.Errorf("wrong url returned\n want %q\ngot  %q", server.externalURL, url)
+	}
+}
+
+func TestNewServerLogging(t *testing.T) {
+	t.Parallel()
+	buf := new(bytes.Buffer)
+	server, err := NewServerWithOptions(Options{Writer: buf})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer server.Stop()
+	client := server.HTTPClient()
+	req, err := http.NewRequest(http.MethodGet, "https://storage.googleapis.com/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	io.Copy(ioutil.Discard, res.Body)
+	if buf.Len() == 0 {
+		t.Error("Log was not written to buffer.")
 	}
 }
 
