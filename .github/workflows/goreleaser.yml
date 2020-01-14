@@ -5,7 +5,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v1.0.0
         if: github.event.ref_type == 'tag'
 
       - uses: docker://goreleaser/goreleaser
@@ -14,4 +14,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           entrypoint: bash
-          args: -c "git fetch --tags --prune --prune-tags --force && goreleaser release -f ci/.goreleaser.yml"
+          args: -c "git fetch --tags && goreleaser release -f ci/.goreleaser.yml"
