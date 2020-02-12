@@ -27,7 +27,7 @@ type Object struct {
 	Content         []byte `json:"-"`
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string            `json:"crc32c,omitempty"`
-	Md5Hash string            `json:"md5hash,omitempty"`
+	Md5Hash string            `json:"md5Hash,omitempty"`
 	ACL     []storage.ACLRule `json:"acl,omitempty"`
 	// Dates and generation can be manually injected, so you can do assertions on them,
 	// or let us fill these fields for you
