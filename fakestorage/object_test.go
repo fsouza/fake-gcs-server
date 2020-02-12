@@ -865,7 +865,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 			bucketName string
 			objectName string
 			crc32c     uint32
-			md5hash    string
+			md5Hash    string
 		}{
 			{
 				"same bucket same file",
