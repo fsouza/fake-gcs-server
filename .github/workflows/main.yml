@@ -13,9 +13,8 @@ jobs:
     strategy:
       matrix:
         go_version:
-          - 1.12
           - 1.13
-          - 1.14.0-rc
+          - 1.14
         os:
           - macos
           - ubuntu
@@ -38,8 +37,6 @@ jobs:
             cd /tmp
             env GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           )
-        env:
-          GOPROXY: https://proxy.golang.org
 
       - name: run-linter
         run: |
@@ -63,13 +60,12 @@ jobs:
       - uses: actions/setup-go@master
         id: go
         with:
-          go-version: "^1.13"
+          go-version: "^1.14"
 
       - name: go-build
         run: go build -o fake-gcs-server -mod readonly
         env:
           CGO_ENABLED: 0
-          GOPROXY: https://proxy.golang.org,https://gocenter.io,direct
 
       - name: sanity-check
         uses: docker://alpine
