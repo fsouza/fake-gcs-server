@@ -80,7 +80,7 @@ jobs:
           args: ci/run-python-example.sh
 
       - name: test-go-example
-        uses: docker://golang:1.13-alpine
+        uses: docker://golang:1.14-alpine
         env:
           GOROOT: /usr/local/go
         with:
