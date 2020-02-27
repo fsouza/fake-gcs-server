@@ -5,6 +5,7 @@
 package backend
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -76,7 +77,7 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	if !isFSStorage && activeObj.Generation == 0 {
 		t.Errorf("generation is empty, but we expect a unique int")
 	}
-	if err := activeObj.compare(obj); err != nil {
+	if err := compareObjects(activeObj, obj); err != nil {
 		t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 	}
 	objFromGeneration, err := storage.GetObjectWithGeneration(obj.BucketName, obj.Name, activeObj.Generation)
@@ -85,7 +86,7 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 		shouldError(t, err)
 	} else {
 		noError(t, err)
-		if err := objFromGeneration.compare(obj); err != nil {
+		if err := compareObjects(objFromGeneration, obj); err != nil {
 			t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 		}
 	}
@@ -128,7 +129,7 @@ func TestObjectCRUD(t *testing.T) {
 				shouldError(t, err)
 			} else {
 				noError(t, err)
-				if err := initialObjectFromGeneration.compare(initialObject); err != nil {
+				if err := compareObjects(initialObjectFromGeneration, initialObject); err != nil {
 					t.Errorf("get initial generation - object retrieved differs from the created one. Descr: %v", err)
 				}
 			}
@@ -165,7 +166,7 @@ func TestObjectCRUD(t *testing.T) {
 				return
 			}
 			noError(t, err)
-			if err := retrievedObject.compare(secondVersionWithGeneration); err != nil {
+			if err := compareObjects(retrievedObject, secondVersionWithGeneration); err != nil {
 				t.Errorf("get object by generation after removal - object retrieved differs from the created one. Descr: %v", err)
 			}
 		})
@@ -268,4 +269,29 @@ func TestBucketDuplication(t *testing.T) {
 			t.Fatal("we were expecting a bucket duplication error")
 		}
 	})
+}
+
+func compareObjects(o1, o2 Object) error {
+	if o1.BucketName != o2.BucketName {
+		return fmt.Errorf("bucket name differs:\nmain %q\narg  %q", o1.BucketName, o2.BucketName)
+	}
+	if o1.Name != o2.Name {
+		return fmt.Errorf("wrong object name:\nmain %q\narg  %q", o1.Name, o2.Name)
+	}
+	if o1.ContentType != o2.ContentType {
+		return fmt.Errorf("wrong object contenttype:\nmain %q\narg  %q", o1.ContentType, o2.ContentType)
+	}
+	if o1.Crc32c != o2.Crc32c {
+		return fmt.Errorf("wrong crc:\nmain %q\narg  %q", o1.Crc32c, o2.Crc32c)
+	}
+	if o1.Md5Hash != o2.Md5Hash {
+		return fmt.Errorf("wrong md5:\nmain %q\narg  %q", o1.Md5Hash, o2.Md5Hash)
+	}
+	if o1.Generation != 0 && o2.Generation != 0 && o1.Generation != o2.Generation {
+		return fmt.Errorf("generations different from 0, but not equal:\nmain %q\narg  %q", o1.Generation, o2.Generation)
+	}
+	if !bytes.Equal(o1.Content, o2.Content) {
+		return fmt.Errorf("wrong object content:\nmain %q\narg  %q", o1.Content, o2.Content)
+	}
+	return nil
 }
