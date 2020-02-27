@@ -7,6 +7,7 @@ package fakestorage
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strconv"
@@ -318,17 +319,27 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+
+	var metadata multipartMetadata
+	err = json.NewDecoder(r.Body).Decode(&metadata)
+	if err != nil && err != io.EOF { // The body is optional
+		http.Error(w, "Invalid metadata", http.StatusBadRequest)
+		return
+	}
+
 	dstBucket := vars["destinationBucket"]
 	newObject := Object{
-		BucketName:  dstBucket,
-		Name:        vars["destinationObject"],
-		Content:     append([]byte(nil), obj.Content...),
-		Crc32c:      obj.Crc32c,
-		Md5Hash:     obj.Md5Hash,
-		ContentType: obj.ContentType,
-		ACL:         obj.ACL,
-		Metadata:    obj.Metadata,
+		BucketName:      dstBucket,
+		Name:            vars["destinationObject"],
+		Content:         append([]byte(nil), obj.Content...),
+		Crc32c:          obj.Crc32c,
+		Md5Hash:         obj.Md5Hash,
+		ACL:             obj.ACL,
+		ContentType:     metadata.ContentType,
+		ContentEncoding: metadata.ContentEncoding,
+		Metadata:        metadata.Metadata,
 	}
+
 	s.CreateObject(newObject)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(newObjectRewriteResponse(newObject))
