@@ -855,6 +855,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 			ContentType: contentType,
 			Crc32c:      encodedChecksum(uint32ToBytes(checksum)),
 			Md5Hash:     encodedHash(hash),
+			Metadata:    map[string]string{"foo": "bar"},
 		},
 	}
 
@@ -895,7 +896,10 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				client := server.Client()
 				sourceObject := client.Bucket("first-bucket").Object("files/some-file.txt")
 				dstObject := client.Bucket(test.bucketName).Object(test.objectName)
-				attrs, err := dstObject.CopierFrom(sourceObject).Run(context.TODO())
+				copier := dstObject.CopierFrom(sourceObject)
+				copier.ContentType = contentType
+				copier.Metadata = map[string]string{"baz": "qux"}
+				attrs, err := copier.Run(context.TODO())
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -932,6 +936,9 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				}
 				if obj.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+				}
+				if !reflect.DeepEqual(obj.Metadata, copier.Metadata) {
+					t.Errorf("wrong meta data\nwant %+v\ngot  %+v", copier.Metadata, obj.Metadata)
 				}
 			})
 		}
@@ -1015,7 +1022,9 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 				expectedChecksum := uint32Checksum([]byte(overwrittenContent))
 				expectedHash := md5Hash([]byte(overwrittenContent))
 				dstObject := client.Bucket(test.bucketName).Object(test.objectName)
-				attrs, err := dstObject.CopierFrom(sourceObject).Run(context.TODO())
+				copier := dstObject.CopierFrom(sourceObject)
+				copier.ContentType = contentType
+				attrs, err := copier.Run(context.TODO())
 				if err != nil {
 					if test.expectErr {
 						t.Skip("we were expecting an error for this test")

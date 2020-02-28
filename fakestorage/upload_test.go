@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -53,8 +54,11 @@ func TestServerClientObjectWriter(t *testing.T) {
 				objHandle := client.Bucket(test.bucketName).Object(test.objectName)
 				w := objHandle.NewWriter(context.Background())
 				w.ChunkSize = test.chunkSize
-				w.Write([]byte(content))
 				w.ContentType = contentType
+				w.Metadata = map[string]string{
+					"foo": "bar",
+				}
+				w.Write([]byte(content))
 				err := w.Close()
 				if err != nil {
 					t.Fatal(err)
@@ -85,6 +89,9 @@ func TestServerClientObjectWriter(t *testing.T) {
 				}
 				if obj.ContentType != contentType {
 					t.Errorf("wrong content-type\nwant %q\ngot  %q", contentType, obj.ContentType)
+				}
+				if !reflect.DeepEqual(obj.Metadata, w.Metadata) {
+					t.Errorf("wrong meta data\nwant %+v\ngot  %+v", w.Metadata, obj.Metadata)
 				}
 			})
 		}

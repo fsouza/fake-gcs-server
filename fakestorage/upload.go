@@ -26,9 +26,10 @@ import (
 const contentTypeHeader = "Content-Type"
 
 type multipartMetadata struct {
-	ContentType     string `json:"contentType"`
-	ContentEncoding string `json:"contentEncoding"`
-	Name            string `json:"name"`
+	ContentType     string            `json:"contentType"`
+	ContentEncoding string            `json:"contentEncoding"`
+	Name            string            `json:"name"`
+	Metadata        map[string]string `json:"metadata"`
 }
 
 type contentRange struct {
@@ -189,6 +190,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		Crc32c:          encodedCrc32cChecksum(content),
 		Md5Hash:         encodedMd5Hash(content),
 		ACL:             getObjectACL(predefinedACL),
+		Metadata:        metadata.Metadata,
 	}
 	err = s.createObject(obj)
 	if err != nil {
@@ -203,8 +205,10 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 	objName := r.URL.Query().Get("name")
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
+	var metadata *multipartMetadata
 	if objName == "" {
-		metadata, err := loadMetadata(r.Body)
+		var err error
+		metadata, err = loadMetadata(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -216,6 +220,7 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 		Name:            objName,
 		ContentEncoding: contentEncoding,
 		ACL:             getObjectACL(predefinedACL),
+		Metadata:        metadata.Metadata,
 	}
 	uploadID, err := generateUploadID()
 	if err != nil {
