@@ -26,7 +26,7 @@ jobs:
         id: go
         with:
           stable: false
-          go-version: "^${{ matrix.go_version }}"
+          go-version: ${{ matrix.go_version }}
 
       - uses: actions/checkout@master
 
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/setup-go@master
         id: go
         with:
-          go-version: "^1.14"
+          go-version: 1.x
 
       - name: go-build
         run: go build -o fake-gcs-server -mod readonly
