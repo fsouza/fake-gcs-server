@@ -54,7 +54,7 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 // CreateBucket creates a bucket
 func (s *StorageFS) CreateBucket(name string, versioningEnabled bool) error {
 	if versioningEnabled {
-		return fmt.Errorf("not implemented: fs storage type does not support versioning yet")
+		return errors.New("not implemented: fs storage type does not support versioning yet")
 	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -78,7 +78,7 @@ func (s *StorageFS) ListBuckets() ([]Bucket, error) {
 		if info.IsDir() {
 			unescaped, err := url.PathUnescape(info.Name())
 			if err != nil {
-				return nil, fmt.Errorf("failed to unescape object name %s: %s", info.Name(), err)
+				return nil, fmt.Errorf("failed to unescape object name %s: %w", info.Name(), err)
 			}
 			buckets = append(buckets, Bucket{Name: unescaped})
 		}
@@ -132,7 +132,7 @@ func (s *StorageFS) ListObjects(bucketName string, versions bool) ([]Object, err
 	for _, info := range infos {
 		unescaped, err := url.PathUnescape(info.Name())
 		if err != nil {
-			return nil, fmt.Errorf("failed to unescape object name %s: %s", info.Name(), err)
+			return nil, fmt.Errorf("failed to unescape object name %s: %w", info.Name(), err)
 		}
 		object, err := s.getObject(bucketName, unescaped)
 		if err != nil {
@@ -175,7 +175,7 @@ func (s *StorageFS) DeleteObject(bucketName, objectName string) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	if objectName == "" {
-		return fmt.Errorf("can't delete object with empty name")
+		return errors.New("can't delete object with empty name")
 	}
 	return os.Remove(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
 }

@@ -84,7 +84,7 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object
 			objectKey := strings.TrimLeft(strings.Replace(path, localBucketPath, "", 1), "/")
 			fileContent, err := ioutil.ReadFile(path)
 			if err != nil {
-				return fmt.Errorf("could not read file %q: %v", path, err)
+				return fmt.Errorf("could not read file %q: %w", path, err)
 			}
 			objects = append(objects, fakestorage.Object{
 				BucketName: bucketName,
