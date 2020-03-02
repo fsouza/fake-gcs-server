@@ -28,6 +28,12 @@ jobs:
           stable: false
           go-version: ${{ matrix.go_version }}
 
+      - name: setup GOBIN
+        run: |
+          export GOBIN=$(go env GOPATH)/bin
+          echo "::set-env name=GOBIN::$(go env GOBIN)"
+          echo "::add-path::$(go env GOBIN)"
+
       - uses: actions/checkout@master
 
       - name: install deps
@@ -39,8 +45,7 @@ jobs:
           )
 
       - name: run-linter
-        run: |
-          $(go env GOPATH)/bin/golangci-lint run
+        run: golangci-lint run
         env:
           GOPROXY: off
           GOFLAGS: -mod=readonly
