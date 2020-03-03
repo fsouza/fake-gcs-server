@@ -399,3 +399,25 @@ func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, conte
 	}
 	return 0, 0, obj.Content
 }
+
+func (s *Server) patchObject(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucketName"]
+	objectName := vars["objectName"]
+	var metadata struct {
+		Metadata map[string]string `json:"metadata"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&metadata)
+	if err != nil {
+		http.Error(w, "Metadata in the request couldn't decode", http.StatusBadRequest)
+		return
+	}
+	backendObj, err := s.backend.PatchObject(bucketName, objectName, metadata.Metadata)
+	if err != nil {
+		http.Error(w, "Object not found to be PATCHed", http.StatusNotFound)
+		return
+	}
+	obj := fromBackendObjects([]backend.Object{backendObj})[0]
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(newObjectResponse(obj))
+}

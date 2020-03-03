@@ -179,3 +179,15 @@ func (s *StorageFS) DeleteObject(bucketName, objectName string) error {
 	}
 	return os.Remove(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
 }
+
+func (s *StorageFS) PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
+	obj, err := s.GetObject(bucketName, objectName)
+	if err != nil {
+		return Object{}, err
+	}
+	for k, v := range metadata {
+		obj.Metadata[k] = v
+	}
+	s.CreateObject(obj)
+	return obj, nil
+}

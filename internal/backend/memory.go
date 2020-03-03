@@ -224,3 +224,14 @@ func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
 	s.buckets[bucketName] = bucketInMemory
 	return nil
 }
+
+func (s *StorageMemory) PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
+	obj, err := s.GetObject(bucketName, objectName)
+	if err != nil {
+		return Object{}, err
+	}
+	for k, v := range metadata {
+		obj.Metadata[k] = v
+	}
+	return obj, nil
+}
