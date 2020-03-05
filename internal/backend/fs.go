@@ -185,9 +185,12 @@ func (s *StorageFS) PatchObject(bucketName, objectName string, metadata map[stri
 	if err != nil {
 		return Object{}, err
 	}
+	if obj.Metadata == nil {
+		obj.Metadata = map[string]string{}
+	}
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	s.CreateObject(obj)
+	s.CreateObject(obj) // recreate object
 	return obj, nil
 }
