@@ -1194,3 +1194,66 @@ func TestServerClientObjectSetAclPrivate(t *testing.T) {
 		})
 	})
 }
+
+func TestServerClientObjectPatchMetadata(t *testing.T) {
+	const (
+		bucketName  = "some-bucket"
+		objectName  = "items/data.txt"
+		content     = "some nice content"
+		contentType = "text/plain; charset=utf-8"
+	)
+	objs := []Object{
+		{
+			BucketName:  bucketName,
+			Name:        objectName,
+			Content:     []byte(content),
+			ContentType: contentType,
+		},
+	}
+	runServersTest(t, objs, func(t *testing.T, server *Server) {
+		client := server.Client()
+		objHandle := client.Bucket(bucketName).Object(objectName)
+
+		metadata := map[string]string{
+			"1-key": "1-value",
+			"2-key": "2-value",
+		}
+		testPatch(metadata, metadata, objHandle, t)
+
+		metadata = map[string]string{
+			"1-key": "1.1-value",
+			"3-key": "3-value",
+		}
+		testPatch(metadata, map[string]string{
+			"1-key": "1.1-value",
+			"2-key": "2-value",
+			"3-key": "3-value",
+		}, objHandle, t)
+	})
+}
+
+func testPatch(newMetadata, finalMetadata map[string]string, objHandle *storage.ObjectHandle, t *testing.T) {
+	ctx := context.TODO()
+	_, err := objHandle.Update(ctx, storage.ObjectAttrsToUpdate{Metadata: newMetadata})
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs, err := objHandle.Attrs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkObjectMetadata(attrs.Metadata, finalMetadata, t)
+}
+
+func checkObjectMetadata(actual, expected map[string]string, t *testing.T) {
+	if actual == nil {
+		t.Fatalf("unexpected nil metadata")
+	} else if len(actual) != len(expected) {
+		t.Fatalf("Number of metadata mismatched: #actual = %d, #expected = %d", len(actual), len(expected))
+	}
+	for k, v := range expected {
+		if actual[k] != v {
+			t.Errorf("Metadata for key %s: actual = %s, expected = %s", k, actual[k], v)
+		}
+	}
+}
