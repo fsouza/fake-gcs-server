@@ -22,17 +22,11 @@ jobs:
     name: lint-and-test (${{ matrix.os }}/go-${{ matrix.go_version }})
     runs-on: ${{ matrix.os }}-latest
     steps:
-      - uses: actions/setup-go@master
+      - uses: fsouza/setup-go@add-gobin
         id: go
         with:
           stable: false
           go-version: ${{ matrix.go_version }}
-
-      - name: setup GOBIN
-        run: |
-          export GOBIN=$(go env GOPATH)/bin
-          echo "::set-env name=GOBIN::$(go env GOBIN)"
-          echo "::add-path::$(go env GOBIN)"
 
       - uses: actions/checkout@master
 
