@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -17,7 +18,7 @@ func main() {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // ignore expired SSL certificates
 	}
 	httpClient := &http.Client{Transport: transCfg}
-	client, err := storage.NewClient(context.TODO(), option.WithEndpoint("https://0.0.0.0:4443/storage/v1/"), option.WithHTTPClient(httpClient))
+	client, err := storage.NewClient(context.TODO(), option.WithEndpoint("https://storage.gcs.127.0.0.1.nip.io:4443/storage/v1/"), option.WithHTTPClient(httpClient))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -26,6 +27,16 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("buckets: %+v\n", buckets)
+
+	const (
+		bucketName = "sample-bucket"
+		fileKey    = "some_file.txt"
+	)
+	data, err := downloadFile(client, bucketName, fileKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("contents of %s/%s: %s\n", bucketName, fileKey, data)
 }
 
 func list(client *storage.Client, projectID string) ([]string, error) {
@@ -42,4 +53,13 @@ func list(client *storage.Client, projectID string) ([]string, error) {
 		buckets = append(buckets, battrs.Name)
 	}
 	return buckets, nil
+}
+
+func downloadFile(client *storage.Client, bucketName, fileKey string) ([]byte, error) {
+	reader, err := client.Bucket(bucketName).Object(fileKey).NewReader(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return ioutil.ReadAll(reader)
 }
