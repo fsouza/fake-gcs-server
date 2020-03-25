@@ -16,7 +16,7 @@ import (
 type listResponse struct {
 	Kind     string        `json:"kind"`
 	Items    []interface{} `json:"items"`
-	Prefixes []string      `json:"prefixes"`
+	Prefixes []string      `json:"prefixes,omitempty"`
 }
 
 func newListBucketsResponse(buckets []backend.Bucket) listResponse {
