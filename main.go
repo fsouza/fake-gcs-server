@@ -79,7 +79,7 @@ func generateObjectsFromFiles(logger *logrus.Logger, folder string) ([]fakestora
 
 func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object, error) {
 	var objects []fakestorage.Object
-	err := filepath.Walk(localBucketPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(localBucketPath, func(path string, info os.FileInfo, _ error) error {
 		if info.Mode().IsRegular() {
 			objectKey := strings.TrimLeft(strings.Replace(path, localBucketPath, "", 1), "/")
 			fileContent, err := ioutil.ReadFile(path)
