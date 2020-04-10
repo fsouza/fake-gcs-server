@@ -46,7 +46,7 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name: "default parameters",
 			expectedConfig: Config{
-				Seed:        "/data",
+				Seed:        "",
 				backend:     "filesystem",
 				fsRoot:      "/storage",
 				publicHost:  "storage.googleapis.com",

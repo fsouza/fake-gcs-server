@@ -32,7 +32,9 @@ func main() {
 
 	var emptyBuckets []string
 	opts := cfg.ToFakeGcsOptions()
-	opts.InitialObjects, emptyBuckets = generateObjectsFromFiles(logger, cfg.Seed)
+	if cfg.Seed != "" {
+		opts.InitialObjects, emptyBuckets = generateObjectsFromFiles(logger, cfg.Seed)
+	}
 
 	server, err := fakestorage.NewServerWithOptions(opts)
 	if err != nil {

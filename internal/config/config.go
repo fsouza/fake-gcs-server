@@ -42,7 +42,7 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.externalURL, "external-url", "", "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
 	fs.StringVar(&cfg.scheme, "scheme", "https", "using http or https")
 	fs.StringVar(&cfg.host, "host", "0.0.0.0", "host to bind to")
-	fs.StringVar(&cfg.Seed, "data", "/data", "where to load data from (provided that the directory exists)")
+	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
 	fs.UintVar(&cfg.port, "port", 4443, "port to bind to")
 	err := fs.Parse(args)
 	if err != nil {
