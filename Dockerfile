@@ -27,4 +27,4 @@ RUN go build -o fake-gcs-server
 FROM alpine:3.11.5
 COPY --from=builder /code/fake-gcs-server /bin/fake-gcs-server
 RUN /bin/fake-gcs-server -h
-ENTRYPOINT ["/bin/fake-gcs-server"]
+ENTRYPOINT ["/bin/fake-gcs-server", "-data", "/data"]
