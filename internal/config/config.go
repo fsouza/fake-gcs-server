@@ -35,7 +35,7 @@ type Config struct {
 // error in case of failures).
 func Load(args []string) (Config, error) {
 	var cfg Config
-	fs := flag.NewFlagSet("gcs-emulator", flag.ContinueOnError)
+	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
 	fs.StringVar(&cfg.backend, "backend", filesystemBackend, "storage backend (memory or filesystem)")
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
 	fs.StringVar(&cfg.publicHost, "public-host", "storage.googleapis.com", "Optional URL for public host")
