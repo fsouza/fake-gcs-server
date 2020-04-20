@@ -209,20 +209,19 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	encoder := json.NewEncoder(w)
-	generationStr := r.FormValue("generation")
 	var (
-		obj        Object
-		err        error
-		generation int64
+		obj Object
+		err error
 	)
-	if generationStr != "" {
-		generation, err = strconv.ParseInt(generationStr, 10, 64)
-		if err != nil {
-			errResp := newErrorResponse(http.StatusBadRequest, "Wrong generation ID", nil)
-			w.WriteHeader(http.StatusBadRequest)
-			encoder.Encode(errResp)
-			return
-		}
+	generationStr := r.FormValue("generation")
+	generation, err := strconv.ParseInt(generationStr, 10, 64)
+	//nolint:gocritic
+	if err != nil && generationStr != "" {
+		errResp := newErrorResponse(http.StatusBadRequest, "invalid generation ID", nil)
+		w.WriteHeader(http.StatusBadRequest)
+		encoder.Encode(errResp)
+		return
+	} else if generation > 0 {
 		obj, err = s.GetObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
 	} else {
 		obj, err = s.GetObject(vars["bucketName"], vars["objectName"])
