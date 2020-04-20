@@ -4,9 +4,10 @@
 
 set -e
 
-./fake-gcs-server -backend memory -data $PWD/examples/data -public-host storage.gcs.127.0.0.1.nip.io:4443 &
+./fake-gcs-server -backend memory -data $PWD/examples/data &
 
 (
-	cd examples/go
-	go run main.go
+	cd examples/node
+	npm ci
+	node index.js
 )
