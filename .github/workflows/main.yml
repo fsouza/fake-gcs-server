@@ -78,6 +78,12 @@ jobs:
           entrypoint: sh
           args: ci/run-python-example.sh
 
+      - name: test-node-example
+        uses: docker://node:10-alpine
+        with:
+          entrypoint: sh
+          args: ci/run-node-example.sh
+
       - name: test-go-example
         uses: docker://golang:1.14-alpine
         env:
