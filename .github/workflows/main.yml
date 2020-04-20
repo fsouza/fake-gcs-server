@@ -79,7 +79,7 @@ jobs:
           args: ci/run-python-example.sh
 
       - name: test-node-example
-        uses: docker://node:10-alpine
+        uses: docker://node:12-alpine
         with:
           entrypoint: sh
           args: ci/run-node-example.sh
