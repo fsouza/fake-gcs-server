@@ -155,7 +155,6 @@ func fromBackendObjects(objects []backend.Object) []Object {
 	return backendObjects
 }
 
-// https://github.com/googleapis/google-cloud-go/blob/2f857649c55302802e95b96119dd05032a61c87a/storage/storage.go#L1023
 func convertTimeWithoutError(t string) time.Time {
 	r, _ := time.Parse(time.RFC3339, t)
 	return r
@@ -172,8 +171,10 @@ func (s *Server) GetObject(bucketName, objectName string) (Object, error) {
 	return obj, nil
 }
 
-// GetObjectWithGeneration returns the object with the given name and given generation ID in the given bucket,
-// or an error if the object doesn't exist. If versioning is enabled, archived versions are considered
+// GetObjectWithGeneration returns the object with the given name and given
+// generation ID in the given bucket, or an error if the object doesn't exist.
+//
+// If versioning is enabled, archived versions are considered.
 func (s *Server) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
 	backendObj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, generation)
 	if err != nil {

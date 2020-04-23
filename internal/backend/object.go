@@ -27,12 +27,12 @@ type Object struct {
 	Generation      int64
 }
 
-// ID is useful for comparing objects
+// ID is used for comparing objects.
 func (o *Object) ID() string {
 	return fmt.Sprintf("%s#%d", o.IDNoGen(), o.Generation)
 }
 
-// IDNoGen does not consider the generation field
+// IDNoGen does not consider the generation field.
 func (o *Object) IDNoGen() string {
 	return fmt.Sprintf("%s/%s", o.BucketName, o.Name)
 }

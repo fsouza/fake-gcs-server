@@ -16,7 +16,7 @@ import (
 //
 // If the bucket already exists, this method does nothing.
 //
-// Deprecated: use CreateBucketWithOpts()
+// Deprecated: use CreateBucketWithOpts.
 func (s *Server) CreateBucket(name string) {
 	err := s.backend.CreateBucket(name, false)
 	if err != nil {
@@ -35,7 +35,7 @@ type CreateBucketOpts struct {
 // require the bucket name will recognize this bucket. Use CreateBucketOpts to
 // customize the options for this bucket
 //
-// If the bucket already exists, this method does nothing but panics if props differs
+// If the underlying backend returns an error, this method panics.
 func (s *Server) CreateBucketWithOpts(opts CreateBucketOpts) {
 	err := s.backend.CreateBucket(opts.Name, opts.VersioningEnabled)
 	if err != nil {
@@ -43,7 +43,6 @@ func (s *Server) CreateBucketWithOpts(opts CreateBucketOpts) {
 	}
 }
 
-// createBucketByPost handles a POST request to create a bucket
 func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 	// Minimal version of Bucket from google.golang.org/api/storage/v1
 

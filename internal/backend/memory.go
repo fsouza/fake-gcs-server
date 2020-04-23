@@ -11,7 +11,8 @@ import (
 	"time"
 )
 
-// StorageMemory is an implementation of the backend storage that stores data in memory
+// StorageMemory is an implementation of the backend storage that stores data
+// in memory.
 type StorageMemory struct {
 	buckets map[string]bucketInMemory
 	mtx     sync.RWMutex
@@ -98,7 +99,7 @@ func findObject(obj Object, objectList []Object, matchGeneration bool) int {
 	return -1
 }
 
-// NewStorageMemory creates an instance of StorageMemory
+// NewStorageMemory creates an instance of StorageMemory.
 func NewStorageMemory(objects []Object) Storage {
 	s := &StorageMemory{
 		buckets: make(map[string]bucketInMemory),
@@ -112,7 +113,7 @@ func NewStorageMemory(objects []Object) Storage {
 	return s
 }
 
-// CreateBucket creates a bucket
+// CreateBucket creates a bucket.
 func (s *StorageMemory) CreateBucket(name string, versioningEnabled bool) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -127,7 +128,7 @@ func (s *StorageMemory) CreateBucket(name string, versioningEnabled bool) error 
 	return nil
 }
 
-// ListBuckets lists buckets
+// ListBuckets lists buckets currently registered in the backend.
 func (s *StorageMemory) ListBuckets() ([]Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -138,7 +139,7 @@ func (s *StorageMemory) ListBuckets() ([]Bucket, error) {
 	return buckets, nil
 }
 
-// GetBucket checks if a bucket exists
+// GetBucket retrieves the bucket information from the backend.
 func (s *StorageMemory) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -153,7 +154,7 @@ func (s *StorageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
 	return bucketInMemory{}, fmt.Errorf("no bucket named %s", name)
 }
 
-// CreateObject stores an object
+// CreateObject stores an object in the backend.
 func (s *StorageMemory) CreateObject(obj Object) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -166,7 +167,8 @@ func (s *StorageMemory) CreateObject(obj Object) error {
 	return nil
 }
 
-// ListObjects lists the objects in a given bucket with a given prefix and delimeter
+// ListObjects lists the objects in a given bucket with a given prefix and
+// delimeter.
 func (s *StorageMemory) ListObjects(bucketName string, versions bool) ([]Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -180,12 +182,11 @@ func (s *StorageMemory) ListObjects(bucketName string, versions bool) ([]Object,
 	return append(bucketInMemory.activeObjects, bucketInMemory.archivedObjects...), nil
 }
 
-// GetObject get an object by bucket and name
 func (s *StorageMemory) GetObject(bucketName, objectName string) (Object, error) {
 	return s.GetObjectWithGeneration(bucketName, objectName, 0)
 }
 
-// GetObjectWithGeneration retrieves an specific version of the object
+// GetObjectWithGeneration retrieves an specific version of the object.
 func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -208,7 +209,6 @@ func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, g
 	return listToConsider[index], nil
 }
 
-// DeleteObject deletes an object by bucket and name
 func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
@@ -225,6 +225,7 @@ func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
 	return nil
 }
 
+// PatchObject updates an object metadata.
 func (s *StorageMemory) PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {

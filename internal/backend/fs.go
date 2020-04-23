@@ -20,19 +20,22 @@ import (
 )
 
 // StorageFS is an implementation of the backend storage that stores data on disk
+//
 // The layout is the following:
+//
 // - rootDir
 //   |- bucket1
 //   \- bucket2
 //     |- object1
 //     \- object2
+//
 // Bucket and object names are url path escaped, so there's no special meaning of forward slashes.
 type StorageFS struct {
 	rootDir string
 	mtx     sync.RWMutex
 }
 
-// NewStorageFS creates an instance of StorageMemory
+// NewStorageFS creates an instance of the filesystem-backed storage backend.
 func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 	if !strings.HasSuffix(rootDir, "/") {
 		rootDir += "/"
@@ -51,7 +54,8 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 	return s, nil
 }
 
-// CreateBucket creates a bucket
+// CreateBucket creates a bucket in the fs backend. A bucket is a folder in the
+// root directory.
 func (s *StorageFS) CreateBucket(name string, versioningEnabled bool) error {
 	if versioningEnabled {
 		return errors.New("not implemented: fs storage type does not support versioning yet")
@@ -65,7 +69,8 @@ func (s *StorageFS) createBucket(name string) error {
 	return os.MkdirAll(filepath.Join(s.rootDir, url.PathEscape(name)), 0700)
 }
 
-// ListBuckets lists buckets
+// ListBuckets returns a list of buckets from the list of directories in the
+// root directory.
 func (s *StorageFS) ListBuckets() ([]Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -90,7 +95,8 @@ func timespecToTime(ts syscall.Timespec) time.Time {
 	return time.Unix(ts.Sec, ts.Nsec)
 }
 
-// GetBucket checks if a bucket exists
+// GetBucket returns information about the given bucket, or an error if it
+// doesn't exist.
 func (s *StorageFS) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -101,7 +107,7 @@ func (s *StorageFS) GetBucket(name string) (Bucket, error) {
 	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo))}, err
 }
 
-// CreateObject stores an object
+// CreateObject stores an object as a regular file in the disk.
 func (s *StorageFS) CreateObject(obj Object) error {
 	if obj.Generation > 0 {
 		return errors.New("not implemented: fs storage type does not support objects generation yet")
@@ -119,7 +125,8 @@ func (s *StorageFS) CreateObject(obj Object) error {
 	return ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0664)
 }
 
-// ListObjects lists the objects in a given bucket with a given prefix and delimeter
+// ListObjects lists the objects in a given bucket with a given prefix and
+// delimeter.
 func (s *StorageFS) ListObjects(bucketName string, versions bool) ([]Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
@@ -143,14 +150,15 @@ func (s *StorageFS) ListObjects(bucketName string, versions bool) ([]Object, err
 	return objects, nil
 }
 
-// GetObject get an object by bucket and name
+// GetObject get an object by bucket and name.
 func (s *StorageFS) GetObject(bucketName, objectName string) (Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	return s.getObject(bucketName, objectName)
 }
 
-// GetObjectWithGeneration retrieves an specific version of the object. Not implemented
+// GetObjectWithGeneration retrieves an specific version of the object. Not
+// implemented for this backend.
 func (s *StorageFS) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
 	return Object{}, errors.New("not implemented: fs storage type does not support versioning yet")
 }
@@ -170,7 +178,7 @@ func (s *StorageFS) getObject(bucketName, objectName string) (Object, error) {
 	return obj, nil
 }
 
-// DeleteObject deletes an object by bucket and name
+// DeleteObject deletes an object by bucket and name.
 func (s *StorageFS) DeleteObject(bucketName, objectName string) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -180,6 +188,7 @@ func (s *StorageFS) DeleteObject(bucketName, objectName string) error {
 	return os.Remove(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
 }
 
+// PatchObject patches the given object metadata.
 func (s *StorageFS) PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {

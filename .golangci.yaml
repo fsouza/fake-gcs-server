@@ -16,5 +16,7 @@ linters:
     - gocognit
     - gomnd
     - lll
+    - nestif
+    - testpackage
     - unparam
     - wsl

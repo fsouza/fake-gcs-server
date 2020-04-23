@@ -45,7 +45,7 @@ func NewServer(objects []Object) *Server {
 
 // NewServerWithHostPort creates a new server that listens on a custom host and port
 //
-// Deprecated: use NewServerWithOptions()
+// Deprecated: use NewServerWithOptions.
 func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server, error) {
 	return NewServerWithOptions(Options{
 		InitialObjects: objects,
@@ -84,7 +84,8 @@ type Options struct {
 	Writer io.Writer
 }
 
-// NewServerWithOptions creates a new server with custom options
+// NewServerWithOptions creates a new server configured according to the
+// provided options.
 func NewServerWithOptions(options Options) (*Server, error) {
 	s, err := newServer(options.InitialObjects, options.StorageRoot, options.ExternalURL, options.PublicHost)
 	if err != nil {
