@@ -60,7 +60,7 @@ func shouldError(t *testing.T, err error) {
 }
 
 func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
-	isFSStorage := reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{})
+	isFSStorage := reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{})
 	err := storage.CreateObject(obj)
 	if isFSStorage && obj.Generation != 0 {
 		t.Log("FS should not support objects generation")
@@ -110,7 +110,7 @@ func TestObjectCRUD(t *testing.T) {
 			err = storage.DeleteObject(bucketName, objectName)
 			shouldError(t, err)
 			err = storage.CreateBucket(bucketName, versioningEnabled)
-			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && versioningEnabled {
+			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && versioningEnabled {
 				t.Log("FS storage type should not implement versioning")
 				shouldError(t, err)
 				return
@@ -179,7 +179,7 @@ func TestObjectQueryErrors(t *testing.T) {
 		testForStorageBackends(t, func(t *testing.T, storage Storage) {
 			const bucketName = "random-bucket"
 			err := storage.CreateBucket(bucketName, versioningEnabled)
-			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && versioningEnabled {
+			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && versioningEnabled {
 				t.Log("FS storage type should not implement versioning")
 				shouldError(t, err)
 				return
@@ -213,7 +213,7 @@ func TestBucketCreateGetList(t *testing.T) {
 			timeBeforeCreation := time.Now().Truncate(time.Second) // we may lose precission
 			err = storage.CreateBucket(bucket.Name, bucket.VersioningEnabled)
 			timeAfterCreation := time.Now()
-			if reflect.TypeOf(storage) == reflect.TypeOf(&StorageFS{}) && bucket.VersioningEnabled {
+			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && bucket.VersioningEnabled {
 				if err == nil {
 					t.Fatal("fs storage should not accept creating buckets with versioning, but it's not failing")
 				}

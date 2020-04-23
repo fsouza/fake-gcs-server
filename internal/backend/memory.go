@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// StorageMemory is an implementation of the backend storage that stores data
+// storageMemory is an implementation of the backend storage that stores data
 // in memory.
-type StorageMemory struct {
+type storageMemory struct {
 	buckets map[string]bucketInMemory
 	mtx     sync.RWMutex
 }
@@ -101,7 +101,7 @@ func findObject(obj Object, objectList []Object, matchGeneration bool) int {
 
 // NewStorageMemory creates an instance of StorageMemory.
 func NewStorageMemory(objects []Object) Storage {
-	s := &StorageMemory{
+	s := &storageMemory{
 		buckets: make(map[string]bucketInMemory),
 	}
 	for _, o := range objects {
@@ -114,7 +114,7 @@ func NewStorageMemory(objects []Object) Storage {
 }
 
 // CreateBucket creates a bucket.
-func (s *StorageMemory) CreateBucket(name string, versioningEnabled bool) error {
+func (s *storageMemory) CreateBucket(name string, versioningEnabled bool) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucket, err := s.getBucketInMemory(name)
@@ -129,7 +129,7 @@ func (s *StorageMemory) CreateBucket(name string, versioningEnabled bool) error 
 }
 
 // ListBuckets lists buckets currently registered in the backend.
-func (s *StorageMemory) ListBuckets() ([]Bucket, error) {
+func (s *storageMemory) ListBuckets() ([]Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	buckets := []Bucket{}
@@ -140,14 +140,14 @@ func (s *StorageMemory) ListBuckets() ([]Bucket, error) {
 }
 
 // GetBucket retrieves the bucket information from the backend.
-func (s *StorageMemory) GetBucket(name string) (Bucket, error) {
+func (s *storageMemory) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(name)
 	return Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated}, err
 }
 
-func (s *StorageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
+func (s *storageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
 	if bucketInMemory, found := s.buckets[name]; found {
 		return bucketInMemory, nil
 	}
@@ -155,7 +155,7 @@ func (s *StorageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
 }
 
 // CreateObject stores an object in the backend.
-func (s *StorageMemory) CreateObject(obj Object) error {
+func (s *storageMemory) CreateObject(obj Object) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucketInMemory, err := s.getBucketInMemory(obj.BucketName)
@@ -169,7 +169,7 @@ func (s *StorageMemory) CreateObject(obj Object) error {
 
 // ListObjects lists the objects in a given bucket with a given prefix and
 // delimeter.
-func (s *StorageMemory) ListObjects(bucketName string, versions bool) ([]Object, error) {
+func (s *storageMemory) ListObjects(bucketName string, versions bool) ([]Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
@@ -182,12 +182,12 @@ func (s *StorageMemory) ListObjects(bucketName string, versions bool) ([]Object,
 	return append(bucketInMemory.activeObjects, bucketInMemory.archivedObjects...), nil
 }
 
-func (s *StorageMemory) GetObject(bucketName, objectName string) (Object, error) {
+func (s *storageMemory) GetObject(bucketName, objectName string) (Object, error) {
 	return s.GetObjectWithGeneration(bucketName, objectName, 0)
 }
 
 // GetObjectWithGeneration retrieves an specific version of the object.
-func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
+func (s *storageMemory) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
@@ -209,7 +209,7 @@ func (s *StorageMemory) GetObjectWithGeneration(bucketName, objectName string, g
 	return listToConsider[index], nil
 }
 
-func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
+func (s *storageMemory) DeleteObject(bucketName, objectName string) error {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
 		return err
@@ -226,7 +226,7 @@ func (s *StorageMemory) DeleteObject(bucketName, objectName string) error {
 }
 
 // PatchObject updates an object metadata.
-func (s *StorageMemory) PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
+func (s *storageMemory) PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
 		return Object{}, err
