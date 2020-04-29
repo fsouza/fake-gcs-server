@@ -180,6 +180,9 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 		t.Logf("checking initial object attributes")
 		checkObjectAttrs(initialObj, originalObjAttrs, t)
 
+		// sleep for at least 100ns or more, so the creation time will differ on all platforms.
+		time.Sleep(time.Microsecond)
+
 		latestObjVersion := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content2), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content2)))), Md5Hash: encodedHash(md5Hash([]byte(content2)))}
 		server.CreateObject(latestObjVersion)
 		objHandle = client.Bucket(bucketName).Object(latestObjVersion.Name)

@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
@@ -83,7 +82,9 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object
 	var objects []fakestorage.Object
 	err := filepath.Walk(localBucketPath, func(path string, info os.FileInfo, _ error) error {
 		if info.Mode().IsRegular() {
-			objectKey := strings.TrimLeft(strings.Replace(path, localBucketPath, "", 1), "/")
+			// Rel() should never return error since path always descend from localBucketPath
+			relPath, _ := filepath.Rel(localBucketPath, path)
+			objectKey := filepath.ToSlash(relPath)
 			fileContent, err := ioutil.ReadFile(path)
 			if err != nil {
 				return fmt.Errorf("could not read file %q: %w", path, err)

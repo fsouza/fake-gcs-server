@@ -173,7 +173,7 @@ func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
 	if err != nil {
 		return Object{}, err
 	}
-	obj.Name = objectName
+	obj.Name = filepath.ToSlash(objectName)
 	obj.BucketName = bucketName
 	return obj, nil
 }
