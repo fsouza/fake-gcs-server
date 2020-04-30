@@ -18,6 +18,7 @@ jobs:
         os:
           - macos
           - ubuntu
+          - windows
 
     name: lint-and-test (${{ matrix.os }}/go-${{ matrix.go_version }})
     runs-on: ${{ matrix.os }}-latest
@@ -31,12 +32,13 @@ jobs:
       - uses: actions/checkout@master
 
       - name: install deps
-        run: |
-          go mod download
-          (
-            cd /tmp
-            env GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-          )
+        run: go mod download
+
+      - name: install golangci-lint
+        run: go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        working-directory: /
+        env:
+          GO111MODULE: on
 
       - name: run-linter
         run: golangci-lint run
