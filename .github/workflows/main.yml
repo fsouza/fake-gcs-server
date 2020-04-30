@@ -37,14 +37,14 @@ jobs:
       - name: install golangci-lint on Windows
         if: matrix.os == 'windows'
         run: go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-        working-dir: C:\
+        working-directory: C:\
         env:
           GO111MODULE: on
 
       - name: install golangci-lint on Mac/Linux
         if: matrix.os != 'windows'
         run: go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-        working-dir: /tmp
+        working-directory: /tmp
         env:
           GO111MODULE: on
 
