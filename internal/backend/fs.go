@@ -122,7 +122,7 @@ func (s *storageFS) CreateObject(obj Object) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0664)
+	return ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0600)
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and
@@ -173,7 +173,7 @@ func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
 	if err != nil {
 		return Object{}, err
 	}
-	obj.Name = objectName
+	obj.Name = filepath.ToSlash(objectName)
 	obj.BucketName = bucketName
 	return obj, nil
 }
