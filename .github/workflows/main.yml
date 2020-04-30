@@ -34,8 +34,17 @@ jobs:
       - name: install deps
         run: go mod download
 
-      - name: install golangci-lint
+      - name: install golangci-lint on Windows
+        if: matrix.os == 'windows'
         run: go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        working-dir: C:\
+        env:
+          GO111MODULE: on
+
+      - name: install golangci-lint on Mac/Linux
+        if: matrix.os != 'windows'
+        run: go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        working-dir: /tmp
         env:
           GO111MODULE: on
 
