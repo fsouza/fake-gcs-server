@@ -40,10 +40,6 @@ jobs:
         env:
           GO111MODULE: on
 
-      - name: debug windows
-        if: matrix.os == 'windows'
-        run: gofmt -d .
-
       - name: run-linter
         run: golangci-lint run
         env:
