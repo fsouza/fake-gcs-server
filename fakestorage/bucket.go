@@ -24,8 +24,8 @@ func (s *Server) CreateBucket(name string) {
 	}
 }
 
-// CreateBucketOpts defines the properties of a bucket you can create
-// with CreateBucketWithOpts()
+// CreateBucketOpts defines the properties of a bucket you can create with
+// CreateBucketWithOpts.
 type CreateBucketOpts struct {
 	Name              string
 	VersioningEnabled bool

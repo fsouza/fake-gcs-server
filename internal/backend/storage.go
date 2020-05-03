@@ -5,7 +5,8 @@
 // Package backend proides the backends used by fake-gcs-server.
 package backend
 
-// Storage is the generic interface for implementing the backend storage of the server
+// Storage is the generic interface for implementing the backend storage of the
+// server.
 type Storage interface {
 	CreateBucket(name string, versioningEnabled bool) error
 	ListBuckets() ([]Bucket, error)
