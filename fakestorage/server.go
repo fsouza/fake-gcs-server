@@ -54,7 +54,7 @@ func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server,
 	})
 }
 
-// Options are used to configure the server on creation
+// Options are used to configure the server on creation.
 type Options struct {
 	InitialObjects []Object
 	StorageRoot    string
