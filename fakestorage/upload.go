@@ -202,17 +202,15 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 }
 
 func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
-	objName := r.URL.Query().Get("name")
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
-	var metadata *multipartMetadata
+	metadata, err := loadMetadata(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	objName := r.URL.Query().Get("name")
 	if objName == "" {
-		var err error
-		metadata, err = loadMetadata(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 		objName = metadata.Name
 	}
 	obj := Object{
