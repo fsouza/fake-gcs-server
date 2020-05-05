@@ -40,16 +40,16 @@ jobs:
         env:
           GO111MODULE: on
 
+      - name: run-tests
+        run: go test -race -vet all -mod readonly ./...
+        env:
+          GOPROXY: off
+
       - name: run-linter
         run: golangci-lint run
         env:
           GOPROXY: off
           GOFLAGS: -mod=readonly
-
-      - name: run-tests
-        run: go test -race -vet all -mod readonly ./...
-        env:
-          GOPROXY: off
 
   build:
     name: build-and-publish
