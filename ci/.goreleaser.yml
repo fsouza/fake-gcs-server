@@ -5,10 +5,15 @@ builds:
       - CGO_ENABLED=0
     goarch:
       - amd64
+    goos:
+      - darwin
+      - linux
+      - windows
 archives:
   - replacements:
       darwin: Darwin
       linux: Linux
+      windows: Windows
     files:
       - LICENSE
       - README.md
@@ -20,4 +25,4 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^Merge'
+      - "^Merge"
