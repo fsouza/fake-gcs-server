@@ -6,6 +6,7 @@ package fakestorage
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,8 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
 )
+
+var errInvalidGeneration = errors.New("invalid generation ID")
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
@@ -184,6 +187,16 @@ func (s *Server) GetObjectWithGeneration(bucketName, objectName string, generati
 	return obj, nil
 }
 
+func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, generationStr string) (Object, error) {
+	generation, err := strconv.ParseInt(generationStr, 10, 64)
+	if err != nil && generationStr != "" {
+		return Object{}, errInvalidGeneration
+	} else if generation > 0 {
+		return s.GetObjectWithGeneration(bucketName, objectName, generation)
+	}
+	return s.GetObject(bucketName, objectName)
+}
+
 func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	bucketName := mux.Vars(r)["bucketName"]
 	prefix := r.URL.Query().Get("prefix")
@@ -194,7 +207,7 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	encoder := json.NewEncoder(w)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		errResp := newErrorResponse(http.StatusNotFound, "Not Found", nil)
+		errResp := newErrorResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil)
 		encoder.Encode(errResp)
 		return
 	}
@@ -210,27 +223,16 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	encoder := json.NewEncoder(w)
-	var (
-		obj Object
-		err error
-	)
-	generationStr := r.FormValue("generation")
-	generation, err := strconv.ParseInt(generationStr, 10, 64)
-	//nolint:gocritic
-	if err != nil && generationStr != "" {
-		errResp := newErrorResponse(http.StatusBadRequest, "invalid generation ID", nil)
-		w.WriteHeader(http.StatusBadRequest)
-		encoder.Encode(errResp)
-		return
-	} else if generation > 0 {
-		obj, err = s.GetObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
-	} else {
-		obj, err = s.GetObject(vars["bucketName"], vars["objectName"])
-	}
-
+	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
 	if err != nil {
-		errResp := newErrorResponse(http.StatusNotFound, "Not Found", nil)
-		w.WriteHeader(http.StatusNotFound)
+		statusCode := http.StatusNotFound
+		message := http.StatusText(statusCode)
+		if errors.Is(err, errInvalidGeneration) {
+			statusCode = http.StatusBadRequest
+			message = err.Error()
+		}
+		errResp := newErrorResponse(statusCode, message, nil)
+		w.WriteHeader(statusCode)
 		encoder.Encode(errResp)
 		return
 	}
@@ -242,7 +244,7 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
-		errResp := newErrorResponse(http.StatusNotFound, "Not Found", nil)
+		errResp := newErrorResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(errResp)
 		return
@@ -299,24 +301,15 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	generationStr := r.FormValue("sourceGeneration")
-	var (
-		obj        Object
-		err        error
-		generation int64
-	)
-	if generationStr != "" {
-		generation, err = strconv.ParseInt(generationStr, 10, 64)
-		if err != nil {
-			http.Error(w, "Wrong generation ID", http.StatusBadRequest)
-			return
-		}
-		obj, err = s.GetObjectWithGeneration(vars["sourceBucket"], vars["sourceObject"], generation)
-	} else {
-		obj, err = s.GetObject(vars["sourceBucket"], vars["sourceObject"])
-	}
+	obj, err := s.objectWithGenerationOnValidGeneration(vars["sourceBucket"], vars["sourceObject"], r.FormValue("sourceGeneration"))
 	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		statusCode := http.StatusNotFound
+		message := http.StatusText(statusCode)
+		if errors.Is(err, errInvalidGeneration) {
+			statusCode = http.StatusBadRequest
+			message = err.Error()
+		}
+		http.Error(w, message, statusCode)
 		return
 	}
 
@@ -347,26 +340,18 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	var (
-		obj        Object
-		err        error
-		generation int64
-	)
-	generationStr := r.FormValue("generation")
-	if generationStr != "" {
-		generation, err = strconv.ParseInt(generationStr, 10, 64)
-		if err != nil {
-			http.Error(w, "Wrong generation ID", http.StatusBadRequest)
-			return
-		}
-		obj, err = s.GetObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
-	} else {
-		obj, err = s.GetObject(vars["bucketName"], vars["objectName"])
-	}
+	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
 	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		statusCode := http.StatusNotFound
+		message := http.StatusText(statusCode)
+		if errors.Is(err, errInvalidGeneration) {
+			statusCode = http.StatusBadRequest
+			message = err.Error()
+		}
+		http.Error(w, message, statusCode)
 		return
 	}
+
 	status := http.StatusOK
 	start, end, content := s.handleRange(obj, r)
 	if len(content) != len(obj.Content) {
