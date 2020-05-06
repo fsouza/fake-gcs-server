@@ -212,7 +212,7 @@ func TestBucketCreateGetList(t *testing.T) {
 			}
 			timeBeforeCreation := time.Now().Truncate(time.Second) // we may lose precission
 			err = storage.CreateBucket(bucket.Name, bucket.VersioningEnabled)
-			timeAfterCreation := time.Now().Add(time.Microsecond)
+			timeAfterCreation := time.Now().Add(5 * time.Millisecond)
 			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && bucket.VersioningEnabled {
 				if err == nil {
 					t.Fatal("fs storage should not accept creating buckets with versioning, but it's not failing")
