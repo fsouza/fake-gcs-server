@@ -34,16 +34,16 @@ jobs:
       - name: install deps
         run: go mod download
 
+      - name: run-tests
+        run: go test -race -vet all -mod readonly ./...
+        env:
+          GOPROXY: off
+
       - name: install golangci-lint
         run: go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
         working-directory: /
         env:
           GO111MODULE: on
-
-      - name: run-tests
-        run: go test -race -vet all -mod readonly ./...
-        env:
-          GOPROXY: off
 
       - name: run-linter
         run: golangci-lint run
