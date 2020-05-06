@@ -4,10 +4,10 @@ on:
     branches:
       - master
     paths:
-      - .goreleaser.yml
+      - ci/.goreleaser.yml
   pull_request:
     paths:
-      - .goreleaser.yml
+      - ci/.goreleaser.yml
 jobs:
   test-goreleaser:
     runs-on: ubuntu-latest
