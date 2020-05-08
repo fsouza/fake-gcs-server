@@ -197,6 +197,11 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// If the backend created a Generation #, add it to the response
+	newObj, _ := s.GetObject(obj.BucketName, obj.Name)
+	obj.Generation = newObj.Generation
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
 }

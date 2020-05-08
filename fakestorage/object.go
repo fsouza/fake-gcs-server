@@ -38,7 +38,7 @@ type Object struct {
 	Created    time.Time         `json:"created,omitempty"`
 	Updated    time.Time         `json:"updated,omitempty"`
 	Deleted    time.Time         `json:"deleted,omitempty"`
-	Generation int64             `json:"generation,omitempty"`
+	Generation int64             `json:"generation,omitempty,string"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
@@ -320,6 +320,17 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Only supplied metadata overwrites the new object's metdata
+	if len(metadata.Metadata) == 0 {
+		metadata.Metadata = obj.Metadata
+	}
+	if metadata.ContentType == "" {
+		metadata.ContentType = obj.ContentType
+	}
+	if metadata.ContentEncoding == "" {
+		metadata.ContentEncoding = obj.ContentEncoding
+	}
+
 	dstBucket := vars["destinationBucket"]
 	newObject := Object{
 		BucketName:      dstBucket,
@@ -361,6 +372,8 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
 	w.Header().Set(contentTypeHeader, obj.ContentType)
+	w.Header().Set("X-Goog-Generation", fmt.Sprintf("%d", obj.Generation))
+	w.Header().Set("Last-Modified", obj.Updated.Format(http.TimeFormat))
 	w.WriteHeader(status)
 	if r.Method == http.MethodGet {
 		w.Write(content)
