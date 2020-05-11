@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// This example requires the server to be running with the flag -public-host
+// defined as storage.gcs.127.0.0.1.nip.io.
+//
+// Check the file ci/run-go-example.sh for a fully functional server + client
+// script.
 package main
 
 import (
