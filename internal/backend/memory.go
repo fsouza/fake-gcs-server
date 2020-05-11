@@ -28,7 +28,7 @@ func newBucketInMemory(name string, versioningEnabled bool) bucketInMemory {
 	return bucketInMemory{Bucket{name, versioningEnabled, time.Now()}, []Object{}, []Object{}}
 }
 
-func (bm *bucketInMemory) addObject(obj Object) {
+func (bm *bucketInMemory) addObject(obj Object) Object {
 	obj.Generation = getNewGenerationIfZero(obj.Generation)
 	index := findObject(obj, bm.activeObjects, false)
 	if index >= 0 {
@@ -40,6 +40,8 @@ func (bm *bucketInMemory) addObject(obj Object) {
 	} else {
 		bm.activeObjects = append(bm.activeObjects, obj)
 	}
+
+	return obj
 }
 
 func getNewGenerationIfZero(generation int64) int64 {
@@ -155,16 +157,16 @@ func (s *storageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
 }
 
 // CreateObject stores an object in the backend.
-func (s *storageMemory) CreateObject(obj Object) error {
+func (s *storageMemory) CreateObject(obj Object) (Object, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucketInMemory, err := s.getBucketInMemory(obj.BucketName)
 	if err != nil {
 		bucketInMemory = newBucketInMemory(obj.BucketName, false)
 	}
-	bucketInMemory.addObject(obj)
+	newObj := bucketInMemory.addObject(obj)
 	s.buckets[obj.BucketName] = bucketInMemory
-	return nil
+	return newObj, nil
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and

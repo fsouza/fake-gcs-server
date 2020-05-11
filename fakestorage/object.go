@@ -38,7 +38,7 @@ type Object struct {
 	Created    time.Time         `json:"created,omitempty"`
 	Updated    time.Time         `json:"updated,omitempty"`
 	Deleted    time.Time         `json:"deleted,omitempty"`
-	Generation int64             `json:"generation,omitempty"`
+	Generation int64             `json:"generation,omitempty,string"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
@@ -66,14 +66,19 @@ func (o *objectList) Swap(i int, j int) {
 // If the bucket within the object doesn't exist, it also creates it. If the
 // object already exists, it overrides the object.
 func (s *Server) CreateObject(obj Object) {
-	err := s.createObject(obj)
+	_, err := s.createObject(obj)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (s *Server) createObject(obj Object) error {
-	return s.backend.CreateObject(toBackendObjects([]Object{obj})[0])
+func (s *Server) createObject(obj Object) (Object, error) {
+	newObj, err := s.backend.CreateObject(toBackendObjects([]Object{obj})[0])
+	if err != nil {
+		return Object{}, err
+	}
+
+	return fromBackendObjects([]backend.Object{newObj})[0], nil
 }
 
 // ListObjects returns a sorted list of objects that match the given criteria,
@@ -320,6 +325,17 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Only supplied metadata overwrites the new object's metdata
+	if len(metadata.Metadata) == 0 {
+		metadata.Metadata = obj.Metadata
+	}
+	if metadata.ContentType == "" {
+		metadata.ContentType = obj.ContentType
+	}
+	if metadata.ContentEncoding == "" {
+		metadata.ContentEncoding = obj.ContentEncoding
+	}
+
 	dstBucket := vars["destinationBucket"]
 	newObject := Object{
 		BucketName:      dstBucket,
@@ -361,6 +377,11 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
 	w.Header().Set(contentTypeHeader, obj.ContentType)
+	w.Header().Set("X-Goog-Generation", strconv.FormatInt(obj.Generation, 10))
+	w.Header().Set("Last-Modified", obj.Updated.Format(http.TimeFormat))
+	if obj.ContentEncoding != "" {
+		w.Header().Set("Content-Encoding", obj.ContentEncoding)
+	}
 	w.WriteHeader(status)
 	if r.Method == http.MethodGet {
 		w.Write(content)
