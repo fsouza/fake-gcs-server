@@ -85,7 +85,7 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		Md5Hash:         encodedMd5Hash(data),
 		ACL:             getObjectACL(predefinedACL),
 	}
-	err = s.createObject(obj)
+	obj, err = s.createObject(obj)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -192,15 +192,11 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		ACL:             getObjectACL(predefinedACL),
 		Metadata:        metadata.Metadata,
 	}
-	err = s.createObject(obj)
+	obj, err = s.createObject(obj)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// If the backend created a Generation #, add it to the response
-	newObj, _ := s.GetObject(obj.BucketName, obj.Name)
-	obj.Generation = newObj.Generation
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
@@ -308,7 +304,7 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 	if commit {
 		s.uploads.Delete(uploadID)
-		err = s.createObject(obj)
+		obj, err = s.createObject(obj)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

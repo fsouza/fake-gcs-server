@@ -61,12 +61,12 @@ func shouldError(t *testing.T, err error) {
 
 func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	isFSStorage := reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{})
-	err := storage.CreateObject(obj)
+	_, err := storage.CreateObject(obj)
 	if isFSStorage && obj.Generation != 0 {
 		t.Log("FS should not support objects generation")
 		shouldError(t, err)
 		obj.Generation = 0
-		err = storage.CreateObject(obj)
+		_, err = storage.CreateObject(obj)
 	}
 	noError(t, err)
 	activeObj, err := storage.GetObject(obj.BucketName, obj.Name)
@@ -185,7 +185,7 @@ func TestObjectQueryErrors(t *testing.T) {
 				return
 			}
 			validObject := Object{BucketName: bucketName, Name: "random-object", Content: []byte("random-content")}
-			err = storage.CreateObject(validObject)
+			_, err = storage.CreateObject(validObject)
 			noError(t, err)
 			_, err = storage.GetObjectWithGeneration(validObject.BucketName, validObject.Name, 33333)
 			shouldError(t, err)

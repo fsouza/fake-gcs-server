@@ -46,7 +46,7 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 	}
 	s := &storageFS{rootDir: rootDir}
 	for _, o := range objects {
-		err := s.CreateObject(o)
+		_, err := s.CreateObject(o)
 		if err != nil {
 			return nil, err
 		}
@@ -108,21 +108,21 @@ func (s *storageFS) GetBucket(name string) (Bucket, error) {
 }
 
 // CreateObject stores an object as a regular file in the disk.
-func (s *storageFS) CreateObject(obj Object) error {
+func (s *storageFS) CreateObject(obj Object) (Object, error) {
 	if obj.Generation > 0 {
-		return errors.New("not implemented: fs storage type does not support objects generation yet")
+		return Object{}, errors.New("not implemented: fs storage type does not support objects generation yet")
 	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	err := s.createBucket(obj.BucketName)
 	if err != nil {
-		return err
+		return Object{}, err
 	}
 	encoded, err := json.Marshal(obj)
 	if err != nil {
-		return err
+		return Object{}, err
 	}
-	return ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0600)
+	return obj, ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0600)
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and
