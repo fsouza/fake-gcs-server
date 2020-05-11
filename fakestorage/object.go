@@ -65,13 +65,11 @@ func (o *objectList) Swap(i int, j int) {
 //
 // If the bucket within the object doesn't exist, it also creates it. If the
 // object already exists, it overrides the object.
-func (s *Server) CreateObject(obj Object) Object {
-	newObj, err := s.createObject(obj)
+func (s *Server) CreateObject(obj Object) {
+	_, err := s.createObject(obj)
 	if err != nil {
 		panic(err)
 	}
-
-	return newObj
 }
 
 func (s *Server) createObject(obj Object) (Object, error) {
