@@ -381,6 +381,9 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentTypeHeader, obj.ContentType)
 	w.Header().Set("X-Goog-Generation", strconv.FormatInt(obj.Generation, 10))
 	w.Header().Set("Last-Modified", obj.Updated.Format(http.TimeFormat))
+	if obj.ContentEncoding != "" {
+		w.Header().Set("Content-Encoding", obj.ContentEncoding)
+	}
 	w.WriteHeader(status)
 	if r.Method == http.MethodGet {
 		w.Write(content)
