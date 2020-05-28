@@ -339,9 +339,9 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 			t.Run(test.testCase, func(t *testing.T) {
 				length := test.length
 				if length == -1 {
-					length = int64(len(content)) - test.offset + 1
+					length = int64(len(content)) - test.offset
 				}
-				expectedData := content[test.offset : test.offset+length-1]
+				expectedData := content[test.offset : test.offset+length]
 				client := server.Client()
 				objHandle := client.Bucket(bucketName).Object(objectName)
 				reader, err := objHandle.NewRangeReader(context.TODO(), test.offset, test.length)
@@ -1257,6 +1257,54 @@ func checkObjectMetadata(actual, expected map[string]string, t *testing.T) {
 	for k, v := range expected {
 		if actual[k] != v {
 			t.Errorf("Metadata for key %s: actual = %s, expected = %s", k, actual[k], v)
+		}
+	}
+}
+
+func TestParseRangeRequest(t *testing.T) {
+	ctx := context.TODO()
+
+	in := []byte("this is a test object")
+
+	srv, _ := NewServerWithOptions(Options{
+		InitialObjects: []Object{
+			{
+				BucketName:  "test-bucket",
+				Name:        "test-object",
+				ContentType: "text/plain",
+				Content:     in,
+			},
+		},
+		NoListener: true,
+	})
+	obj := srv.Client().Bucket("test-bucket").Object("test-object")
+
+	var tests = []struct {
+		Start  int64
+		Length int64
+	}{
+		{4, 8},
+		{4, -1},
+		{0, 0},
+		{0, -1},
+		{0, 21},
+	}
+
+	for _, test := range tests {
+		start, length := test.Start, test.Length
+
+		rng, _ := obj.NewRangeReader(ctx, start, length)
+		out, _ := ioutil.ReadAll(rng)
+		rng.Close()
+
+		if length < 0 {
+			length = int64(len(in)) - start
+		}
+		if n := int64(len(out)); n != length {
+			t.Fatalf("expected %d bytes, RangeReader returned %d bytes", length, n)
+		}
+		if expected := in[start : start+length]; !bytes.Equal(expected, out) {
+			t.Fatalf("expected %q, RangeReader returned %q", expected, out)
 		}
 	}
 }

@@ -395,9 +395,11 @@ func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, conte
 			rangeParts := strings.SplitN(parts[1], "-", 2)
 			if len(rangeParts) == 2 {
 				start, _ = strconv.Atoi(rangeParts[0])
-				end, _ = strconv.Atoi(rangeParts[1])
-				if end < 1 {
+				var err error
+				if end, err = strconv.Atoi(rangeParts[1]); err != nil {
 					end = len(obj.Content)
+				} else {
+					end++
 				}
 				return start, end, obj.Content[start:end]
 			}
