@@ -1260,3 +1260,51 @@ func checkObjectMetadata(actual, expected map[string]string, t *testing.T) {
 		}
 	}
 }
+
+func TestParseRangeRequest(t *testing.T) {
+	ctx := context.TODO()
+
+	in := []byte("this is a test object")
+
+	srv, _ := NewServerWithOptions(Options{
+		InitialObjects: []Object{
+			{
+				BucketName:  "test-bucket",
+				Name:        "test-object",
+				ContentType: "text/plain",
+				Content:     in,
+			},
+		},
+		NoListener: true,
+	})
+	obj := srv.Client().Bucket("test-bucket").Object("test-object")
+
+	var tests = []struct {
+		Start  int64
+		Length int64
+	}{
+		{4, 8},
+		{4, -1},
+		{0, 0},
+		{0, -1},
+		{0, 21},
+	}
+
+	for _, test := range tests {
+		start, length := test.Start, test.Length
+
+		rng, _ := obj.NewRangeReader(ctx, start, length)
+		out, _ := ioutil.ReadAll(rng)
+		rng.Close()
+
+		if length < 0 {
+			length = int64(len(in)) - start
+		}
+		if n := int64(len(out)); n != length {
+			t.Fatalf("expected %d bytes, RangeReader returned %d bytes", length, n)
+		}
+		if expected := in[start : start+length]; !bytes.Equal(expected, out) {
+			t.Fatalf("expected %q, RangeReader returned %q", expected, out)
+		}
+	}
+}
