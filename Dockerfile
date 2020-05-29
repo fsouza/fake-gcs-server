@@ -24,7 +24,7 @@ COPY --from=tester /go/pkg /go/pkg
 COPY --from=tester /code .
 RUN go build -o fake-gcs-server
 
-FROM alpine:3.11.6
+FROM alpine:3.12.0
 COPY --from=builder /code/fake-gcs-server /bin/fake-gcs-server
 RUN /bin/fake-gcs-server -h
 EXPOSE 4443
