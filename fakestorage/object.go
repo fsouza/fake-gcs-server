@@ -401,6 +401,9 @@ func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, conte
 				} else {
 					end++
 				}
+				if end > len(obj.Content) {
+					end = len(obj.Content)
+				}
 				return start, end, obj.Content[start:end]
 			}
 		}
