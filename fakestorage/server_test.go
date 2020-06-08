@@ -86,6 +86,7 @@ func TestDownloadObject(t *testing.T) {
 		{BucketName: "other-bucket", Name: "static/css/website.css", Content: []byte("body {display: none;}")},
 	}
 	runServersTest(t, objs, testDownloadObject)
+	runServersTest(t, objs, testDownloadObjectRange)
 }
 
 func testDownloadObject(t *testing.T, server *Server) {
@@ -156,6 +157,48 @@ func testDownloadObject(t *testing.T, server *Server) {
 				if v := resp.Header.Get(k); v != expectedV {
 					t.Errorf("wrong value for header %q:\nwant %q\ngot  %q", k, expectedV, v)
 				}
+			}
+			data, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if body := string(data); body != test.expectedBody {
+				t.Errorf("wrong body\nwant %q\ngot  %q", test.expectedBody, body)
+			}
+		})
+	}
+}
+
+func testDownloadObjectRange(t *testing.T, server *Server) {
+	tests := []struct {
+		name           string
+		headers        map[string]string
+		expectedStatus int
+		expectedBody   string
+	}{
+		{"No range specified", map[string]string{}, http.StatusOK, "something"},
+		{"Partial range specified", map[string]string{"Range": "bytes=1-4"}, http.StatusPartialContent, "omet"},
+		{"Exact range specified", map[string]string{"Range": "bytes=0-8"}, http.StatusOK, "something"},
+		{"Too-long range specified", map[string]string{"Range": "bytes=0-100"}, http.StatusOK, "something"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			client := server.HTTPClient()
+			req, err := http.NewRequest("GET", "https://storage.googleapis.com/some-bucket/files/txt/text-01.txt", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for header, value := range test.headers {
+				req.Header.Add(header, value)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != test.expectedStatus {
+				t.Errorf("wrong status returned\nwant %d\ngot  %d", test.expectedStatus, resp.StatusCode)
 			}
 			data, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
