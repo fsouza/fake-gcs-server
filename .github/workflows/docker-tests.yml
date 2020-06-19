@@ -2,7 +2,7 @@ name: docker-tests
 on:
   pull_request:
     branches:
-      - master
+      - main
     paths:
       - Dockerfile
 jobs:
