@@ -15,9 +15,11 @@ linters:
     - gochecknoglobals
     - gocognit
     - goerr113
+    - gofumpt
     - gomnd
     - lll
     - nestif
+    - noctx
     - testpackage
     - unparam
     - wsl
