@@ -130,7 +130,7 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 }
 
 func ensureEmptyDir(dirname string) error {
-	err := os.Mkdir(dirname, 0755)
+	err := os.Mkdir(dirname, 0o755)
 	if err != nil {
 		dir, direrr := os.Open(dirname)
 		if direrr != nil {

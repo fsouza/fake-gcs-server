@@ -192,6 +192,7 @@ func TestObjectQueryErrors(t *testing.T) {
 		})
 	}
 }
+
 func TestBucketCreateGetList(t *testing.T) {
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		buckets, err := storage.ListBuckets()

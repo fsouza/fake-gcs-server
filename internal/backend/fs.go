@@ -40,7 +40,7 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 	if !strings.HasSuffix(rootDir, "/") {
 		rootDir += "/"
 	}
-	err := os.MkdirAll(rootDir, 0700)
+	err := os.MkdirAll(rootDir, 0o700)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (s *storageFS) CreateBucket(name string, versioningEnabled bool) error {
 }
 
 func (s *storageFS) createBucket(name string) error {
-	return os.MkdirAll(filepath.Join(s.rootDir, url.PathEscape(name)), 0700)
+	return os.MkdirAll(filepath.Join(s.rootDir, url.PathEscape(name)), 0o700)
 }
 
 // ListBuckets returns a list of buckets from the list of directories in the
@@ -122,7 +122,7 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 	if err != nil {
 		return Object{}, err
 	}
-	return obj, ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0600)
+	return obj, ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0o600)
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and

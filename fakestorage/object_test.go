@@ -703,7 +703,8 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 	}
 	tests := []listTestForQueryWithVersions{
 		{
-			listTest{"no prefix, no delimiter, multiple objects, with versioning and overwrites",
+			listTest{
+				"no prefix, no delimiter, multiple objects, with versioning and overwrites",
 				"some-bucket",
 				&storage.Query{Versions: true},
 				[]string{
@@ -716,70 +717,81 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 					"img/low-res/party-03.jpg",
 					"video/hi-res/some_video_1080p.mp4",
 				},
-				nil},
+				nil,
+			},
 			[]int64{initialGeneration, finalGeneration},
 			8 * 2,
 			true,
 			true,
 		},
 		{
-			listTest{"no prefix, no delimiter, single object, with versioning and overwrites",
+			listTest{
+				"no prefix, no delimiter, single object, with versioning and overwrites",
 				"other-bucket",
 				&storage.Query{Versions: true},
 				[]string{
 					"static/css/style.css",
 				},
-				nil},
+				nil,
+			},
 			[]int64{initialGeneration, finalGeneration},
 			2,
 			true,
 			true,
 		},
 		{
-			listTest{"no prefix, no delimiter, single object, without versioning and overwrites",
+			listTest{
+				"no prefix, no delimiter, single object, without versioning and overwrites",
 				"other-bucket",
 				&storage.Query{Versions: true},
 				[]string{
 					"static/css/style.css",
 				},
-				nil},
+				nil,
+			},
 			[]int64{finalGeneration},
 			1,
 			false,
 			true,
 		},
 		{
-			listTest{"no prefix, no delimiter, single object, without versioning neither overwrites",
+			listTest{
+				"no prefix, no delimiter, single object, without versioning neither overwrites",
 				"other-bucket",
 				&storage.Query{Versions: true},
 				[]string{
 					"static/css/style.css",
 				},
-				nil},
+				nil,
+			},
 			[]int64{initialGeneration},
 			1,
 			false,
 			false,
 		},
 		{
-			listTest{"no prefix, no delimiter, single object, with versioning but no overwrites",
+			listTest{
+				"no prefix, no delimiter, single object, with versioning but no overwrites",
 				"other-bucket",
 				&storage.Query{Versions: true},
 				[]string{
 					"static/css/style.css",
 				},
-				nil},
+				nil,
+			},
 			[]int64{initialGeneration},
 			1,
 			true,
 			false,
 		},
 		{
-			listTest{"no prefix, no delimiter, no objects, versioning and overwrites",
+			listTest{
+				"no prefix, no delimiter, no objects, versioning and overwrites",
 				"empty-bucket",
 				&storage.Query{Versions: true},
 				[]string{},
-				nil},
+				nil,
+			},
 			[]int64{},
 			0,
 			true,
@@ -1279,7 +1291,7 @@ func TestParseRangeRequest(t *testing.T) {
 	})
 	obj := srv.Client().Bucket("test-bucket").Object("test-object")
 
-	var tests = []struct {
+	tests := []struct {
 		Start  int64
 		Length int64
 	}{

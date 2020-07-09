@@ -124,7 +124,8 @@ func TestServerClientListBuckets(t *testing.T) {
 		}
 		it := client.Buckets(context.Background(), "whatever")
 		expectedBuckets := map[string]bool{
-			"other-bucket": false, "some-bucket": false, versionedBucketName: true}
+			"other-bucket": false, "some-bucket": false, versionedBucketName: true,
+		}
 		b, err := it.Next()
 		numberOfBuckets := 0
 		for ; err == nil; b, err = it.Next() {

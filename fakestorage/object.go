@@ -260,7 +260,6 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
-
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -274,7 +273,6 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
-
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

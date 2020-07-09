@@ -96,7 +96,7 @@ func TestLoadConfig(t *testing.T) {
 
 func TestToFakeGcsOptions(t *testing.T) {
 	t.Parallel()
-	var tests = []struct {
+	tests := []struct {
 		name     string
 		config   Config
 		expected fakestorage.Options
