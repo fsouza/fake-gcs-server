@@ -29,4 +29,5 @@ COPY --from=builder /code/fake-gcs-server /bin/fake-gcs-server
 RUN /bin/fake-gcs-server -h
 EXPOSE 4443
 ENV PUBLIC_HOST=storage.googleapis.com
-ENTRYPOINT ["/bin/fake-gcs-server", "-data", "/data", "-public-host", ${PUBLIC_HOST}]
+ENV SCHEME=https
+ENTRYPOINT ["/bin/fake-gcs-server", "-data", "/data", "-public-host", ${PUBLIC_HOST}, "-scheme", ${SCHEME}]
