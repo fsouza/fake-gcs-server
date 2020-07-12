@@ -28,4 +28,5 @@ FROM alpine:3.12.0
 COPY --from=builder /code/fake-gcs-server /bin/fake-gcs-server
 RUN /bin/fake-gcs-server -h
 EXPOSE 4443
-ENTRYPOINT ["/bin/fake-gcs-server", "-data", "/data"]
+ENV PUBLIC_HOST=storage.googleapis.com
+ENTRYPOINT ["/bin/fake-gcs-server", "-data", "/data", "-public-host", ${PUBLIC_HOST}]
