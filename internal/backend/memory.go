@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const timestampFormat = "2006-01-02T15:04:05.999999Z07:00"
+
 // storageMemory is an implementation of the backend storage that stores data
 // in memory.
 type storageMemory struct {
@@ -20,6 +22,8 @@ type storageMemory struct {
 
 type bucketInMemory struct {
 	Bucket
+	// maybe we can refactor how the memory backend works? no need to store
+	// Object instances.
 	activeObjects   []Object
 	archivedObjects []Object
 }
@@ -33,7 +37,7 @@ func (bm *bucketInMemory) addObject(obj Object) Object {
 	index := findObject(obj, bm.activeObjects, false)
 	if index >= 0 {
 		if bm.VersioningEnabled {
-			bm.activeObjects[index].Deleted = time.Now().Format(time.RFC3339)
+			bm.activeObjects[index].Deleted = time.Now().Format(timestampFormat)
 			bm.cpToArchive(bm.activeObjects[index])
 		}
 		bm.activeObjects[index] = obj
@@ -57,7 +61,7 @@ func (bm *bucketInMemory) deleteObject(obj Object, matchGeneration bool) {
 		return
 	}
 	if bm.VersioningEnabled {
-		obj.Deleted = time.Now().Format(time.RFC3339)
+		obj.Deleted = time.Now().Format(timestampFormat)
 		bm.mvToArchive(obj)
 	} else {
 		bm.deleteFromObjectList(obj, true)

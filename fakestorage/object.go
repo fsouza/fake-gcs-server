@@ -131,9 +131,9 @@ func toBackendObjects(objects []Object) []backend.Object {
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			ACL:             o.ACL,
-			Created:         getCurrentIfZero(o.Created).Format(time.RFC3339),
-			Deleted:         o.Deleted.Format(time.RFC3339),
-			Updated:         getCurrentIfZero(o.Updated).Format(time.RFC3339),
+			Created:         getCurrentIfZero(o.Created).Format(timestampFormat),
+			Deleted:         o.Deleted.Format(timestampFormat),
+			Updated:         getCurrentIfZero(o.Updated).Format(timestampFormat),
 			Generation:      o.Generation,
 			Metadata:        o.Metadata,
 		})
@@ -164,7 +164,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 }
 
 func convertTimeWithoutError(t string) time.Time {
-	r, _ := time.Parse(time.RFC3339, t)
+	r, _ := time.Parse(timestampFormat, t)
 	return r
 }
 

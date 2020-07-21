@@ -3,6 +3,7 @@
 # license that can be found in the LICENSE file.
 
 import os
+import tempfile
 
 import requests
 import urllib3
@@ -15,13 +16,13 @@ PUBLIC_HOST = os.getenv("PUBLIC_HOST", "storage.gcs.127.0.0.1.nip.io:4443")
 
 storage.blob._API_ACCESS_ENDPOINT = "https://" + PUBLIC_HOST
 storage.blob._DOWNLOAD_URL_TEMPLATE = (
-    u"%s/download/storage/v1{path}?alt=media" % EXTERNAL_URL
+    "%s/download/storage/v1{path}?alt=media" % EXTERNAL_URL
 )
 storage.blob._BASE_UPLOAD_TEMPLATE = (
-    u"%s/upload/storage/v1{bucket_path}/o?uploadType=" % EXTERNAL_URL
+    "%s/upload/storage/v1{bucket_path}/o?uploadType=" % EXTERNAL_URL
 )
-storage.blob._MULTIPART_URL_TEMPLATE = storage.blob._BASE_UPLOAD_TEMPLATE + u"multipart"
-storage.blob._RESUMABLE_URL_TEMPLATE = storage.blob._BASE_UPLOAD_TEMPLATE + u"resumable"
+storage.blob._MULTIPART_URL_TEMPLATE = storage.blob._BASE_UPLOAD_TEMPLATE + "multipart"
+storage.blob._RESUMABLE_URL_TEMPLATE = storage.blob._BASE_UPLOAD_TEMPLATE + "resumable"
 
 my_http = requests.Session()
 my_http.verify = False  # disable SSL validation
@@ -46,5 +47,7 @@ for bucket in client.list_buckets():
 
         # Print the content of the Blob
         b = bucket.get_blob(blob.name)
-        s = b.download_as_string()
-        print(s, "\n")
+        with tempfile.NamedTemporaryFile() as temp_file:
+            s = b.download_to_filename(temp_file.name)
+            temp_file.seek(0, 0)
+            print(temp_file.read(), "\n")
