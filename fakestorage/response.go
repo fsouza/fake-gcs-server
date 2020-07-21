@@ -6,12 +6,13 @@ package fakestorage
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/storage/v1"
 )
+
+const timestampFormat = "2006-01-02T15:04:05.999999Z07:00"
 
 type listResponse struct {
 	Kind     string        `json:"kind"`
@@ -48,7 +49,7 @@ func newBucketResponse(bucket backend.Bucket) bucketResponse {
 		ID:          bucket.Name,
 		Name:        bucket.Name,
 		Versioning:  &bucketVersioning{bucket.VersioningEnabled},
-		TimeCreated: bucket.TimeCreated.Format(time.RFC3339),
+		TimeCreated: bucket.TimeCreated.Format(timestampFormat),
 	}
 }
 
@@ -97,9 +98,9 @@ func newObjectResponse(obj Object) objectResponse {
 		Md5Hash:         obj.Md5Hash,
 		ACL:             acl,
 		Metadata:        obj.Metadata,
-		TimeCreated:     obj.Created.Format(time.RFC3339),
-		TimeDeleted:     obj.Deleted.Format(time.RFC3339),
-		Updated:         obj.Updated.Format(time.RFC3339),
+		TimeCreated:     obj.Created.Format(timestampFormat),
+		TimeDeleted:     obj.Deleted.Format(timestampFormat),
+		Updated:         obj.Updated.Format(timestampFormat),
 		Generation:      obj.Generation,
 	}
 }

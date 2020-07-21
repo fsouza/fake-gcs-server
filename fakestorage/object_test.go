@@ -45,7 +45,7 @@ func getObjectTestCases() objectTestCases {
 		contentEncoding = "gzip"
 		metaValue       = "MetaValue"
 	)
-	testInitExecTime := time.Now()
+	testInitExecTime := time.Now().Truncate(time.Microsecond)
 	checksum := uint32Checksum([]byte(content))
 	hash := md5Hash([]byte(content))
 
@@ -84,10 +84,10 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	if attrs.Name != testObj.Name {
 		t.Errorf("wrong object name\nwant %q\ngot  %q", testObj.Name, attrs.Name)
 	}
-	if !(testObj.Created.IsZero()) && testObj.Created.Equal(attrs.Created) {
+	if !(testObj.Created.IsZero()) && !testObj.Created.Equal(attrs.Created) {
 		t.Errorf("wrong created date\nwant %v\ngot   %v\nname %v", testObj.Created, attrs.Created, attrs.Name)
 	}
-	if !(testObj.Updated.IsZero()) && testObj.Updated.Equal(attrs.Updated) {
+	if !(testObj.Updated.IsZero()) && !testObj.Updated.Equal(attrs.Updated) {
 		t.Errorf("wrong updated date\nwant %v\ngot   %v\nname %v", testObj.Updated, attrs.Updated, attrs.Name)
 	}
 	if testObj.Created.IsZero() && attrs.Created.IsZero() {
@@ -1131,7 +1131,7 @@ func TestServerClientObjectDeleteWithVersioning(t *testing.T) {
 			t.Fatalf("unable to retrieve archived object. err: %v", err)
 		}
 		if objWithGen.Deleted.IsZero() || objWithGen.Deleted.Before(objWithGen.Created) {
-			t.Errorf("unexpected delete time, %v", objWithGen.Deleted)
+			t.Errorf("unexpected delete time.\ndeleted: %v\ncreated: %v", objWithGen.Deleted, objWithGen.Created)
 		}
 	})
 }
