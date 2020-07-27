@@ -4,7 +4,7 @@
 
 set -e
 
-if comand -v apk &>/dev/null; then
+if command -v apk &>/dev/null; then
 	apk add --update build-base
 fi
 
