@@ -5,7 +5,7 @@
 set -e
 
 if command -v apk &>/dev/null; then
-	apk add --update build-base
+	apk add --update build-base python3-dev libffi-dev
 fi
 
 ./fake-gcs-server -backend memory -data $PWD/examples/data &
