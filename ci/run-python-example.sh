@@ -4,6 +4,10 @@
 
 set -e
 
+if comand -v apk &>/dev/null; then
+	apk add --update build-base
+fi
+
 ./fake-gcs-server -backend memory -data $PWD/examples/data &
 
 pip install -r examples/python/requirements.txt
