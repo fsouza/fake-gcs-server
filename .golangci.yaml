@@ -12,6 +12,7 @@ linters:
   disable:
     - dupl
     - errcheck
+    - gci
     - gochecknoglobals
     - gocognit
     - goerr113
@@ -19,6 +20,7 @@ linters:
     - gomnd
     - lll
     - nestif
+    - nlreturn
     - noctx
     - testpackage
     - unparam
