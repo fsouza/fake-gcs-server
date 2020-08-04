@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  lint-and-test:
+  test:
     strategy:
       matrix:
         go_version:
@@ -21,7 +21,7 @@ jobs:
           - ubuntu
           - windows
 
-    name: lint-and-test (${{ matrix.os }}/go-${{ matrix.go_version }})
+    name: tests (${{ matrix.os }}/go-${{ matrix.go_version }})
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/setup-go@v2.1.1
@@ -40,22 +40,26 @@ jobs:
         env:
           GOPROXY: off
 
-      - name: install golangci-lint
-        run: go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-        working-directory: /
-        env:
-          GO111MODULE: on
+  lint:
+    strategy:
+      matrix:
+        os:
+          - macos
+          - ubuntu
+          - windows
 
-      - name: run-linter
-        run: golangci-lint run
-        env:
-          GOPROXY: off
-          GOFLAGS: -mod=readonly
+    name: lint (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - uses: actions/checkout@v2.3.1
+      - uses: golangci/golangci-lint-action@v2.2.0
 
   build:
     name: build-and-publish
     runs-on: ubuntu-latest
-    needs: lint-and-test
+    needs:
+      - test
+      - lint
     steps:
       - uses: actions/checkout@v2.3.1
 
