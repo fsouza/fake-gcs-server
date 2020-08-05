@@ -138,26 +138,43 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 	})
 }
 
-func TestServerClientObjectWriterWithDoesNotExistPreconditionRejectOverwritingExistingObject(t *testing.T) {
+func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		const originalContent = "original content"
 		const originalContentType = "text/plain"
 		const bucketName = "some-bucket"
 		const objectName = "some-object-2.txt"
 
-		server.CreateObject(Object{
-			BucketName:  bucketName,
-			Name:        objectName,
-			Content:     []byte(originalContent),
-			ContentType: originalContentType,
-		})
+		bucket := server.Client().Bucket(bucketName)
+		if err := bucket.Create(context.Background(), "my-project", nil); err != nil {
+			t.Fatal(err)
+		}
 
-		objHandle := server.Client().Bucket(bucketName).Object(objectName)
+		objHandle := bucket.Object(objectName)
 
-		w := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
-		w.ContentType = "application/json"
-		w.Write([]byte("new content"))
-		err := w.Close()
+		firstWriter := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+		firstWriter.ContentType = originalContentType
+		firstWriter.Write([]byte(originalContent))
+		if err := firstWriter.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		firstReader, err := objHandle.NewReader(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		objectContent, err := ioutil.ReadAll(firstReader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(objectContent) != originalContent {
+			t.Errorf("wrong content in the object after initial write with precondition\nwant %q\ngot  %q", originalContent, string(objectContent))
+		}
+
+		secondWriter := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+		secondWriter.ContentType = "application/json"
+		secondWriter.Write([]byte("new content"))
+		err = secondWriter.Close()
 		if err == nil {
 			t.Fatalf("expected overwriting existing object to fail, but received no error")
 		}
@@ -165,43 +182,16 @@ func TestServerClientObjectWriterWithDoesNotExistPreconditionRejectOverwritingEx
 			t.Errorf("expected HTTP 412 precondition failed error, but got %v", err)
 		}
 
-		reader, err := server.Client().Bucket(bucketName).Object(objectName).NewReader(context.Background())
+		secondReader, err := objHandle.NewReader(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
-		objectContent, err := ioutil.ReadAll(reader)
+		objectContentAfterFailedPrecondition, err := ioutil.ReadAll(secondReader)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(objectContent) != originalContent {
-			t.Errorf("wrong content in the object\nwant %q\ngot  %q", originalContent, string(objectContent))
-		}
-	})
-}
-
-func TestServerClientObjectWriterWithDoesNotExistPreconditionDontRejectCreatingNewObject(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
-		const bucketName = "some-bucket"
-		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
-
-		const content = "some content"
-		const contentType = "text/plain"
-		const objectName = "some-object-3.txt"
-
-		objHandle := server.Client().Bucket(bucketName).Object(objectName)
-		w := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
-		w.ContentType = contentType
-		w.Write([]byte(content))
-		err := w.Close()
-		if err != nil {
-			t.Fatalf("expected no error, but got %v", err)
-		}
-		obj, err := server.GetObject(bucketName, objectName)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(obj.Content) != content {
-			t.Errorf("wrong content in the object\nwant %q\ngot  %q", content, string(obj.Content))
+		if string(objectContentAfterFailedPrecondition) != originalContent {
+			t.Errorf("wrong content in the object after failed precondition\nwant %q\ngot  %q", originalContent, string(objectContentAfterFailedPrecondition))
 		}
 	})
 }
