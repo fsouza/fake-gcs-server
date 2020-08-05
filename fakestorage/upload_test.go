@@ -137,6 +137,61 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 	})
 }
 
+func TestServerClientObjectWriterWithDoesNotExistPreconditionRejectOverwritingExistingObject(t *testing.T) {
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		const originalContent = "some content"
+		const originalContentType = "text/plain"
+		server.CreateObject(Object{
+			BucketName:  "some-bucket",
+			Name:        "some-object.txt",
+			Content:     []byte(originalContent),
+			ContentType: originalContentType,
+		})
+		objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
+		w := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+		w.ContentType = "application/json"
+		w.Write([]byte("other content"))
+		err := w.Close()
+		if err == nil {
+			t.Fatalf("expected overwriting existing object to fail, but received no error")
+		}
+		if err.Error() != "googleapi: Error 412: Precondition failed" {
+			t.Errorf("expected HTTP 412 precondition failed error, but got %v", err)
+		}
+		obj, err := server.GetObject("some-bucket", "some-object.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(obj.Content) != originalContent {
+			t.Errorf("wrong content in the object\nwant %q\ngot  %q", originalContent, string(obj.Content))
+		}
+	})
+}
+
+func TestServerClientObjectWriterWithDoesNotExistPreconditionDontRejectCreatingNewObject(t *testing.T) {
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "some-bucket"})
+
+		const content = "some content"
+		const contentType = "text/plain"
+		objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
+		w := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+		w.ContentType = contentType
+		w.Write([]byte(content))
+		err := w.Close()
+		if err != nil {
+			t.Fatalf("expected no error, but got %v", err)
+		}
+		obj, err := server.GetObject("some-bucket", "some-object.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(obj.Content) != content {
+			t.Errorf("wrong content in the object\nwant %q\ngot  %q", content, string(obj.Content))
+		}
+	})
+}
+
 func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		client := server.Client()
