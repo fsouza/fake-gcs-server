@@ -16,8 +16,8 @@ fsouza/fake-gcs-server``](https://hub.docker.com/r/fsouza/fake-gcs-server)).
 
 ## Using the emulator in Docker
 
-If you want to run a standalone server (like the datastore/pubsub emulators)
-for integration tests and/or tests in other languages you may want to run the
+You can stub/mock Google Cloud Storage as a standalone server (like the datastore/pubsub emulators)
+which is ideal for integration tests and/or tests in other languages you may want to run the
 ``fake-gcs-server`` inside a Docker container:
 
 ```shell
