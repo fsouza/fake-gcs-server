@@ -91,7 +91,7 @@ jobs:
           args: ci/run-node-example.sh
 
       - name: test-go-example
-        uses: docker://golang:1.14-alpine
+        uses: docker://golang:alpine
         env:
           GOROOT: /usr/local/go
         with:
