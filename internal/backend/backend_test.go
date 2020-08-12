@@ -97,9 +97,12 @@ func TestObjectCRUD(t *testing.T) {
 	const bucketName = "prod-bucket"
 	const objectName = "video/hi-res/best_video_1080p.mp4"
 	content1 := []byte("content1")
-	const crc1 = "crc1"
-	const md51 = "md51"
+	const crc1 = "syeM0w=="
+	const md51 = "flXbAB0xmpSwtxNSmnVmIw=="
 	content2 := []byte("content2")
+	const crc2 = "oHd/Jw=="
+	const md52 = "7qZw9KyUHfcaO18mjr4+rA=="
+
 	for _, versioningEnabled := range []bool{true, false} {
 		versioningEnabled := versioningEnabled
 		testForStorageBackends(t, func(t *testing.T, storage Storage) {
@@ -121,7 +124,7 @@ func TestObjectCRUD(t *testing.T) {
 			initialGeneration := uploadAndCompare(t, storage, initialObject)
 
 			t.Logf("create (update) in existent case with explicit generation and versioning %t", versioningEnabled)
-			secondVersionWithGeneration := Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: 1234}
+			secondVersionWithGeneration := Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: 1234, Crc32c: crc2, Md5Hash: md52}
 			uploadAndCompare(t, storage, secondVersionWithGeneration)
 
 			initialObjectFromGeneration, err := storage.GetObjectWithGeneration(initialObject.BucketName, initialObject.Name, initialGeneration)
