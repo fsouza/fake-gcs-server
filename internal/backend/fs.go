@@ -5,12 +5,9 @@
 package backend
 
 import (
-	"crypto/md5" // #nosec G501
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -166,37 +163,6 @@ func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, gener
 	return Object{}, errors.New("not implemented: fs storage type does not support versioning yet")
 }
 
-var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
-
-func crc32cChecksum(content []byte) []byte {
-	checksummer := crc32.New(crc32cTable)
-	checksummer.Write(content)
-	return checksummer.Sum(make([]byte, 0, 4))
-}
-
-func encodedChecksum(checksum []byte) string {
-	return base64.StdEncoding.EncodeToString(checksum)
-}
-
-func encodedCrc32cChecksum(content []byte) string {
-	return encodedChecksum(crc32cChecksum(content))
-}
-
-func md5Hash(b []byte) []byte {
-	/* #nosec G401 */
-	h := md5.New()
-	h.Write(b)
-	return h.Sum(nil)
-}
-
-func encodedHash(hash []byte) string {
-	return base64.StdEncoding.EncodeToString(hash)
-}
-
-func encodedMd5Hash(content []byte) string {
-	return encodedHash(md5Hash(content))
-}
-
 func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
 	encoded, err := ioutil.ReadFile(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
 	if err != nil {
@@ -209,8 +175,6 @@ func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
 	}
 	obj.Name = filepath.ToSlash(objectName)
 	obj.BucketName = bucketName
-	obj.Crc32c = encodedCrc32cChecksum(obj.Content)
-	obj.Md5Hash = encodedMd5Hash(obj.Content)
 	return obj, nil
 }
 
