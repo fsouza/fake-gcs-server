@@ -72,6 +72,26 @@ func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) checkUploadPreconditions(w http.ResponseWriter, r *http.Request, bucketName string, objectName string) bool {
+	ifGenerationMatch := r.URL.Query().Get("ifGenerationMatch")
+
+	if ifGenerationMatch == "0" {
+		if _, err := s.backend.GetObject(bucketName, objectName); err == nil {
+			w.WriteHeader(http.StatusPreconditionFailed)
+			err := newErrorResponse(http.StatusPreconditionFailed, "Precondition failed", nil)
+			json.NewEncoder(w).Encode(err)
+			return false
+		}
+	} else if ifGenerationMatch != "" || r.URL.Query().Get("ifGenerationNotMatch") != "" {
+		w.WriteHeader(http.StatusNotImplemented)
+		err := newErrorResponse(http.StatusNotImplemented, "Precondition support not implemented", nil)
+		json.NewEncoder(w).Encode(err)
+		return false
+	}
+
+	return true
+}
+
 func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
@@ -233,6 +253,10 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	if objName == "" {
 		objName = metadata.Name
+	}
+
+	if !s.checkUploadPreconditions(w, r, bucketName, objName) {
+		return
 	}
 
 	obj := Object{
