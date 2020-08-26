@@ -176,7 +176,7 @@ func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
 		secondWriter.Write([]byte("new content"))
 		err = secondWriter.Close()
 		if err == nil {
-			t.Fatalf("expected overwriting existing object to fail, but received no error")
+			t.Fatal("expected overwriting existing object to fail, but received no error")
 		}
 		if err.Error() != "googleapi: Error 412: Precondition failed" {
 			t.Errorf("expected HTTP 412 precondition failed error, but got %v", err)
