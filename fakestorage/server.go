@@ -106,7 +106,14 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	allowedHeaders = append(allowedHeaders, options.AllowedCORSHeaders...)
 
 	cors := handlers.CORS(
-		handlers.AllowedMethods([]string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"}),
+		handlers.AllowedMethods([]string{
+			http.MethodHead,
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+		}),
 		handlers.AllowedHeaders(allowedHeaders),
 		handlers.AllowedOrigins([]string{"*"}),
 		handlers.AllowCredentials(),

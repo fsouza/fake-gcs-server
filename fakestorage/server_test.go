@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -291,6 +292,80 @@ func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 			}
 			if body := string(data); body != test.expectedBody {
 				t.Errorf("wrong body\nwant %q\ngot  %q", test.expectedBody, body)
+			}
+		})
+	}
+}
+
+func TestCORSRequests(t *testing.T) {
+	tests := []struct {
+		name    string
+		origin  string
+		method  string
+		headers []string
+	}{
+		{
+			"Allow GET Requests",
+			"http://example.com",
+			http.MethodGet,
+			[]string{},
+		},
+		{
+			"Allow DELETE Requests",
+			"http://example.com",
+			http.MethodDelete,
+			[]string{},
+		},
+		{
+			"Accept Allowlisted Custom Headers",
+			"http://example.com/",
+			http.MethodGet,
+			[]string{"X-Goog-Meta-Uploader"},
+		},
+		{
+			"Accept Alternate Origin",
+			"http://megazord.com/",
+			http.MethodGet,
+			[]string{},
+		},
+	}
+	opts := Options{
+		AllowedCORSHeaders: []string{"X-Goog-Meta-Uploader"},
+	}
+	server, err := NewServerWithOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			client := server.HTTPClient()
+			req, err := http.NewRequest(http.MethodOptions, "https://127.0.0.1/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Origin", test.origin)
+			req.Header.Set("Access-Control-Request-Method", test.method)
+			if len(test.headers) > 0 {
+				headers := strings.Join(test.headers, ",")
+				req.Header.Set("Access-Control-Request-Headers", headers)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+			}
+			for name, values := range resp.Header {
+				// Loop over all values for the name.
+				for _, value := range values {
+					t.Logf("%s: %v", name, value)
+				}
+			}
+			if v := resp.Header.Get("Access-Control-Allow-Origin"); v != "*" {
+				t.Errorf("wrong value for Access-Control-Allow-Origin: got %q", v)
 			}
 		})
 	}
