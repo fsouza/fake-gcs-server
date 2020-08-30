@@ -80,6 +80,12 @@ type Options struct {
 	// If unset, the default is "storage.googleapis.com", the XML API
 	PublicHost string
 
+	// Optional list of headers to add to the CORS header allowlist
+	// An example is "X-Goog-Meta-Uploader", which will allow a
+	// custom metadata header named "X-Goog-Meta-Uploader" to be
+	// sent through the browser
+	AllowedCORSHeaders []string
+
 	// Destination for writing log.
 	Writer io.Writer
 }
@@ -96,8 +102,12 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		return s, nil
 	}
 
+	allowedHeaders := []string{"Content-Type", "Content-Encoding", "Range"}
+	allowedHeaders = append(allowedHeaders, options.AllowedCORSHeaders...)
+
 	cors := handlers.CORS(
 		handlers.AllowedMethods([]string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"}),
+		handlers.AllowedHeaders(allowedHeaders),
 		handlers.AllowedOrigins([]string{"*"}),
 		handlers.AllowCredentials(),
 	)

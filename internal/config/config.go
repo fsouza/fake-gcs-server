@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/sirupsen/logrus"
@@ -21,20 +22,23 @@ const (
 )
 
 type Config struct {
-	Seed        string
-	publicHost  string
-	externalURL string
-	scheme      string
-	host        string
-	port        uint
-	backend     string
-	fsRoot      string
+	Seed               string
+	publicHost         string
+	externalURL        string
+	allowedCORSHeaders []string
+	scheme             string
+	host               string
+	port               uint
+	backend            string
+	fsRoot             string
 }
 
 // Load parses the given arguments list and return a config object (and/or an
 // error in case of failures).
 func Load(args []string) (Config, error) {
 	var cfg Config
+	var allowedCORSHeaders string
+
 	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
 	fs.StringVar(&cfg.backend, "backend", filesystemBackend, "storage backend (memory or filesystem)")
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
@@ -43,11 +47,15 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.scheme, "scheme", "https", "using http or https")
 	fs.StringVar(&cfg.host, "host", "0.0.0.0", "host to bind to")
 	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
+	fs.StringVar(&allowedCORSHeaders, "cors-headers", "", "comma separated list of headers to add to the CORS allowlist")
 	fs.UintVar(&cfg.port, "port", 4443, "port to bind to")
+
 	err := fs.Parse(args)
 	if err != nil {
 		return cfg, err
 	}
+
+	cfg.allowedCORSHeaders = strings.Split(allowedCORSHeaders, ",")
 	return cfg, cfg.validate()
 }
 
@@ -73,12 +81,13 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 		storageRoot = ""
 	}
 	return fakestorage.Options{
-		StorageRoot: storageRoot,
-		Scheme:      c.scheme,
-		Host:        c.host,
-		Port:        uint16(c.port),
-		PublicHost:  c.publicHost,
-		ExternalURL: c.externalURL,
-		Writer:      logrus.New().Writer(),
+		StorageRoot:        storageRoot,
+		Scheme:             c.scheme,
+		Host:               c.host,
+		Port:               uint16(c.port),
+		PublicHost:         c.publicHost,
+		ExternalURL:        c.externalURL,
+		AllowedCORSHeaders: c.allowedCORSHeaders,
+		Writer:             logrus.New().Writer(),
 	}
 }
