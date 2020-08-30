@@ -96,9 +96,15 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		return s, nil
 	}
 
-	var handler http.Handler = s.mux
+	cors := handlers.CORS(
+		handlers.AllowedMethods([]string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"}),
+		handlers.AllowedOrigins([]string{"*"}),
+		handlers.AllowCredentials(),
+	)
+
+	var handler http.Handler = cors(s.mux)
 	if options.Writer != nil {
-		handler = handlers.LoggingHandler(options.Writer, s.mux)
+		handler = handlers.LoggingHandler(options.Writer, handler)
 	}
 
 	s.ts = httptest.NewUnstartedServer(handler)
