@@ -6,7 +6,7 @@ require (
 	github.com/gorilla/handlers v1.5.0
 	github.com/gorilla/mux v1.8.0
 	github.com/sirupsen/logrus v1.6.0
-	google.golang.org/api v0.30.0
+	google.golang.org/api v0.31.0
 )
 
 go 1.14
