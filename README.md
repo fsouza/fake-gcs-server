@@ -1,18 +1,18 @@
 # fake-gcs-server
 
-[![Build Status](https://github.com/fsouza/fake-gcs-server/workflows/Build/badge.svg)](https://github.com/fsouza/fake-gcs-server/actions?query=branch:main+workflow:Build)
-[![GoDoc](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](https://pkg.go.dev/github.com/fsouza/fake-gcs-server/fakestorage?tab=doc)
+[![Build Status](https://github.com/patrickwalker/fake-gcs-server/workflows/Build/badge.svg)](https://github.com/patrickwalker/fake-gcs-server/actions?query=branch:main+workflow:Build)
+[![GoDoc](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](https://pkg.go.dev/github.com/patrickwalker/fake-gcs-server/fakestorage?tab=doc)
 
 fake-gcs-server provides an emulator for Google Cloud Storage API. It can be
 used as a library in Go projects and/or as a standalone binary/Docker image.
 
 The library is available inside the package
-[``github.com/fsouza/fake-gcs-server/fakestorage``](https://pkg.go.dev/github.com/fsouza/fake-gcs-server/fakestorage?tab=doc)
+[``github.com/patrickwalker/fake-gcs-server/fakestorage``](https://pkg.go.dev/github.com/patrickwalker/fake-gcs-server/fakestorage?tab=doc)
 and can be used from within test suites in Go package. The emulator is
 available as a binary that can be built manually, downloaded from the [releases
-page](https://github.com/fsouza/fake-gcs-server/releases) or pulled from Docker
+page](https://github.com/patrickwalker/fake-gcs-server/releases) or pulled from Docker
 Hub ([``docker pull
-fsouza/fake-gcs-server``](https://hub.docker.com/r/fsouza/fake-gcs-server)).
+patrickwalker/fake-gcs-server``](https://hub.docker.com/r/patrickwalker/fake-gcs-server)).
 
 ## Using the emulator in Docker
 
@@ -21,7 +21,7 @@ which is ideal for integration tests and/or tests in other languages you may wan
 ``fake-gcs-server`` inside a Docker container:
 
 ```shell
-docker run -d --name fake-gcs-server -p 4443:4443 fsouza/fake-gcs-server
+docker run -d --name fake-gcs-server -p 4443:4443 patrickwalker/fake-gcs-server
 ```
 
 ### Preload data
@@ -30,7 +30,7 @@ In case you want to preload some data in ``fake-gcs-server`` just mount a
 folder in the container at ``/data``:
 
 ```shell
-docker run -d --name fake-gcs-server -p 4443:4443 -v ${PWD}/examples/data:/data fsouza/fake-gcs-server
+docker run -d --name fake-gcs-server -p 4443:4443 -v ${PWD}/examples/data:/data patrickwalker/fake-gcs-server
 ```
 
 Where the content of ``${PWD}/examples/data`` is something like:
@@ -63,5 +63,5 @@ You may use ``docker build`` to build the image locally instead of pulling it
 from Docker Hub:
 
 ```shell
-docker build -t fsouza/fake-gcs-server .
+docker build -t patrickwalker/fake-gcs-server .
 ```

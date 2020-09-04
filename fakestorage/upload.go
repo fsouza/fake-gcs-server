@@ -95,7 +95,7 @@ func (s *Server) checkUploadPreconditions(w http.ResponseWriter, r *http.Request
 func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
-	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	//predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if name == "" {
 		http.Error(w, "name is required for simple uploads", http.StatusBadRequest)
@@ -114,7 +114,7 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 		ContentEncoding: contentEncoding,
 		Crc32c:          encodedCrc32cChecksum(data),
 		Md5Hash:         encodedMd5Hash(data),
-		ACL:             getObjectACL(predefinedACL),
+		//ACL:             getObjectACL(predefinedACL),
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
@@ -250,11 +250,11 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	}
 
 	objName := r.URL.Query().Get("name")
-	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	//predefinedACL := r.URL.Query().Get("predefinedAcl")
 	if objName == "" {
 		objName = metadata.Name
 	}
-
+	fmt.Printf("Bucket Name : %v \n", bucketName)
 	if !s.checkUploadPreconditions(w, r, bucketName, objName) {
 		return
 	}
@@ -267,8 +267,8 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		ContentEncoding: metadata.ContentEncoding,
 		Crc32c:          encodedCrc32cChecksum(content),
 		Md5Hash:         encodedMd5Hash(content),
-		ACL:             getObjectACL(predefinedACL),
-		Metadata:        metadata.Metadata,
+		//ACL:             getObjectACL(predefinedACL),
+		Metadata: metadata.Metadata,
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {

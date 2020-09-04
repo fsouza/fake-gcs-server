@@ -1,4 +1,4 @@
-module github.com/fsouza/fake-gcs-server
+module github.com/patrickwalker/fake-gcs-server
 
 require (
 	cloud.google.com/go/storage v1.11.0

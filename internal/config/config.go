@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/fsouza/fake-gcs-server/fakestorage"
+	"github.com/patrickwalker/fake-gcs-server/fakestorage"
 	"github.com/sirupsen/logrus"
 )
 

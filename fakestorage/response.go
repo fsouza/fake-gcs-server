@@ -7,7 +7,7 @@ package fakestorage
 import (
 	"net/http"
 
-	"github.com/fsouza/fake-gcs-server/internal/backend"
+	"github.com/patrickwalker/fake-gcs-server/internal/backend"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/storage/v1"
 )

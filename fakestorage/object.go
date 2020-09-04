@@ -16,15 +16,15 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
+	"github.com/patrickwalker/fake-gcs-server/internal/backend"
 )
 
 var errInvalidGeneration = errors.New("invalid generation ID")
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName      string `json:"-"`
+	BucketName      string `json:"bucket"`
 	Name            string `json:"name"`
 	ContentType     string `json:"contentType"`
 	ContentEncoding string `json:"contentEncoding"`
