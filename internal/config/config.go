@@ -55,10 +55,8 @@ func Load(args []string) (Config, error) {
 		return cfg, err
 	}
 
-	if len(allowedCORSHeaders) > 0 {
+	if allowedCORSHeaders != "" {
 		cfg.allowedCORSHeaders = strings.Split(allowedCORSHeaders, ",")
-	} else {
-		cfg.allowedCORSHeaders = []string{}
 	}
 
 	return cfg, cfg.validate()
