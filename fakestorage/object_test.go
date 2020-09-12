@@ -78,6 +78,11 @@ func getObjectTestCases() objectTestCases {
 func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) {
 	if attrs == nil {
 		t.Fatalf("unexpected nil attrs")
+
+		// This exists to deal with a false-positive reported by
+		// staticcheck where it can't understand that t.Fatalf will end
+		// execution and dereferencing attrs is safe.
+		return
 	}
 	if attrs.Bucket != testObj.BucketName {
 		t.Errorf("wrong bucket name\nwant %q\ngot  %q", testObj.BucketName, attrs.Bucket)
