@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -296,6 +297,53 @@ func TestServerClientSignedUpload(t *testing.T) {
 		t.Errorf("wrong metadata\nwant %q\ngot  %q", want, obj.Metadata)
 	}
 	checkChecksum(t, []byte(data), obj)
+}
+
+func TestServerClientSignedUploadBucketCNAME(t *testing.T) {
+	url := "https://mybucket.mydomain.com:4443/files/txt/text-02.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=fake-gcs&X-Goog-Expires=3600&X-Goog-SignedHeaders=host&X-Goog-Signature=fake-gc"
+	expectedName := "files/txt/text-02.txt"
+	expectedContentType := "text/plain"
+	expectedHash := "bHupxaFBQh4cA8uYB8l8dA=="
+	opts := Options{
+		InitialObjects: []Object{
+			{BucketName: "mybucket.mydomain.com", Name: "files/txt/text-01.txt", Content: []byte("something")},
+		},
+	}
+	server, err := NewServerWithOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := server.HTTPClient()
+	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader("something else"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var obj Object
+	if err := json.Unmarshal(data, &obj); err != nil {
+		t.Fatal(err)
+	}
+	if obj.Name != expectedName {
+		t.Errorf("wrong filename\nwant %q\ngot  %q", expectedName, obj.Name)
+	}
+	if obj.ContentType != expectedContentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", expectedContentType, obj.ContentType)
+	}
+	if obj.Md5Hash != expectedHash {
+		t.Errorf("wrong md5 hash\nwant %q\ngot  %q", expectedHash, obj.Md5Hash)
+	}
 }
 
 func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
