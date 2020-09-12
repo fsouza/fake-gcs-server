@@ -64,6 +64,7 @@ func TestServerClientBucketAttrsAfterCreateBucket(t *testing.T) {
 }
 
 func TestServerClientBucketAttrsAfterCreateBucketByPost(t *testing.T) {
+	t.Parallel()
 	for _, versioningEnabled := range []bool{true, false} {
 		versioningEnabled := versioningEnabled
 		runServersTest(t, nil, func(t *testing.T, server *Server) {
@@ -87,6 +88,28 @@ func TestServerClientBucketAttrsAfterCreateBucketByPost(t *testing.T) {
 
 			if attrs.VersioningEnabled != bucketAttrs.VersioningEnabled {
 				t.Errorf("wrong bucket props for %q:\nwant versioningEnabled: %t\ngot versioningEnabled: %t", bucketName, bucketAttrs.VersioningEnabled, attrs.VersioningEnabled)
+			}
+		})
+	}
+}
+
+func TestServerClientBucketCreateValidation(t *testing.T) {
+	bucketNames := []string{
+		"..what-is-this",
+		".host.name.cant.start.with.dot",
+		"no_underlines_either",
+		"or spaces",
+		"don't even try",
+		"no/slashes/either",
+	}
+
+	for _, bucketName := range bucketNames {
+		bucketName := bucketName
+		runServersTest(t, nil, func(t *testing.T, server *Server) {
+			client := server.Client()
+			err := client.Bucket(bucketName).Create(context.Background(), "whatever", nil)
+			if err == nil {
+				t.Error("unexpected <nil> error")
 			}
 		})
 	}

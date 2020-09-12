@@ -6,10 +6,14 @@ package fakestorage
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"regexp"
 
 	"github.com/gorilla/mux"
 )
+
+var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9-][a-zA-Z0-9.-]*[a-zA-Z0-9-]$`)
 
 // CreateBucket creates a bucket inside the server, so any API calls that
 // require the bucket name will recognize this bucket.
@@ -62,6 +66,11 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 	if data.Versioning != nil {
 		versioning = data.Versioning.Enabled
 	}
+	if err := validateBucketName(name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// Create the named bucket
 	if err := s.backend.CreateBucket(name, versioning); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -101,4 +110,11 @@ func (s *Server) getBucket(w http.ResponseWriter, r *http.Request) {
 	resp := newBucketResponse(bucket)
 	w.WriteHeader(http.StatusOK)
 	encoder.Encode(resp)
+}
+
+func validateBucketName(bucketName string) error {
+	if !bucketRegexp.MatchString(bucketName) {
+		return errors.New("invalid bucket name")
+	}
+	return nil
 }
