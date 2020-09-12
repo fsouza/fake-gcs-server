@@ -21,4 +21,4 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v2.3.2
-      - uses: fsouza/golangci-lint-action@master
+      - uses: fsouza/golangci-lint-action@v2.2.0-fork1
