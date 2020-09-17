@@ -20,7 +20,8 @@ func TestServerClientBucketAttrs(t *testing.T) {
 		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
 		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
 		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
-		{BucketName: "other-bucket", Name: "static/css/website.css"},
+		{BucketName: "other_bucket", Name: "static/css/website.css"},
+		{BucketName: "dot.bucket", Name: "static/js/app.js"},
 	}
 	startTime := time.Now()
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -96,8 +97,12 @@ func TestServerClientBucketAttrsAfterCreateBucketByPost(t *testing.T) {
 func TestServerClientBucketCreateValidation(t *testing.T) {
 	bucketNames := []string{
 		"..what-is-this",
+		"-hostname-cant-start-with-dash",
+		"_hostname-cant-start-with-underscore",
+		"hostname-cant-end-with-dash-",
+		"hostname-cant-end-with-underscore_",
 		".host.name.cant.start.with.dot",
-		"no_underlines_either",
+		"host.name.cant.end.with.dot.",
 		"or spaces",
 		"don't even try",
 		"no/slashes/either",
@@ -133,7 +138,8 @@ func TestServerClientListBuckets(t *testing.T) {
 		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
 		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
 		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
-		{BucketName: "other-bucket", Name: "static/css/website.css"},
+		{BucketName: "other_bucket", Name: "static/css/website.css"},
+		{BucketName: "dot.bucket", Name: "static/js/app.js"},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -147,7 +153,7 @@ func TestServerClientListBuckets(t *testing.T) {
 		}
 		it := client.Buckets(context.Background(), "whatever")
 		expectedBuckets := map[string]bool{
-			"other-bucket": false, "some-bucket": false, versionedBucketName: true,
+			"other_bucket": false, "dot.bucket": false, "some-bucket": false, versionedBucketName: true,
 		}
 		b, err := it.Next()
 		numberOfBuckets := 0

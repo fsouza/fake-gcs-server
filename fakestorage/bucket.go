@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9-][a-zA-Z0-9.-]*[a-zA-Z0-9-]$`)
+var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$`)
 
 // CreateBucket creates a bucket inside the server, so any API calls that
 // require the bucket name will recognize this bucket.
