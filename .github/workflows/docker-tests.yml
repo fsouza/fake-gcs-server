@@ -10,7 +10,7 @@ jobs:
     name: test root dockerfile
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.3.2
+      - uses: actions/checkout@v2.3.3
 
       - name: test Dockerfile
         uses: docker://docker
