@@ -51,7 +51,7 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v2.3.3
-      - uses: golangci/golangci-lint-action@v2.2.0
+      - uses: golangci/golangci-lint-action@v2.2.1
 
   build:
     name: build-and-publish
