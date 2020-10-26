@@ -25,6 +25,7 @@ linters:
     - nlreturn
     - noctx
     - testpackage
+    - tparallel
     - unparam
     - wrapcheck
     - wsl
