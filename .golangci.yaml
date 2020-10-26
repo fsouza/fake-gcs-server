@@ -12,6 +12,8 @@ linters:
   disable:
     - dupl
     - errcheck
+    - errorlint
+    - exhaustivestruct
     - gci
     - gochecknoglobals
     - gocognit
@@ -24,4 +26,5 @@ linters:
     - noctx
     - testpackage
     - unparam
+    - wrapcheck
     - wsl
