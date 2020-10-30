@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // This example requires the server to be running with the flag -public-host
-// defined as storage.gcs.127.0.0.1.nip.io.
+// defined as localhost:8080.
 //
 // Check the file ci/run-go-example.sh for a fully functional server + client
 // script.
@@ -25,16 +25,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create client: %v", err)
 	}
-	buckets, err := list(client, "test")
+	const (
+		bucketName = "sample-bucket"
+		fileKey    = "some_file.txt"
+	)
+	buckets, err := list(client, bucketName)
 	if err != nil {
 		log.Fatalf("failed to list: %v", err)
 	}
 	fmt.Printf("buckets: %+v\n", buckets)
 
-	const (
-		bucketName = "sample-bucket"
-		fileKey    = "some_file.txt"
-	)
 	data, err := downloadFile(client, bucketName, fileKey)
 	if err != nil {
 		log.Fatal(err)
