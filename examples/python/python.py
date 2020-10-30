@@ -4,8 +4,6 @@
 
 import tempfile
 
-import urllib3
-from google.api_core.client_options import ClientOptions
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import storage
 
