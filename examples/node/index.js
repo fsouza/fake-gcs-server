@@ -1,5 +1,3 @@
-process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
-
 async function listBuckets() {
   // [START storage_list_buckets]
   // Imports the Google Cloud client library
@@ -7,7 +5,7 @@ async function listBuckets() {
 
   // Creates a client
   const storage = new Storage({
-    apiEndpoint: "127.0.0.1:4443",
+    apiEndpoint: "http://localhost:8080",
     projectId: "test",
   });
 
