@@ -11,11 +11,9 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
@@ -23,17 +21,13 @@ import (
 )
 
 func main() {
-	transCfg := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // ignore expired SSL certificates
-	}
-	httpClient := &http.Client{Transport: transCfg}
-	client, err := storage.NewClient(context.TODO(), option.WithEndpoint("https://storage.gcs.127.0.0.1.nip.io:4443/storage/v1/"), option.WithHTTPClient(httpClient))
+	client, err := storage.NewClient(context.TODO(), option.WithEndpoint("http://localhost:8080/storage/v1/"))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to create client: %v", err)
 	}
 	buckets, err := list(client, "test")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to list: %v", err)
 	}
 	fmt.Printf("buckets: %+v\n", buckets)
 
@@ -48,20 +42,20 @@ func main() {
 	fmt.Printf("contents of %s/%s: %s\n", bucketName, fileKey, data)
 }
 
-func list(client *storage.Client, projectID string) ([]string, error) {
-	var buckets []string
-	it := client.Buckets(context.TODO(), projectID)
+func list(client *storage.Client, bucketName string) ([]string, error) {
+	var objects []string
+	it := client.Bucket(bucketName).Objects(context.Background(), &storage.Query{})
 	for {
-		battrs, err := it.Next()
+		oattrs, err := it.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		buckets = append(buckets, battrs.Name)
+		objects = append(objects, oattrs.Name)
 	}
-	return buckets, nil
+	return objects, nil
 }
 
 func downloadFile(client *storage.Client, bucketName, fileKey string) ([]byte, error) {
