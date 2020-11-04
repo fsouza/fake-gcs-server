@@ -29,7 +29,7 @@ jobs:
           stable: false
           go-version: ${{ matrix.go_version }}
 
-      - uses: actions/checkout@v2.3.3
+      - uses: actions/checkout@v2.3.4
 
       - name: install deps
         run: go mod download
@@ -50,7 +50,7 @@ jobs:
     name: lint (${{ matrix.os }})
     runs-on: ${{ matrix.os }}-latest
     steps:
-      - uses: actions/checkout@v2.3.3
+      - uses: actions/checkout@v2.3.4
       - uses: golangci/golangci-lint-action@v2.3.0
 
   build:
@@ -60,7 +60,7 @@ jobs:
       - test
       - lint
     steps:
-      - uses: actions/checkout@v2.3.3
+      - uses: actions/checkout@v2.3.4
 
       - uses: actions/setup-go@v2.1.3
         id: go
