@@ -1,2 +1,2 @@
 google-cloud-storage==1.32.0
-urllib3==1.25.11
+urllib3==1.26.0
