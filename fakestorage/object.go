@@ -228,6 +228,7 @@ func (s *Server) createObject(obj Object) (Object, error) {
 		return Object{}, err
 	}
 
+	s.eventManager.Trigger(&obj, EventFinalize)
 	return fromBackendObjects([]backend.Object{newObj})[0], nil
 }
 
@@ -401,11 +402,14 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
-	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
-
+	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	if err == nil {
+		err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+	}
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
+	s.eventManager.Trigger(&obj, EventDelete)
 	return jsonResponse{}
 }
 
@@ -578,5 +582,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 			errorMessage: "Object not found to be PATCHed",
 		}
 	}
-	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}
+	obj := fromBackendObjects([]backend.Object{backendObj})[0]
+	s.eventManager.Trigger(&obj, EventMetadata)
+	return jsonResponse{data: obj}
 }

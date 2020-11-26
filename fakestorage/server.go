@@ -27,14 +27,15 @@ const defaultPublicHost = "storage.googleapis.com"
 //
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
-	backend     backend.Storage
-	uploads     sync.Map
-	transport   http.RoundTripper
-	ts          *httptest.Server
-	mux         *mux.Router
+	backend      backend.Storage
+	uploads      sync.Map
+	transport    http.RoundTripper
+	ts           *httptest.Server
+	mux          *mux.Router
 	options     Options
-	externalURL string
-	publicHost  string
+	externalURL  string
+	publicHost   string
+	eventManager *eventManager
 }
 
 // NewServer creates a new instance of the server, pre-loaded with the given
@@ -91,6 +92,10 @@ type Options struct {
 
 	// Destination for writing log.
 	Writer io.Writer
+
+	// EventOptions contains the events that should be published and the URL
+	// of the Google cloud function such events should be published to.
+	EventOptions EventManagerOptions
 }
 
 // NewServerWithOptions creates a new server configured according to the
@@ -128,6 +133,11 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		return s, nil
 	}
 
+	s.eventManager, err = newEventManager(options.EventOptions, options.Writer)
+	if err != nil {
+		return nil, err
+	}
+
 	s.ts = httptest.NewUnstartedServer(handler)
 	startFunc := s.ts.StartTLS
 	if options.Scheme == "http" {
@@ -163,12 +173,14 @@ func newServer(options Options) (*Server, error) {
 	if publicHost == "" {
 		publicHost = defaultPublicHost
 	}
+
 	s := Server{
 		backend:     backendStorage,
 		uploads:     sync.Map{},
 		externalURL: options.ExternalURL,
 		publicHost:  publicHost,
 		options:     options,
+		eventManager: &eventManager{},
 	}
 	s.buildMuxer()
 	return &s, nil
