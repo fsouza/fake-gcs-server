@@ -32,17 +32,25 @@ func TestLoadConfig(t *testing.T) {
 				"-port", "443",
 				"-data", "/var/gcs",
 				"-scheme", "http",
+				"-event-pubsub-project-id", "test-project",
+				"-event-pubsub-topic", "gcs-events",
+				"-event-object-prefix", "uploads/",
+				"-event-list", "finalize,delete,metadataUpdate",
 			},
 			expectedConfig: Config{
-				Seed:               "/var/gcs",
-				backend:            "memory",
-				fsRoot:             "/tmp/something",
-				publicHost:         "127.0.0.1.nip.io:8443",
-				externalURL:        "https://myhost.example.com:8443",
-				allowedCORSHeaders: []string{"X-Goog-Meta-Uploader"},
-				host:               "127.0.0.1",
-				port:               443,
-				scheme:             "http",
+				Seed:                "/var/gcs",
+				backend:             "memory",
+				fsRoot:              "/tmp/something",
+				publicHost:          "127.0.0.1.nip.io:8443",
+				externalURL:         "https://myhost.example.com:8443",
+				allowedCORSHeaders:  []string{"X-Goog-Meta-Uploader"},
+				host:                "127.0.0.1",
+				port:                443,
+				scheme:              "http",
+				eventPubsubProjecID: "test-project",
+				eventPubsubTopic:    "gcs-events",
+				eventPrefix:         "uploads/",
+				eventList:           []string{"finalize", "delete", "metadataUpdate"},
 			},
 		},
 		{
@@ -57,6 +65,7 @@ func TestLoadConfig(t *testing.T) {
 				host:               "0.0.0.0",
 				port:               4443,
 				scheme:             "https",
+				eventList:          []string{"finalize"},
 			},
 		},
 		{
@@ -79,6 +88,21 @@ func TestLoadConfig(t *testing.T) {
 			args:      []string{"-backend", "filesystem", "-filesystem-root", ""},
 			expectErr: true,
 		},
+		{
+			name:      "missing event pubsub project ID",
+			args:      []string{"-event-pubsub-topic", "gcs-events"},
+			expectErr: true,
+		},
+		{
+			name:      "missing event pubsub topic",
+			args:      []string{"-event-pubsub-project-id", "test-project"},
+			expectErr: true,
+		},
+		{
+			name:      "invalid events",
+			args:      []string{"-event-list", "invalid,stuff", "-event-pubsub-topic", "gcs-events", "-event-pubsub-project-id", "test-project"},
+			expectErr: true,
+		},
 	}
 	for _, test := range tests {
 		test := test
@@ -86,7 +110,7 @@ func TestLoadConfig(t *testing.T) {
 			t.Parallel()
 			cfg, err := Load(test.args)
 			if err != nil && !test.expectErr {
-				t.Fatalf("uexpected non-nil error: %v", err)
+				t.Fatalf("unexpected non-nil error: %v", err)
 			} else if err == nil && test.expectErr {
 				t.Fatal("unexpected <nil> error")
 			}
@@ -107,12 +131,16 @@ func TestToFakeGcsOptions(t *testing.T) {
 		{
 			"filesystem",
 			Config{
-				backend:     "filesystem",
-				fsRoot:      "/tmp/something",
-				publicHost:  "127.0.0.1.nip.io:8443",
-				externalURL: "https://myhost.example.com:8443",
-				host:        "0.0.0.0",
-				port:        443,
+				backend:             "filesystem",
+				fsRoot:              "/tmp/something",
+				publicHost:          "127.0.0.1.nip.io:8443",
+				externalURL:         "https://myhost.example.com:8443",
+				host:                "0.0.0.0",
+				port:                443,
+				eventPubsubProjecID: "test-project",
+				eventPubsubTopic:    "gcs-events",
+				eventPrefix:         "uploads/",
+				eventList:           []string{"finalize", "delete"},
 			},
 			fakestorage.Options{
 				StorageRoot: "/tmp/something",
@@ -120,6 +148,16 @@ func TestToFakeGcsOptions(t *testing.T) {
 				ExternalURL: "https://myhost.example.com:8443",
 				Host:        "0.0.0.0",
 				Port:        443,
+				EventOptions: fakestorage.EventManagerOptions{
+					ProjectID:    "test-project",
+					TopicName:    "gcs-events",
+					ObjectPrefix: "uploads/",
+					NotifyOn: fakestorage.EventNotificationOptions{
+						Finalize:       true,
+						Delete:         true,
+						MetadataUpdate: false,
+					},
+				},
 			},
 		},
 		{

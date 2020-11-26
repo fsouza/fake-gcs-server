@@ -17,20 +17,27 @@ import (
 )
 
 const (
-	filesystemBackend = "filesystem"
-	memoryBackend     = "memory"
+	filesystemBackend   = "filesystem"
+	memoryBackend       = "memory"
+	eventFinalize       = "finalize"
+	eventDelete         = "delete"
+	eventMetadataUpdate = "metadataUpdate"
 )
 
 type Config struct {
-	Seed               string
-	publicHost         string
-	externalURL        string
-	allowedCORSHeaders []string
-	scheme             string
-	host               string
-	port               uint
-	backend            string
-	fsRoot             string
+	Seed                string
+	publicHost          string
+	externalURL         string
+	allowedCORSHeaders  []string
+	scheme              string
+	host                string
+	port                uint
+	backend             string
+	fsRoot              string
+	eventPubsubProjecID string
+	eventPubsubTopic    string
+	eventPrefix         string
+	eventList           []string
 }
 
 // Load parses the given arguments list and return a config object (and/or an
@@ -38,6 +45,7 @@ type Config struct {
 func Load(args []string) (Config, error) {
 	var cfg Config
 	var allowedCORSHeaders string
+	var eventList string
 
 	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
 	fs.StringVar(&cfg.backend, "backend", filesystemBackend, "storage backend (memory or filesystem)")
@@ -49,6 +57,10 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
 	fs.StringVar(&allowedCORSHeaders, "cors-headers", "", "comma separated list of headers to add to the CORS allowlist")
 	fs.UintVar(&cfg.port, "port", 4443, "port to bind to")
+	fs.StringVar(&cfg.eventPubsubProjecID, "event-pubsub-project-id", "", "project ID containing the pubsub topic")
+	fs.StringVar(&cfg.eventPubsubTopic, "event-pubsub-topic", "", "pubsub topic name to publish events on")
+	fs.StringVar(&cfg.eventPrefix, "event-object-prefix", "", "if not empty, only objects having this prefix will generate trigger events")
+	fs.StringVar(&eventList, "event-list", eventFinalize, "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -57,6 +69,9 @@ func Load(args []string) (Config, error) {
 
 	if allowedCORSHeaders != "" {
 		cfg.allowedCORSHeaders = strings.Split(allowedCORSHeaders, ",")
+	}
+	if eventList != "" {
+		cfg.eventList = strings.Split(eventList, ",")
 	}
 
 	return cfg, cfg.validate()
@@ -75,6 +90,29 @@ func (c *Config) validate() error {
 	if c.port > math.MaxUint16 {
 		return fmt.Errorf("port %d is too high, maximum value is %d", c.port, math.MaxUint16)
 	}
+
+	switch c.eventPubsubProjecID {
+	case "":
+		if c.eventPubsubTopic != "" {
+			return fmt.Errorf("missing event pubsub project ID")
+		}
+	default:
+		if c.eventPubsubTopic == "" {
+			return fmt.Errorf("missing event pubsub topic ID")
+		}
+		for i, event := range c.eventList {
+			e := strings.TrimSpace(event)
+			switch e {
+			case eventFinalize, eventDelete, eventMetadataUpdate:
+			default:
+				return fmt.Errorf("%s is an invalid event", e)
+			}
+			c.eventList[i] = e
+		}
+		if len(c.eventList) == 0 {
+			return fmt.Errorf("event list cannot be empty")
+		}
+	}
 	return nil
 }
 
@@ -83,6 +121,24 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 	if c.backend == memoryBackend {
 		storageRoot = ""
 	}
+	eventOptions := fakestorage.EventManagerOptions{
+		ProjectID:    c.eventPubsubProjecID,
+		TopicName:    c.eventPubsubTopic,
+		ObjectPrefix: c.eventPrefix,
+	}
+	if c.eventPubsubProjecID != "" && c.eventPubsubTopic != "" {
+		for _, event := range c.eventList {
+			switch event {
+			case eventFinalize:
+				eventOptions.NotifyOn.Finalize = true
+			case eventDelete:
+				eventOptions.NotifyOn.Delete = true
+			case eventMetadataUpdate:
+				eventOptions.NotifyOn.MetadataUpdate = true
+			}
+		}
+	}
+
 	return fakestorage.Options{
 		StorageRoot:        storageRoot,
 		Scheme:             c.scheme,
@@ -92,5 +148,6 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 		ExternalURL:        c.externalURL,
 		AllowedCORSHeaders: c.allowedCORSHeaders,
 		Writer:             logrus.New().Writer(),
+		EventOptions:       eventOptions,
 	}
 }

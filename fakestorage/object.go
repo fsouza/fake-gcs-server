@@ -78,6 +78,7 @@ func (s *Server) createObject(obj Object) (Object, error) {
 		return Object{}, err
 	}
 
+	s.eventManager.Trigger(&obj, EventFinalize)
 	return fromBackendObjects([]backend.Object{newObj})[0], nil
 }
 
@@ -247,13 +248,17 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	if err == nil {
+		err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+	}
 	if err != nil {
 		errResp := newErrorResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(errResp)
 		return
 	}
+	s.eventManager.Trigger(&obj, EventDelete)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -427,6 +432,7 @@ func (s *Server) patchObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	obj := fromBackendObjects([]backend.Object{backendObj})[0]
+	s.eventManager.Trigger(&obj, EventMetadata)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(newObjectResponse(obj))
 }
