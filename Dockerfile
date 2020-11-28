@@ -9,7 +9,7 @@ RUN go mod download
 ADD . ./
 RUN go test -race -vet all -mod readonly ./...
 
-FROM golangci/golangci-lint AS linter
+FROM golangci/golangci-lint:v1.32 AS linter
 WORKDIR /code
 ENV GOPROXY=off
 COPY --from=tester /go/pkg /go/pkg
