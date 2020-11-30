@@ -9,14 +9,6 @@ RUN go mod download
 ADD . ./
 RUN go test -race -vet all -mod readonly ./...
 
-FROM golangci/golangci-lint:v1.32 AS linter
-WORKDIR /code
-ENV GOPROXY=off
-COPY --from=tester /go/pkg /go/pkg
-COPY --from=tester /code .
-RUN golangci-lint run \
-	&& rm -rf /root/.cache
-
 FROM golang:1.15.5 AS builder
 WORKDIR /code
 ENV CGO_ENABLED=0 GOPROXY=off
