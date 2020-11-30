@@ -24,6 +24,7 @@ linters:
     - nestif
     - nlreturn
     - noctx
+    - paralleltest
     - testpackage
     - tparallel
     - unparam
