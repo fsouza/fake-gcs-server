@@ -553,13 +553,13 @@ func TestServerUndocumentedResumableUploadAPI(t *testing.T) {
 				t.Errorf("X-Goog-Upload-Status response header expected 'active' got: %s", hdr)
 			}
 
-			uploadUrl := resp.Header.Get("X-Goog-Upload-URL")
-			if uploadUrl == "" {
+			uploadURL := resp.Header.Get("X-Goog-Upload-URL")
+			if uploadURL == "" {
 				t.Error("X-Goog-Upload-URL did not return upload url")
 			}
 
 			body = strings.NewReader("{\"test\": \"foo\"}")
-			req, err = http.NewRequest(http.MethodPost, uploadUrl, body)
+			req, err = http.NewRequest(http.MethodPost, uploadURL, body)
 			if err != nil {
 				t.Fatal(err)
 			}
