@@ -52,6 +52,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2.3.4
       - uses: golangci/golangci-lint-action@v2.3.0
+        with:
+          version: v1.32
 
   build:
     name: build-and-publish
