@@ -25,7 +25,7 @@ var errInvalidGeneration = errors.New("invalid generation ID")
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName      string `json:"-"`
+	BucketName      string `json:"bucket"`
 	Name            string `json:"name"`
 	ContentType     string `json:"contentType"`
 	ContentEncoding string `json:"contentEncoding"`

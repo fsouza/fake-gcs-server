@@ -41,7 +41,7 @@ func Load(args []string) (Config, error) {
 
 	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
 	fs.StringVar(&cfg.backend, "backend", filesystemBackend, "storage backend (memory or filesystem)")
-	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
+	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/Users/zacp/tmp/goftw", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
 	fs.StringVar(&cfg.publicHost, "public-host", "storage.googleapis.com", "Optional URL for public host")
 	fs.StringVar(&cfg.externalURL, "external-url", "", "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
 	fs.StringVar(&cfg.scheme, "scheme", "https", "using http or https")
