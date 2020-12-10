@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/acl"
 	"github.com/gorilla/mux"
 )
 
@@ -169,9 +169,9 @@ func (s *Server) signedUpload(bucketName string, w http.ResponseWriter, r *http.
 	json.NewEncoder(w).Encode(obj)
 }
 
-func getObjectACL(predefinedACL string) []storage.ACLRule {
+func getObjectACL(predefinedACL string) []acl.ACLRule {
 	if predefinedACL == "publicRead" {
-		return []storage.ACLRule{
+		return []acl.ACLRule{
 			{
 				Entity: "allUsers",
 				Role:   "READER",
@@ -179,7 +179,7 @@ func getObjectACL(predefinedACL string) []storage.ACLRule {
 		}
 	}
 
-	return []storage.ACLRule{
+	return []acl.ACLRule{
 		{
 			Entity: "projectOwner",
 			Role:   "OWNER",

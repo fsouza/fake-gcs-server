@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/acl"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
 )
@@ -30,9 +31,9 @@ type Object struct {
 	ContentEncoding string `json:"contentEncoding"`
 	Content         []byte `json:"-"`
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
-	Crc32c  string            `json:"crc32c,omitempty"`
-	Md5Hash string            `json:"md5Hash,omitempty"`
-	ACL     []storage.ACLRule `json:"acl,omitempty"`
+	Crc32c  string        `json:"crc32c,omitempty"`
+	Md5Hash string        `json:"md5Hash,omitempty"`
+	ACL     []acl.ACLRule `json:"acl,omitempty"`
 	// Dates and generation can be manually injected, so you can do assertions on them,
 	// or let us fill these fields for you
 	Created    time.Time         `json:"created,omitempty"`
@@ -291,9 +292,9 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 
 	entity := storage.ACLEntity(data.Entity)
 	role := storage.ACLRole(data.Role)
-	obj.ACL = []storage.ACLRule{{
-		Entity: entity,
-		Role:   role,
+	obj.ACL = []acl.ACLRule{{
+		Entity: acl.ACLEntity(entity),
+		Role:   acl.ACLRole(role),
 	}}
 
 	s.CreateObject(obj)

@@ -7,7 +7,7 @@ package backend
 import (
 	"fmt"
 
-	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/acl"
 )
 
 // Object represents the object that is stored within the fake server.
@@ -19,7 +19,7 @@ type Object struct {
 	Content         []byte
 	Crc32c          string
 	Md5Hash         string
-	ACL             []storage.ACLRule
+	ACL             []acl.ACLRule
 	Metadata        map[string]string
 	Created         string
 	Deleted         string
