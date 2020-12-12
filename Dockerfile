@@ -2,18 +2,12 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-FROM golang:1.15.6 AS tester
+FROM golang:1.15.6 AS builder
 WORKDIR /code
 ADD go.mod go.sum ./
 RUN go mod download
 ADD . ./
-RUN go test -race -vet all -mod readonly ./...
-
-FROM golang:1.15.6 AS builder
-WORKDIR /code
 ENV CGO_ENABLED=0 GOPROXY=off
-COPY --from=tester /go/pkg /go/pkg
-COPY --from=tester /code .
 RUN go build -o fake-gcs-server
 
 FROM alpine:3.12.1
