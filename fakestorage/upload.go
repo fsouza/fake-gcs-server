@@ -359,7 +359,6 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 // it can't process a native "308 Permanent Redirect". The in-process response
 // then has a status of "200 OK", with a header "X-Http-Status-Code-Override"
 // set to "308".
-//nolint:funlen
 func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	uploadID := mux.Vars(r)["uploadId"]
 	rawObj, ok := s.uploads.Load(uploadID)
