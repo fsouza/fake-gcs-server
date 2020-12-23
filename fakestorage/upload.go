@@ -25,6 +25,12 @@ import (
 
 const contentTypeHeader = "Content-Type"
 
+const (
+	uploadTypeMedia     = "media"
+	uploadTypeMultipart = "multipart"
+	uploadTypeResumable = "resumable"
+)
+
 type multipartMetadata struct {
 	ContentType     string            `json:"contentType"`
 	ContentEncoding string            `json:"contentEncoding"`
@@ -49,12 +55,16 @@ func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uploadType := r.URL.Query().Get("uploadType")
+	if uploadType == "" && r.Header.Get("X-Goog-Upload-Protocol") == uploadTypeResumable {
+		uploadType = uploadTypeResumable
+	}
+
 	switch uploadType {
-	case "media":
+	case uploadTypeMedia:
 		s.simpleUpload(bucketName, w, r)
-	case "multipart":
+	case uploadTypeMultipart:
 		s.multipartUpload(bucketName, w, r)
-	case "resumable":
+	case uploadTypeResumable:
 		s.resumableUpload(bucketName, w, r)
 	default:
 		// Support Signed URL Uploads
@@ -306,6 +316,10 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 	}
 	s.uploads.Store(uploadID, obj)
 	w.Header().Set("Location", s.URL()+"/upload/resumable/"+uploadID)
+	if r.Header.Get("X-Goog-Upload-Command") == "start" {
+		w.Header().Set("X-Goog-Upload-URL", s.URL()+"/upload/resumable/"+uploadID)
+		w.Header().Set("X-Goog-Upload-Status", "active")
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
 }
@@ -345,6 +359,7 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 // it can't process a native "308 Permanent Redirect". The in-process response
 // then has a status of "200 OK", with a header "X-Http-Status-Code-Override"
 // set to "308".
+//nolint:funlen
 func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	uploadID := mux.Vars(r)["uploadId"]
 	rawObj, ok := s.uploads.Load(uploadID)
@@ -396,6 +411,9 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusPermanentRedirect
 		}
 		s.uploads.Store(uploadID, obj)
+	}
+	if r.Header.Get("X-Goog-Upload-Command") == "upload, finalize" {
+		w.Header().Set("X-Goog-Upload-Status", "final")
 	}
 	data, _ := json.Marshal(obj)
 	w.Header().Set(contentTypeHeader, "application/json")

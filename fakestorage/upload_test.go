@@ -9,6 +9,8 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -512,6 +514,77 @@ func TestParseContentRange(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServerUndocumentedResumableUploadAPI(t *testing.T) {
+	bucketName := "testbucket"
+
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		t.Run("test headers", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+
+			client := server.HTTPClient()
+
+			url := server.URL()
+			body := strings.NewReader("{\"contentType\": \"application/json\"}")
+			req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/upload/storage/v1/b/%s/o?name=testobj", url, bucketName), body)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req.Header.Set("X-Goog-Upload-Protocol", "resumable")
+			req.Header.Set("X-Goog-Upload-Command", "start")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer func() {
+				_, _ = io.Copy(ioutil.Discard, resp.Body)
+				_ = resp.Body.Close()
+			}()
+
+			if resp.StatusCode != 200 {
+				t.Errorf("expected a 200 response, got: %d", resp.StatusCode)
+			}
+
+			if hdr := resp.Header.Get("X-Goog-Upload-Status"); hdr != "active" {
+				t.Errorf("X-Goog-Upload-Status response header expected 'active' got: %s", hdr)
+			}
+
+			uploadURL := resp.Header.Get("X-Goog-Upload-URL")
+			if uploadURL == "" {
+				t.Error("X-Goog-Upload-URL did not return upload url")
+			}
+
+			body = strings.NewReader("{\"test\": \"foo\"}")
+			req, err = http.NewRequest(http.MethodPost, uploadURL, body)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req.Header.Set("X-Goog-Upload-Command", "upload, finalize")
+
+			resp2, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer func() {
+				_, _ = io.Copy(ioutil.Discard, resp2.Body)
+				_ = resp2.Body.Close()
+			}()
+
+			if resp2.StatusCode != 200 {
+				t.Errorf("expected a 200 response, got: %d", resp2.StatusCode)
+			}
+
+			if hdr := resp2.Header.Get("X-Goog-Upload-Status"); hdr != "final" {
+				t.Errorf("X-Goog-Upload-Status response header expected 'final' got: %s", hdr)
+			}
+		})
+	})
 }
 
 func isACLPublic(acl []storage.ACLRule) bool {
