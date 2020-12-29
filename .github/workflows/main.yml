@@ -40,20 +40,12 @@ jobs:
           GOPROXY: off
 
   lint:
-    strategy:
-      matrix:
-        os:
-          - macos
-          - ubuntu
-          - windows
-
-    name: lint (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}-latest
+    name: lint
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.3.4
+
       - uses: golangci/golangci-lint-action@v2.3.0
-        with:
-          version: v1.33
 
   staticcheck:
     name: staticcheck
