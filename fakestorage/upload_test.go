@@ -6,6 +6,7 @@ package fakestorage
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -516,6 +517,7 @@ func TestParseContentRange(t *testing.T) {
 	}
 }
 
+// this is to support the Ruby SDK.
 func TestServerUndocumentedResumableUploadAPI(t *testing.T) {
 	bucketName := "testbucket"
 
@@ -582,6 +584,56 @@ func TestServerUndocumentedResumableUploadAPI(t *testing.T) {
 
 			if hdr := resp2.Header.Get("X-Goog-Upload-Status"); hdr != "final" {
 				t.Errorf("X-Goog-Upload-Status response header expected 'final' got: %s", hdr)
+			}
+		})
+	})
+}
+
+// this is to support the Java SDK.
+func TestServerGzippedUpload(t *testing.T) {
+	const bucketName = "testbucket"
+
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		t.Run("test headers", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+
+			client := server.HTTPClient()
+
+			var buf bytes.Buffer
+			const content = "some interesting content perhaps?"
+			writer := gzip.NewWriter(&buf)
+			_, err := writer.Write([]byte(content))
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = writer.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			url := server.URL()
+			req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/upload/storage/v1/b/%s/o?name=testobj&uploadType=media", url, bucketName), &buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Encoding", "gzip")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if resp.StatusCode != 200 {
+				t.Errorf("expected a 200 response, got: %d", resp.StatusCode)
+			}
+
+			obj, err := server.GetObject(bucketName, "testobj")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if string(obj.Content) != content {
+				t.Errorf("wrong content\nwant %q\ngot  %q", content, obj.Content)
 			}
 		})
 	})

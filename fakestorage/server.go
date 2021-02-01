@@ -5,6 +5,7 @@
 package fakestorage
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -98,10 +99,6 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	if options.NoListener {
-		s.setTransportToMux()
-		return s, nil
-	}
 
 	allowedHeaders := []string{"Content-Type", "Content-Encoding", "Range"}
 	allowedHeaders = append(allowedHeaders, options.AllowedCORSHeaders...)
@@ -125,6 +122,11 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		handler = handlers.LoggingHandler(options.Writer, handler)
 	}
 	handler = gziphandler.GzipHandler(handler)
+	handler = requestCompressHandler(handler)
+	if options.NoListener {
+		s.setTransportToMux(handler)
+		return s, nil
+	}
 
 	s.ts = httptest.NewUnstartedServer(handler)
 	startFunc := s.ts.StartTLS
@@ -182,8 +184,8 @@ func (s *Server) setTransportToAddr(addr string) {
 	}
 }
 
-func (s *Server) setTransportToMux() {
-	s.transport = &muxTransport{router: s.mux}
+func (s *Server) setTransportToMux(handler http.Handler) {
+	s.transport = &muxTransport{handler: handler}
 }
 
 func (s *Server) buildMuxer() {
@@ -260,4 +262,18 @@ func (s *Server) Client() *storage.Client {
 	opt := option.WithHTTPClient(s.HTTPClient())
 	client, _ := storage.NewClient(context.Background(), opt)
 	return client
+}
+
+func requestCompressHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("content-encoding") == "gzip" {
+			gzipReader, err := gzip.NewReader(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			r.Body = gzipReader
+		}
+		h.ServeHTTP(w, r)
+	})
 }
