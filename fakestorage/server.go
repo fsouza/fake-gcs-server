@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/storage"
+	"github.com/NYTimes/gziphandler"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -123,7 +124,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	if options.Writer != nil {
 		handler = handlers.LoggingHandler(options.Writer, handler)
 	}
-	handler = handlers.CompressHandler(handler)
+	handler = gziphandler.GzipHandler(handler)
 
 	s.ts = httptest.NewUnstartedServer(handler)
 	startFunc := s.ts.StartTLS

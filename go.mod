@@ -2,6 +2,7 @@ module github.com/fsouza/fake-gcs-server
 
 require (
 	cloud.google.com/go/storage v1.12.0
+	github.com/NYTimes/gziphandler v1.1.1
 	github.com/google/go-cmp v0.5.4
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
