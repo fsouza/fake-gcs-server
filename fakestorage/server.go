@@ -15,7 +15,6 @@ import (
 	"sync"
 
 	"cloud.google.com/go/storage"
-	"github.com/NYTimes/gziphandler"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -120,10 +119,11 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		handlers.AllowCredentials(),
 	)
 
-	var handler http.Handler = cors(s.mux)
+	handler := cors(s.mux)
 	if options.Writer != nil {
 		handler = handlers.LoggingHandler(options.Writer, handler)
 	}
+	handler = handlers.CompressHandler(handler)
 
 	s.ts = httptest.NewUnstartedServer(handler)
 	startFunc := s.ts.StartTLS
@@ -188,7 +188,6 @@ func (s *Server) setTransportToMux() {
 func (s *Server) buildMuxer() {
 	const apiPrefix = "/storage/v1"
 	s.mux = mux.NewRouter()
-	s.mux.Use(gziphandler.GzipHandler)
 
 	routers := []*mux.Router{
 		s.mux.PathPrefix(apiPrefix).Subrouter(),
