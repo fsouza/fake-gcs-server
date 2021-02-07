@@ -4,13 +4,7 @@
 
 package fakestorage
 
-import (
-	"net/http"
-
-	"github.com/fsouza/fake-gcs-server/internal/backend"
-	"google.golang.org/api/googleapi"
-	"google.golang.org/api/storage/v1"
-)
+import "github.com/fsouza/fake-gcs-server/internal/backend"
 
 const timestampFormat = "2006-01-02T15:04:05.999999Z07:00"
 
@@ -65,22 +59,62 @@ func newListObjectsResponse(objs []Object, prefixes []string) listResponse {
 	return resp
 }
 
+// objectAccessControl is copied from the Google SDK to avoid direct
+// dependency.
+type objectAccessControl struct {
+	Bucket      string `json:"bucket,omitempty"`
+	Domain      string `json:"domain,omitempty"`
+	Email       string `json:"email,omitempty"`
+	Entity      string `json:"entity,omitempty"`
+	EntityID    string `json:"entityId,omitempty"`
+	Etag        string `json:"etag,omitempty"`
+	Generation  int64  `json:"generation,omitempty,string"`
+	ID          string `json:"id,omitempty"`
+	Kind        string `json:"kind,omitempty"`
+	Object      string `json:"object,omitempty"`
+	ProjectTeam struct {
+		// ProjectNumber: The project number.
+		ProjectNumber string `json:"projectNumber,omitempty"`
+
+		// Team: The team.
+		Team string `json:"team,omitempty"`
+
+		// ForceSendFields is a list of field names (e.g. "ProjectNumber") to
+		// unconditionally include in API requests. By default, fields with
+		// empty values are omitted from API requests. However, any non-pointer,
+		// non-interface field appearing in ForceSendFields will be sent to the
+		// server regardless of whether the field is empty or not. This may be
+		// used to include empty fields in Patch requests.
+		ForceSendFields []string `json:"-"`
+
+		// NullFields is a list of field names (e.g. "ProjectNumber") to include
+		// in API requests with the JSON null value. By default, fields with
+		// empty values are omitted from API requests. However, any field with
+		// an empty value appearing in NullFields will be sent to the server as
+		// null. It is an error if a field in this list has a non-empty value.
+		// This may be used to include null fields in Patch requests.
+		NullFields []string `json:"-"`
+	} `json:"projectTeam,omitempty"`
+	Role     string `json:"role,omitempty"`
+	SelfLink string `json:"selfLink,omitempty"`
+}
+
 type objectResponse struct {
-	Kind            string                         `json:"kind"`
-	Name            string                         `json:"name"`
-	ID              string                         `json:"id"`
-	Bucket          string                         `json:"bucket"`
-	Size            int64                          `json:"size,string"`
-	ContentType     string                         `json:"contentType,omitempty"`
-	ContentEncoding string                         `json:"contentEncoding,omitempty"`
-	Crc32c          string                         `json:"crc32c,omitempty"`
-	ACL             []*storage.ObjectAccessControl `json:"acl,omitempty"`
-	Md5Hash         string                         `json:"md5Hash,omitempty"`
-	TimeCreated     string                         `json:"timeCreated,omitempty"`
-	TimeDeleted     string                         `json:"timeDeleted,omitempty"`
-	Updated         string                         `json:"updated,omitempty"`
-	Generation      int64                          `json:"generation,string"`
-	Metadata        map[string]string              `json:"metadata,omitempty"`
+	Kind            string                 `json:"kind"`
+	Name            string                 `json:"name"`
+	ID              string                 `json:"id"`
+	Bucket          string                 `json:"bucket"`
+	Size            int64                  `json:"size,string"`
+	ContentType     string                 `json:"contentType,omitempty"`
+	ContentEncoding string                 `json:"contentEncoding,omitempty"`
+	Crc32c          string                 `json:"crc32c,omitempty"`
+	ACL             []*objectAccessControl `json:"acl,omitempty"`
+	Md5Hash         string                 `json:"md5Hash,omitempty"`
+	TimeCreated     string                 `json:"timeCreated,omitempty"`
+	TimeDeleted     string                 `json:"timeDeleted,omitempty"`
+	Updated         string                 `json:"updated,omitempty"`
+	Generation      int64                  `json:"generation,string"`
+	Metadata        map[string]string      `json:"metadata,omitempty"`
 }
 
 func newObjectResponse(obj Object) objectResponse {
@@ -106,30 +140,20 @@ func newObjectResponse(obj Object) objectResponse {
 }
 
 type aclListResponse struct {
-	*storage.ObjectAccessControls
+	Items []*objectAccessControl `json:"items"`
 }
 
 func newACLListResponse(obj Object) aclListResponse {
 	if len(obj.ACL) == 0 {
 		return aclListResponse{}
 	}
-
-	aclItems := getAccessControlsListFromObject(obj)
-
-	return aclListResponse{
-		&storage.ObjectAccessControls{
-			ServerResponse: googleapi.ServerResponse{
-				HTTPStatusCode: http.StatusOK,
-			},
-			Items: aclItems,
-		},
-	}
+	return aclListResponse{Items: getAccessControlsListFromObject(obj)}
 }
 
-func getAccessControlsListFromObject(obj Object) []*storage.ObjectAccessControl {
-	aclItems := make([]*storage.ObjectAccessControl, len(obj.ACL))
+func getAccessControlsListFromObject(obj Object) []*objectAccessControl {
+	aclItems := make([]*objectAccessControl, len(obj.ACL))
 	for idx, aclRule := range obj.ACL {
-		aclItems[idx] = &storage.ObjectAccessControl{
+		aclItems[idx] = &objectAccessControl{
 			Bucket: obj.BucketName,
 			Entity: string(aclRule.Entity),
 			Object: obj.Name,
