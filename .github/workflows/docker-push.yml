@@ -16,7 +16,7 @@ jobs:
 
       - name: go-build
         if: github.event.ref_type == 'tag'
-        run: go build -o fake-gcs-server -mod readonly
+        run: go build -o fake-gcs-server
         env:
           CGO_ENABLED: 0
 
