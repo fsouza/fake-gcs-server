@@ -201,7 +201,7 @@ func (s *Server) buildMuxer() {
 		r.Path("/b/{bucketName}").Methods("GET").HandlerFunc(s.getBucket)
 		r.Path("/b/{bucketName}/o").Methods("GET").HandlerFunc(s.listObjects)
 		r.Path("/b/{bucketName}/o").Methods("POST").HandlerFunc(s.insertObject)
-		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("PATCH").HandlerFunc(s.patchObject)
+		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("PATCH", "PUT").HandlerFunc(s.patchObject)
 		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods("GET").HandlerFunc(s.listObjectACL)
 		r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods("PUT").HandlerFunc(s.setObjectACL)
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.getObject)
