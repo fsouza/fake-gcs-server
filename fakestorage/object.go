@@ -24,24 +24,174 @@ var errInvalidGeneration = errors.New("invalid generation ID")
 
 // Object represents the object that is stored within the fake server.
 type Object struct {
-	BucketName      string `json:"-"`
-	Name            string `json:"name"`
-	ContentType     string `json:"contentType"`
-	ContentEncoding string `json:"contentEncoding"`
-	Content         []byte `json:"-"`
+	BucketName      string
+	Name            string
+	ContentType     string
+	ContentEncoding string
+	Content         []byte
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
-	Crc32c  string            `json:"crc32c,omitempty"`
-	Md5Hash string            `json:"md5Hash,omitempty"`
-	ACL     []storage.ACLRule `json:"acl,omitempty"`
+	Crc32c  string
+	Md5Hash string
+	ACL     []storage.ACLRule
 	// Dates and generation can be manually injected, so you can do assertions on them,
 	// or let us fill these fields for you
-	Created    time.Time         `json:"created,omitempty"`
-	Updated    time.Time         `json:"updated,omitempty"`
-	Deleted    time.Time         `json:"deleted,omitempty"`
-	Generation int64             `json:"generation,omitempty,string"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
+	Created    time.Time
+	Updated    time.Time
+	Deleted    time.Time
+	Generation int64
+	Metadata   map[string]string
 }
 
+// MarshalJSON for Object to use ACLRule instead of storage.ACLRule
+func (o Object) MarshalJSON() ([]byte, error) {
+	temp := struct {
+		BucketName      string            `json:"bucket"`
+		Name            string            `json:"name"`
+		ContentType     string            `json:"contentType"`
+		ContentEncoding string            `json:"contentEncoding"`
+		Content         []byte            `json:"-"`
+		Crc32c          string            `json:"crc32c,omitempty"`
+		Md5Hash         string            `json:"md5Hash,omitempty"`
+		ACL             []aclRule         `json:"acl,omitempty"`
+		Created         time.Time         `json:"created,omitempty"`
+		Updated         time.Time         `json:"updated,omitempty"`
+		Deleted         time.Time         `json:"deleted,omitempty"`
+		Generation      int64             `json:"generation,omitempty,string"`
+		Metadata        map[string]string `json:"metadata,omitempty"`
+	}{
+		BucketName:      o.BucketName,
+		Name:            o.Name,
+		ContentType:     o.ContentType,
+		ContentEncoding: o.ContentEncoding,
+		Content:         o.Content,
+		Crc32c:          o.Crc32c,
+		Md5Hash:         o.Md5Hash,
+		Created:         o.Created,
+		Updated:         o.Updated,
+		Deleted:         o.Deleted,
+		Generation:      o.Generation,
+		Metadata:        o.Metadata,
+	}
+	temp.ACL = make([]aclRule, len(o.ACL))
+	for i, ACL := range o.ACL {
+		temp.ACL[i] = aclRule(ACL)
+	}
+	return json.Marshal(temp)
+}
+
+// UnmarshalJSON for Object to use ACLRule instead of storage.ACLRule
+func (o *Object) UnmarshalJSON(data []byte) error {
+	temp := struct {
+		BucketName      string            `json:"bucket"`
+		Name            string            `json:"name"`
+		ContentType     string            `json:"contentType"`
+		ContentEncoding string            `json:"contentEncoding"`
+		Content         []byte            `json:"-"`
+		Crc32c          string            `json:"crc32c,omitempty"`
+		Md5Hash         string            `json:"md5Hash,omitempty"`
+		ACL             []aclRule         `json:"acl,omitempty"`
+		Created         time.Time         `json:"created,omitempty"`
+		Updated         time.Time         `json:"updated,omitempty"`
+		Deleted         time.Time         `json:"deleted,omitempty"`
+		Generation      int64             `json:"generation,omitempty,string"`
+		Metadata        map[string]string `json:"metadata,omitempty"`
+	}{}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+	o.BucketName = temp.BucketName
+	o.Name = temp.Name
+	o.ContentType = temp.ContentType
+	o.ContentEncoding = temp.ContentEncoding
+	o.Content = temp.Content
+	o.Crc32c = temp.Crc32c
+	o.Md5Hash = temp.Md5Hash
+	o.Created = temp.Created
+	o.Updated = temp.Updated
+	o.Deleted = temp.Deleted
+	o.Generation = temp.Generation
+	o.Metadata = temp.Metadata
+	o.ACL = make([]storage.ACLRule, len(temp.ACL))
+	for i, ACL := range temp.ACL {
+		o.ACL[i] = storage.ACLRule(ACL)
+	}
+
+	return nil
+}
+
+// ACLRule is an alias of storage.ACLRule to have custom JSON marshal
+type aclRule storage.ACLRule
+
+// ProjectTeam is an alias of storage.ProjectTeam to have custom JSON marshal
+type projectTeam storage.ProjectTeam
+
+// MarshalJSON for ACLRule to customize field names
+func (acl aclRule) MarshalJSON() ([]byte, error) {
+	temp := struct {
+		Entity      storage.ACLEntity `json:"entity"`
+		EntityID    string            `json:"entityId"`
+		Role        storage.ACLRole   `json:"role"`
+		Domain      string            `json:"domain"`
+		Email       string            `json:"email"`
+		ProjectTeam *projectTeam      `json:"projectTeam"`
+	}{
+		Entity:      acl.Entity,
+		EntityID:    acl.EntityID,
+		Role:        acl.Role,
+		Domain:      acl.Domain,
+		Email:       acl.Email,
+		ProjectTeam: (*projectTeam)(acl.ProjectTeam),
+	}
+	return json.Marshal(temp)
+}
+
+// UnmarshalJSON for ACLRule to customize field names
+func (acl *aclRule) UnmarshalJSON(data []byte) error {
+	temp := struct {
+		Entity      storage.ACLEntity `json:"entity"`
+		EntityID    string            `json:"entityId"`
+		Role        storage.ACLRole   `json:"role"`
+		Domain      string            `json:"domain"`
+		Email       string            `json:"email"`
+		ProjectTeam *projectTeam      `json:"projectTeam"`
+	}{}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+	acl.Entity = temp.Entity
+	acl.EntityID = temp.EntityID
+	acl.Role = temp.Role
+	acl.Domain = temp.Domain
+	acl.Email = temp.Email
+	acl.ProjectTeam = (*storage.ProjectTeam)(temp.ProjectTeam)
+	return nil
+}
+
+// MarshalJSON for ProjectTeam to customize field names
+func (team projectTeam) MarshalJSON() ([]byte, error) {
+	temp := struct {
+		ProjectNumber string `json:"projectNumber"`
+		Team          string `json:"team"`
+	}{
+		ProjectNumber: team.ProjectNumber,
+		Team:          team.Team,
+	}
+	return json.Marshal(temp)
+}
+
+// UnmarshalJSON for ProjectTeam to customize field names
+func (team *projectTeam) UnmarshalJSON(data []byte) error {
+	temp := struct {
+		ProjectNumber string `json:"projectNumber"`
+		Team          string `json:"team"`
+	}{}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+	team.ProjectNumber = temp.ProjectNumber
+	team.Team = temp.Team
+	return nil
+}
 func (o *Object) id() string {
 	return o.BucketName + "/" + o.Name
 }
