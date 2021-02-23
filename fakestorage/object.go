@@ -52,7 +52,7 @@ func (o Object) MarshalJSON() ([]byte, error) {
 		Content         []byte            `json:"-"`
 		Crc32c          string            `json:"crc32c,omitempty"`
 		Md5Hash         string            `json:"md5Hash,omitempty"`
-		ACL             []ACLRule         `json:"acl,omitempty"`
+		ACL             []aclRule         `json:"acl,omitempty"`
 		Created         time.Time         `json:"created,omitempty"`
 		Updated         time.Time         `json:"updated,omitempty"`
 		Deleted         time.Time         `json:"deleted,omitempty"`
@@ -72,9 +72,9 @@ func (o Object) MarshalJSON() ([]byte, error) {
 		Generation:      o.Generation,
 		Metadata:        o.Metadata,
 	}
-	temp.ACL = make([]ACLRule, len(o.ACL))
+	temp.ACL = make([]aclRule, len(o.ACL))
 	for i, ACL := range o.ACL {
-		temp.ACL[i] = ACLRule(ACL)
+		temp.ACL[i] = aclRule(ACL)
 	}
 	return json.Marshal(temp)
 }
@@ -89,7 +89,7 @@ func (o *Object) UnmarshalJSON(data []byte) error {
 		Content         []byte            `json:"-"`
 		Crc32c          string            `json:"crc32c,omitempty"`
 		Md5Hash         string            `json:"md5Hash,omitempty"`
-		ACL             []ACLRule         `json:"acl,omitempty"`
+		ACL             []aclRule         `json:"acl,omitempty"`
 		Created         time.Time         `json:"created,omitempty"`
 		Updated         time.Time         `json:"updated,omitempty"`
 		Deleted         time.Time         `json:"deleted,omitempty"`
@@ -120,40 +120,40 @@ func (o *Object) UnmarshalJSON(data []byte) error {
 }
 
 // ACLRule is an alias of storage.ACLRule to have custom JSON marshal
-type ACLRule storage.ACLRule
+type aclRule storage.ACLRule
 
 // ProjectTeam is an alias of storage.ProjectTeam to have custom JSON marshal
-type ProjectTeam storage.ProjectTeam
+type projectTeam storage.ProjectTeam
 
 // MarshalJSON for ACLRule to customize field names
-func (acl ACLRule) MarshalJSON() ([]byte, error) {
+func (acl aclRule) MarshalJSON() ([]byte, error) {
 	temp := struct {
 		Entity      storage.ACLEntity `json:"entity"`
 		EntityID    string            `json:"entityId"`
 		Role        storage.ACLRole   `json:"role"`
 		Domain      string            `json:"domain"`
 		Email       string            `json:"email"`
-		ProjectTeam *ProjectTeam      `json:"projectTeam"`
+		ProjectTeam *projectTeam      `json:"projectTeam"`
 	}{
 		Entity:      acl.Entity,
 		EntityID:    acl.EntityID,
 		Role:        acl.Role,
 		Domain:      acl.Domain,
 		Email:       acl.Email,
-		ProjectTeam: (*ProjectTeam)(acl.ProjectTeam),
+		ProjectTeam: (*projectTeam)(acl.ProjectTeam),
 	}
 	return json.Marshal(temp)
 }
 
 // UnmarshalJSON for ACLRule to customize field names
-func (acl *ACLRule) UnmarshalJSON(data []byte) error {
+func (acl *aclRule) UnmarshalJSON(data []byte) error {
 	temp := struct {
 		Entity      storage.ACLEntity `json:"entity"`
 		EntityID    string            `json:"entityId"`
 		Role        storage.ACLRole   `json:"role"`
 		Domain      string            `json:"domain"`
 		Email       string            `json:"email"`
-		ProjectTeam *ProjectTeam      `json:"projectTeam"`
+		ProjectTeam *projectTeam      `json:"projectTeam"`
 	}{}
 	if err := json.Unmarshal(data, &temp); err != nil {
 		return err
@@ -168,7 +168,7 @@ func (acl *ACLRule) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON for ProjectTeam to customize field names
-func (team ProjectTeam) MarshalJSON() ([]byte, error) {
+func (team projectTeam) MarshalJSON() ([]byte, error) {
 	temp := struct {
 		ProjectNumber string `json:"projectNumber"`
 		Team          string `json:"team"`
@@ -180,7 +180,7 @@ func (team ProjectTeam) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON for ProjectTeam to customize field names
-func (team *ProjectTeam) UnmarshalJSON(data []byte) error {
+func (team *projectTeam) UnmarshalJSON(data []byte) error {
 	temp := struct {
 		ProjectNumber string `json:"projectNumber"`
 		Team          string `json:"team"`
