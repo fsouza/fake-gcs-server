@@ -40,6 +40,11 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("contents of %s/%s: %s\n", bucketName, fileKey, data)
+
+	err = deleteFile(client, bucketName, fileKey)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func list(client *storage.Client, bucketName string) ([]string, error) {
@@ -65,4 +70,8 @@ func downloadFile(client *storage.Client, bucketName, fileKey string) ([]byte, e
 	}
 	defer reader.Close()
 	return ioutil.ReadAll(reader)
+}
+
+func deleteFile(client *storage.Client, bucketName, fileKey string) error {
+	return client.Bucket(bucketName).Object(fileKey).Delete(context.TODO())
 }
