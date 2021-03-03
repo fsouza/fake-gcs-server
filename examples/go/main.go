@@ -13,7 +13,9 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+    "io"
 	"log"
+    "bytes"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
@@ -21,7 +23,7 @@ import (
 )
 
 func main() {
-	client, err := storage.NewClient(context.TODO(), option.WithEndpoint("http://localhost:8080/storage/v1/"))
+	client, err := storage.NewClient(context.TODO(), option.WithEndpoint("http://localhost:8080/storage/v1/"), option.WithoutAuthentication())
 	if err != nil {
 		log.Fatalf("failed to create client: %v", err)
 	}
@@ -40,6 +42,13 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("contents of %s/%s: %s\n", bucketName, fileKey, data)
+
+    payloadBytes := bytes.NewBuffer([]byte("foobar"))
+    err = uploadFile(client, bucketName, "uploadTestKey", payloadBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("uploaded %s to %s/uploadTestKey\n", string(payloadBytes.Bytes()), bucketName)
 }
 
 func list(client *storage.Client, bucketName string) ([]string, error) {
@@ -65,4 +74,15 @@ func downloadFile(client *storage.Client, bucketName, fileKey string) ([]byte, e
 	}
 	defer reader.Close()
 	return ioutil.ReadAll(reader)
+}
+
+func uploadFile(client *storage.Client, bucketName, key string, reader io.Reader) error {
+    wc := client.Bucket(bucketName).Object(key).NewWriter(context.Background())
+	if _, err := io.Copy(wc, reader); err != nil {
+		return fmt.Errorf("io.Copy: %v", err)
+	}
+	if err := wc.Close(); err != nil {
+		return fmt.Errorf("Writer.Close: %v", err)
+	}
+	return nil
 }

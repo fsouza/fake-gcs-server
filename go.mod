@@ -1,4 +1,4 @@
-module github.com/kmgreen2/fake-gcs-server
+module github.com/fsouza/fake-gcs-server
 
 require (
 	cloud.google.com/go/storage v1.14.0
@@ -9,4 +9,4 @@ require (
 	google.golang.org/api v0.40.0
 )
 
-go 1.15
+go 1.16
