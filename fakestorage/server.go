@@ -214,7 +214,12 @@ func (s *Server) buildMuxer() {
 	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.downloadObject)
 	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods("POST").HandlerFunc(s.insertObject)
 	s.mux.Path("/upload/resumable/{uploadId}").Methods("PUT", "POST").HandlerFunc(s.uploadFileContent)
+    
+    s.mux.Path("/b/{bucketName}/o").Methods("GET").HandlerFunc(s.listObjects)
+    s.mux.Host(bucketHost).Methods("GET").HandlerFunc(s.listObjects)
 
+    s.mux.Path("/b/{bucketName}/o/{objectName:.+}").Methods("DELETE").HandlerFunc(s.deleteObject)
+    s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("DELETE").HandlerFunc(s.deleteObject)
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 
