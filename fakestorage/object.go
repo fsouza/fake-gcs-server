@@ -396,6 +396,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Accept-Ranges", "bytes")
+	w.Header().Set("Content-Type", "application/json")
 	encoder.Encode(newObjectResponse(obj))
 }
 
