@@ -211,9 +211,12 @@ func TestBucketCreateGetList(t *testing.T) {
 			if err == nil {
 				t.Fatalf("bucket %s, exists before being created", bucket.Name)
 			}
-			timeBeforeCreation := time.Now().Truncate(time.Second) // we may lose precission
+			// The FS backend uses filesystem timestamps to store bucket creation time.
+			// Use a large +/- 5 second window to allow for an imperfectly synchronized
+			// clock generating the filesystem timestamp and to reduce test flakes.
+			timeBeforeCreation := time.Now().Add(-5 * time.Second)
 			err = storage.CreateBucket(bucket.Name, bucket.VersioningEnabled)
-			timeAfterCreation := time.Now().Add(5 * time.Millisecond)
+			timeAfterCreation := time.Now().Add(5 * time.Second)
 			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && bucket.VersioningEnabled {
 				if err == nil {
 					t.Fatal("fs storage should not accept creating buckets with versioning, but it's not failing")
