@@ -401,10 +401,10 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
-	w.Header().Set("Content-Type", "application/json")
 
 	if err != nil {
 		errResp := newErrorResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(errResp)
 		return
@@ -413,9 +413,8 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	vars := mux.Vars(r)
+
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
@@ -423,12 +422,12 @@ func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := newACLListResponse(obj)
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
@@ -442,6 +441,7 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decoder := json.NewDecoder(r.Body)
+	w.Header().Set("Content-Type", "application/json")
 	if err := decoder.Decode(&data); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
