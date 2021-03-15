@@ -48,9 +48,9 @@ type contentRange struct {
 
 func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 	bucketName := mux.Vars(r)["bucketName"]
-	w.Header().Set("Content-Type", "application/json")
 
 	if _, err := s.backend.GetBucket(bucketName); err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		err := newErrorResponse(http.StatusNotFound, "Not found", nil)
 		json.NewEncoder(w).Encode(err)
@@ -86,16 +86,17 @@ func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) checkUploadPreconditions(w http.ResponseWriter, r *http.Request, bucketName string, objectName string) bool {
 	ifGenerationMatch := r.URL.Query().Get("ifGenerationMatch")
-	w.Header().Set("Content-Type", "application/json")
 
 	if ifGenerationMatch == "0" {
 		if _, err := s.backend.GetObject(bucketName, objectName); err == nil {
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusPreconditionFailed)
 			err := newErrorResponse(http.StatusPreconditionFailed, "Precondition failed", nil)
 			json.NewEncoder(w).Encode(err)
 			return false
 		}
 	} else if ifGenerationMatch != "" || r.URL.Query().Get("ifGenerationNotMatch") != "" {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotImplemented)
 		err := newErrorResponse(http.StatusNotImplemented, "Precondition support not implemented", nil)
 		json.NewEncoder(w).Encode(err)
@@ -106,7 +107,6 @@ func (s *Server) checkUploadPreconditions(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
@@ -142,7 +142,6 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 }
 
 func (s *Server) signedUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 
 	defer r.Body.Close()
 	name := mux.Vars(r)["objectName"]
@@ -300,7 +299,6 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 }
 
 func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")

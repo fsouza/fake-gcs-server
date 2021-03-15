@@ -359,15 +359,16 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	versions := r.URL.Query().Get("versions")
 
 	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter, versions == "true")
-	w.Header().Set("Content-Type", "application/json")
 
 	encoder := json.NewEncoder(w)
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		errResp := newErrorResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil)
 		encoder.Encode(errResp)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	encoder.Encode(newListObjectsResponse(objs, prefixes))
 }
 
@@ -378,7 +379,6 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		s.downloadObject(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
 
 	encoder := json.NewEncoder(w)
 	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
@@ -390,6 +390,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 			message = err.Error()
 		}
 		errResp := newErrorResponse(statusCode, message, nil)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
 		encoder.Encode(errResp)
 		return
@@ -441,7 +442,6 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decoder := json.NewDecoder(r.Body)
-	w.Header().Set("Content-Type", "application/json")
 	if err := decoder.Decode(&data); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -457,6 +457,7 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	s.CreateObject(obj)
 
 	response := newACLListResponse(obj)
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
