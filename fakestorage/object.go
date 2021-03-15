@@ -359,6 +359,8 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	versions := r.URL.Query().Get("versions")
 
 	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter, versions == "true")
+	w.Header().Set("Content-Type", "application/json")
+
 	encoder := json.NewEncoder(w)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -376,6 +378,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		s.downloadObject(w, r)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 
 	encoder := json.NewEncoder(w)
 	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
@@ -398,6 +401,8 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+	w.Header().Set("Content-Type", "application/json")
+
 	if err != nil {
 		errResp := newErrorResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil)
 		w.WriteHeader(http.StatusNotFound)
@@ -408,6 +413,8 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	vars := mux.Vars(r)
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
@@ -421,6 +428,7 @@ func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
