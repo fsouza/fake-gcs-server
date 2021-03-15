@@ -84,6 +84,7 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := newBucketResponse(bucket)
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -94,6 +95,7 @@ func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := newListBucketsResponse(buckets)
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -108,6 +110,7 @@ func (s *Server) getBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := newBucketResponse(bucket)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	encoder.Encode(resp)
 }
