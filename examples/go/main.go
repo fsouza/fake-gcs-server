@@ -21,6 +21,9 @@ import (
 )
 
 func main() {
+	// please notice that the sample server is running with http, if you
+	// want to test this with https you also need to configure Go to skip
+	// certificate validation.
 	client, err := storage.NewClient(context.TODO(), option.WithEndpoint("http://localhost:8080/storage/v1/"))
 	if err != nil {
 		log.Fatalf("failed to create client: %v", err)
