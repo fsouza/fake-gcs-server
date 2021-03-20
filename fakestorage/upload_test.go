@@ -98,6 +98,21 @@ func TestServerClientObjectWriter(t *testing.T) {
 				if !reflect.DeepEqual(obj.Metadata, w.Metadata) {
 					t.Errorf("wrong meta data\nwant %+v\ngot  %+v", w.Metadata, obj.Metadata)
 				}
+
+				reader, err := client.Bucket(test.bucketName).Object(test.objectName).NewReader(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				data, err := ioutil.ReadAll(reader)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(data) != content {
+					n := strings.Count(string(obj.Content), baseContent)
+					t.Errorf("wrong content returned via object reader\nwant %dx%q\ngot  %dx%q",
+						googleapi.MinUploadChunkSize, baseContent,
+						n, baseContent)
+				}
 			})
 		}
 	})
