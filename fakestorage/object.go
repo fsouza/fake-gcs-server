@@ -352,7 +352,7 @@ func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, g
 	return s.GetObject(bucketName, objectName)
 }
 
-func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listObjects(r *http.Request) jsonResponse {
 	bucketName := mux.Vars(r)["bucketName"]
 	prefix := r.URL.Query().Get("prefix")
 	delimiter := r.URL.Query().Get("delimiter")
@@ -360,81 +360,84 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 
 	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter, versions == "true")
 
-	encoder := json.NewEncoder(w)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		errResp := newErrorResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil)
-		encoder.Encode(errResp)
-		return
+		return jsonResponse{
+			status: http.StatusNotFound,
+			err:    errors.New(http.StatusText(http.StatusNotFound)),
+		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	encoder.Encode(newListObjectsResponse(objs, prefixes))
+	return jsonResponse{data: newListObjectsResponse(objs, prefixes)}
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-
 	if alt := r.URL.Query().Get("alt"); alt == "media" {
 		s.downloadObject(w, r)
 		return
 	}
 
-	encoder := json.NewEncoder(w)
-	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
-	if err != nil {
-		statusCode := http.StatusNotFound
-		message := http.StatusText(statusCode)
-		if errors.Is(err, errInvalidGeneration) {
-			statusCode = http.StatusBadRequest
-			message = err.Error()
+	handler := jsonToHTTPHandler(func(r *http.Request) jsonResponse {
+		vars := mux.Vars(r)
+
+		obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
+		if err != nil {
+			statusCode := http.StatusNotFound
+			responseErr := errors.New(http.StatusText(statusCode))
+			if errors.Is(err, errInvalidGeneration) {
+				statusCode = http.StatusBadRequest
+				responseErr = err
+			}
+			return jsonResponse{
+				status: statusCode,
+				err:    responseErr,
+			}
 		}
-		errResp := newErrorResponse(statusCode, message, nil)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(statusCode)
-		encoder.Encode(errResp)
-		return
-	}
-	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Content-Type", "application/json")
-	encoder.Encode(newObjectResponse(obj))
+		header := make(http.Header)
+		header.Set("Accept-Ranges", "bytes")
+		return jsonResponse{
+			header: header,
+			data:   newObjectResponse(obj),
+		}
+	})
+
+	handler(w, r)
 }
 
-func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
+func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
 
 	if err != nil {
-		errResp := newErrorResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(errResp)
-		return
+		return jsonResponse{
+			status: http.StatusNotFound,
+			err:    errors.New(http.StatusText(http.StatusNotFound)),
+		}
 	}
-	w.WriteHeader(http.StatusOK)
+	return jsonResponse{}
 }
 
-func (s *Server) listObjectACL(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+		return jsonResponse{
+			status: http.StatusNotFound,
+			err:    errors.New(http.StatusText(http.StatusNotFound)),
+		}
 	}
 
-	response := newACLListResponse(obj)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	return jsonResponse{data: newACLListResponse(obj)}
 }
 
-func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
+func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+		return jsonResponse{
+			status: http.StatusNotFound,
+			err:    errors.New(http.StatusText(http.StatusNotFound)),
+		}
 	}
 
 	var data struct {
@@ -444,8 +447,10 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&data); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return jsonResponse{
+			status: http.StatusBadRequest,
+			err:    err,
+		}
 	}
 
 	entity := storage.ACLEntity(data.Entity)
@@ -457,30 +462,26 @@ func (s *Server) setObjectACL(w http.ResponseWriter, r *http.Request) {
 
 	s.CreateObject(obj)
 
-	response := newACLListResponse(obj)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	return jsonResponse{data: newACLListResponse(obj)}
 }
 
-func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
+func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 	obj, err := s.objectWithGenerationOnValidGeneration(vars["sourceBucket"], vars["sourceObject"], r.FormValue("sourceGeneration"))
 	if err != nil {
 		statusCode := http.StatusNotFound
-		message := http.StatusText(statusCode)
+		responseErr := errors.New(http.StatusText(statusCode))
 		if errors.Is(err, errInvalidGeneration) {
 			statusCode = http.StatusBadRequest
-			message = err.Error()
+			responseErr = err
 		}
-		http.Error(w, message, statusCode)
-		return
+		return jsonResponse{err: responseErr, status: statusCode}
 	}
 
 	var metadata multipartMetadata
 	err = json.NewDecoder(r.Body).Decode(&metadata)
 	if err != nil && err != io.EOF { // The body is optional
-		http.Error(w, "Invalid metadata", http.StatusBadRequest)
-		return
+		return jsonResponse{err: errors.New("Invalid metadata"), status: http.StatusBadRequest}
 	}
 
 	// Only supplied metadata overwrites the new object's metdata
@@ -508,8 +509,7 @@ func (s *Server) rewriteObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.CreateObject(newObject)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(newObjectRewriteResponse(newObject))
+	return jsonResponse{data: newObjectRewriteResponse(newObject)}
 }
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
@@ -569,7 +569,7 @@ func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, conte
 	return 0, 0, obj.Content
 }
 
-func (s *Server) patchObject(w http.ResponseWriter, r *http.Request) {
+func (s *Server) patchObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 	bucketName := vars["bucketName"]
 	objectName := vars["objectName"]
@@ -578,15 +578,17 @@ func (s *Server) patchObject(w http.ResponseWriter, r *http.Request) {
 	}
 	err := json.NewDecoder(r.Body).Decode(&metadata)
 	if err != nil {
-		http.Error(w, "Metadata in the request couldn't decode", http.StatusBadRequest)
-		return
+		return jsonResponse{
+			status: http.StatusBadRequest,
+			err:    errors.New("Metadata in the request couldn't decode"),
+		}
 	}
 	backendObj, err := s.backend.PatchObject(bucketName, objectName, metadata.Metadata)
 	if err != nil {
-		http.Error(w, "Object not found to be PATCHed", http.StatusNotFound)
-		return
+		return jsonResponse{
+			status: http.StatusNotFound,
+			err:    errors.New("Object not found to be PATCHed"),
+		}
 	}
-	obj := fromBackendObjects([]backend.Object{backendObj})[0]
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(newObjectResponse(obj))
+	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}
 }

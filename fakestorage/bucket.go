@@ -47,7 +47,7 @@ func (s *Server) CreateBucketWithOpts(opts CreateBucketOpts) {
 	}
 }
 
-func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
+func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	// Minimal version of Bucket from google.golang.org/api/storage/v1
 
 	var data struct {
@@ -58,8 +58,7 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 	// Read the bucket props from the request body JSON
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&data); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return jsonResponse{err: err, status: http.StatusBadRequest}
 	}
 	name := data.Name
 	versioning := false
@@ -67,52 +66,37 @@ func (s *Server) createBucketByPost(w http.ResponseWriter, r *http.Request) {
 		versioning = data.Versioning.Enabled
 	}
 	if err := validateBucketName(name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return jsonResponse{err: err, status: http.StatusBadRequest}
 	}
 
 	// Create the named bucket
 	if err := s.backend.CreateBucket(name, versioning); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err, status: http.StatusInternalServerError}
 	}
 
 	// Return the created bucket:
 	bucket, err := s.backend.GetBucket(name)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err, status: http.StatusInternalServerError}
 	}
-	resp := newBucketResponse(bucket)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	return jsonResponse{data: newBucketResponse(bucket)}
 }
 
-func (s *Server) listBuckets(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listBuckets(r *http.Request) jsonResponse {
 	buckets, err := s.backend.ListBuckets()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err, status: http.StatusInternalServerError}
 	}
-	resp := newListBucketsResponse(buckets)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	return jsonResponse{data: newListBucketsResponse(buckets)}
 }
 
-func (s *Server) getBucket(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getBucket(r *http.Request) jsonResponse {
 	bucketName := mux.Vars(r)["bucketName"]
-	encoder := json.NewEncoder(w)
 	bucket, err := s.backend.GetBucket(bucketName)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		err := newErrorResponse(http.StatusNotFound, "Not found", nil)
-		encoder.Encode(err)
-		return
+		return jsonResponse{data: err, status: http.StatusNotFound}
 	}
-	resp := newBucketResponse(bucket)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	encoder.Encode(resp)
+	return jsonResponse{data: newBucketResponse(bucket)}
 }
 
 func validateBucketName(bucketName string) error {

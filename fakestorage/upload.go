@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -46,15 +47,14 @@ type contentRange struct {
 	Total      int  // Total bytes expected, -1 if unknown
 }
 
-func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
+func (s *Server) insertObject(r *http.Request) jsonResponse {
 	bucketName := mux.Vars(r)["bucketName"]
 
 	if _, err := s.backend.GetBucket(bucketName); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		err := newErrorResponse(http.StatusNotFound, "Not found", nil)
-		json.NewEncoder(w).Encode(err)
-		return
+		return jsonResponse{
+			err:    errors.New("Not found"),
+			status: http.StatusNotFound,
+		}
 	}
 	uploadType := r.URL.Query().Get("uploadType")
 	if uploadType == "" && r.Header.Get("X-Goog-Upload-Protocol") == uploadTypeResumable {
@@ -63,63 +63,59 @@ func (s *Server) insertObject(w http.ResponseWriter, r *http.Request) {
 
 	switch uploadType {
 	case uploadTypeMedia:
-		s.simpleUpload(bucketName, w, r)
+		return s.simpleUpload(bucketName, r)
 	case uploadTypeMultipart:
-		s.multipartUpload(bucketName, w, r)
+		return s.multipartUpload(bucketName, r)
 	case uploadTypeResumable:
-		s.resumableUpload(bucketName, w, r)
+		return s.resumableUpload(bucketName, r)
 	default:
 		// Support Signed URL Uploads
 		if r.URL.Query().Get("X-Goog-Algorithm") != "" {
 			switch r.Method {
 			case http.MethodPost:
-				s.resumableUpload(bucketName, w, r)
+				return s.resumableUpload(bucketName, r)
 			case http.MethodPut:
-				s.signedUpload(bucketName, w, r)
+				return s.signedUpload(bucketName, r)
 			}
-
-			return
 		}
-		http.Error(w, "invalid uploadType", http.StatusBadRequest)
+		return jsonResponse{err: errors.New("invalid uploadType"), status: http.StatusBadRequest}
 	}
 }
 
-func (s *Server) checkUploadPreconditions(w http.ResponseWriter, r *http.Request, bucketName string, objectName string) bool {
+func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, objectName string) *jsonResponse {
 	ifGenerationMatch := r.URL.Query().Get("ifGenerationMatch")
 
 	if ifGenerationMatch == "0" {
 		if _, err := s.backend.GetObject(bucketName, objectName); err == nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusPreconditionFailed)
-			err := newErrorResponse(http.StatusPreconditionFailed, "Precondition failed", nil)
-			json.NewEncoder(w).Encode(err)
-			return false
+			return &jsonResponse{
+				status: http.StatusPreconditionFailed,
+				err:    errors.New("Precondition failed"),
+			}
 		}
 	} else if ifGenerationMatch != "" || r.URL.Query().Get("ifGenerationNotMatch") != "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotImplemented)
-		err := newErrorResponse(http.StatusNotImplemented, "Precondition support not implemented", nil)
-		json.NewEncoder(w).Encode(err)
-		return false
+		return &jsonResponse{
+			status: http.StatusNotImplemented,
+			err:    errors.New("Precondition support not implemented"),
+		}
 	}
 
-	return true
+	return nil
 }
 
-func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
-
+func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if name == "" {
-		http.Error(w, "name is required for simple uploads", http.StatusBadRequest)
-		return
+		return jsonResponse{
+			status: http.StatusBadRequest,
+			err:    errors.New("name is required for simple uploads"),
+		}
 	}
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
 	obj := Object{
 		BucketName:      bucketName,
@@ -133,16 +129,12 @@ func (s *Server) simpleUpload(bucketName string, w http.ResponseWriter, r *http.
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(obj)
+	return jsonResponse{data: obj}
 }
 
-func (s *Server) signedUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
-
+func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
 	name := mux.Vars(r)["objectName"]
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
@@ -163,8 +155,7 @@ func (s *Server) signedUpload(bucketName string, w http.ResponseWriter, r *http.
 
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
 	obj := Object{
 		BucketName:      bucketName,
@@ -179,12 +170,9 @@ func (s *Server) signedUpload(bucketName string, w http.ResponseWriter, r *http.
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(obj)
+	return jsonResponse{data: obj}
 }
 
 func getObjectACL(predefinedACL string) []storage.ACLRule {
@@ -236,12 +224,14 @@ func encodedMd5Hash(content []byte) string {
 	return encodedHash(md5Hash(content))
 }
 
-func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
+func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
 	_, params, err := mime.ParseMediaType(r.Header.Get(contentTypeHeader))
 	if err != nil {
-		http.Error(w, "invalid Content-Type header", http.StatusBadRequest)
-		return
+		return jsonResponse{
+			status: http.StatusBadRequest,
+			err:    errors.New("invalid Content-Type header"),
+		}
 	}
 	var (
 		metadata *multipartMetadata
@@ -263,8 +253,7 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		}
 	}
 	if err != io.EOF {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
 
 	objName := r.URL.Query().Get("name")
@@ -273,8 +262,8 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 		objName = metadata.Name
 	}
 
-	if !s.checkUploadPreconditions(w, r, bucketName, objName) {
-		return
+	if resp := s.checkUploadPreconditions(r, bucketName, objName); resp != nil {
+		return *resp
 	}
 
 	obj := Object{
@@ -290,22 +279,17 @@ func (s *Server) multipartUpload(bucketName string, w http.ResponseWriter, r *ht
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(obj)
+	return jsonResponse{data: obj}
 }
 
-func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *http.Request) {
-
+func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonResponse {
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	metadata, err := loadMetadata(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
 	objName := r.URL.Query().Get("name")
 	if objName == "" {
@@ -320,18 +304,19 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 	}
 	uploadID, err := generateUploadID()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
 	s.uploads.Store(uploadID, obj)
-	w.Header().Set("Location", s.URL()+"/upload/resumable/"+uploadID)
+	header := make(http.Header)
+	header.Set("Location", s.URL()+"/upload/resumable/"+uploadID)
 	if r.Header.Get("X-Goog-Upload-Command") == "start" {
-		w.Header().Set("X-Goog-Upload-URL", s.URL()+"/upload/resumable/"+uploadID)
-		w.Header().Set("X-Goog-Upload-Status", "active")
+		header.Set("X-Goog-Upload-URL", s.URL()+"/upload/resumable/"+uploadID)
+		header.Set("X-Goog-Upload-Status", "active")
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(obj)
+	return jsonResponse{
+		data:   obj,
+		header: header,
+	}
 }
 
 // uploadFileContent accepts a chunk of a resumable upload
@@ -369,18 +354,19 @@ func (s *Server) resumableUpload(bucketName string, w http.ResponseWriter, r *ht
 // it can't process a native "308 Permanent Redirect". The in-process response
 // then has a status of "200 OK", with a header "X-Http-Status-Code-Override"
 // set to "308".
-func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
+func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	uploadID := mux.Vars(r)["uploadId"]
 	rawObj, ok := s.uploads.Load(uploadID)
 	if !ok {
-		http.Error(w, "upload not found", http.StatusNotFound)
-		return
+		return jsonResponse{
+			status: http.StatusNotFound,
+			err:    errors.New("upload not found"),
+		}
 	}
 	obj := rawObj.(Object)
 	content, err := loadContent(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return jsonResponse{err: err}
 	}
 	commit := true
 	status := http.StatusOK
@@ -388,33 +374,32 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 	obj.Crc32c = encodedCrc32cChecksum(obj.Content)
 	obj.Md5Hash = encodedMd5Hash(obj.Content)
 	obj.ContentType = r.Header.Get(contentTypeHeader)
+	responseHeader := make(http.Header)
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
 		parsed, err := parseContentRange(contentRange)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return jsonResponse{err: err, status: http.StatusBadRequest}
 		}
 		if parsed.KnownRange {
 			// Middle of streaming request, or any part of chunked request
-			w.Header().Set("Range", fmt.Sprintf("bytes=0-%d", parsed.End))
+			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", parsed.End))
 			// Complete if the range covers the known total
 			commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
 		} else {
 			// End of a streaming request
-			w.Header().Set("Range", fmt.Sprintf("bytes=0-%d", len(obj.Content)))
+			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", len(obj.Content)))
 		}
 	}
 	if commit {
 		s.uploads.Delete(uploadID)
 		obj, err = s.createObject(obj)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return jsonResponse{err: err}
 		}
 	} else {
 		if _, no308 := r.Header["X-Guploader-No-308"]; no308 {
 			// Go client
-			w.Header().Set("X-Http-Status-Code-Override", "308")
+			responseHeader.Set("X-Http-Status-Code-Override", "308")
 		} else {
 			// Python client
 			status = http.StatusPermanentRedirect
@@ -422,13 +407,13 @@ func (s *Server) uploadFileContent(w http.ResponseWriter, r *http.Request) {
 		s.uploads.Store(uploadID, obj)
 	}
 	if r.Header.Get("X-Goog-Upload-Command") == "upload, finalize" {
-		w.Header().Set("X-Goog-Upload-Status", "final")
+		responseHeader.Set("X-Goog-Upload-Status", "final")
 	}
-	data, _ := json.Marshal(obj)
-	w.Header().Set(contentTypeHeader, "application/json")
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	w.WriteHeader(status)
-	w.Write(data)
+	return jsonResponse{
+		status: status,
+		data:   obj,
+		header: responseHeader,
+	}
 }
 
 // Parse a Content-Range header
