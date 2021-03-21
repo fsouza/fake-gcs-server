@@ -1349,20 +1349,27 @@ func TestParseRangeRequest(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		start, length := test.Start, test.Length
+		test := test
+		t.Run("", func(t *testing.T) {
+			t.Parallel()
+			start, length := test.Start, test.Length
 
-		rng, _ := obj.NewRangeReader(ctx, start, length)
-		out, _ := ioutil.ReadAll(rng)
-		rng.Close()
+			rng, err := obj.NewRangeReader(ctx, start, length)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, _ := ioutil.ReadAll(rng)
+			rng.Close()
 
-		if length < 0 {
-			length = int64(len(in)) - start
-		}
-		if n := int64(len(out)); n != length {
-			t.Fatalf("expected %d bytes, RangeReader returned %d bytes", length, n)
-		}
-		if expected := in[start : start+length]; !bytes.Equal(expected, out) {
-			t.Fatalf("expected %q, RangeReader returned %q", expected, out)
-		}
+			if length < 0 {
+				length = int64(len(in)) - start
+			}
+			if n := int64(len(out)); n != length {
+				t.Fatalf("expected %d bytes, RangeReader returned %d bytes", length, n)
+			}
+			if expected := in[start : start+length]; !bytes.Equal(expected, out) {
+				t.Fatalf("expected %q, RangeReader returned %q", expected, out)
+			}
+		})
 	}
 }

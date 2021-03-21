@@ -7,7 +7,6 @@ package fakestorage
 import (
 	"compress/gzip"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -22,6 +21,8 @@ import (
 	"google.golang.org/api/option"
 )
 
+const defaultPublicHost = "storage.googleapis.com"
+
 // Server is the fake server.
 //
 // It provides a fake implementation of the Google Cloud Storage API.
@@ -31,6 +32,7 @@ type Server struct {
 	transport   http.RoundTripper
 	ts          *httptest.Server
 	mux         *mux.Router
+	options     Options
 	externalURL string
 	publicHost  string
 }
@@ -94,7 +96,7 @@ type Options struct {
 // NewServerWithOptions creates a new server configured according to the
 // provided options.
 func NewServerWithOptions(options Options) (*Server, error) {
-	s, err := newServer(options.InitialObjects, options.StorageRoot, options.ExternalURL, options.PublicHost)
+	s, err := newServer(options)
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +123,8 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		handler = handlers.LoggingHandler(options.Writer, handler)
 	}
 	handler = requestCompressHandler(handler)
+	s.setTransportToMux(handler)
 	if options.NoListener {
-		s.setTransportToMux(handler)
 		return s, nil
 	}
 
@@ -142,44 +144,34 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	}
 	startFunc()
 
-	s.setTransportToAddr(s.ts.Listener.Addr().String())
 	return s, nil
 }
 
-func newServer(objects []Object, storageRoot, externalURL, publicHost string) (*Server, error) {
-	backendObjects := toBackendObjects(objects)
+func newServer(options Options) (*Server, error) {
+	backendObjects := toBackendObjects(options.InitialObjects)
 	var backendStorage backend.Storage
 	var err error
-	if storageRoot != "" {
-		backendStorage, err = backend.NewStorageFS(backendObjects, storageRoot)
+	if options.StorageRoot != "" {
+		backendStorage, err = backend.NewStorageFS(backendObjects, options.StorageRoot)
 	} else {
 		backendStorage = backend.NewStorageMemory(backendObjects)
 	}
 	if err != nil {
 		return nil, err
 	}
+	publicHost := options.PublicHost
 	if publicHost == "" {
-		publicHost = "storage.googleapis.com"
+		publicHost = defaultPublicHost
 	}
 	s := Server{
 		backend:     backendStorage,
 		uploads:     sync.Map{},
-		externalURL: externalURL,
+		externalURL: options.ExternalURL,
 		publicHost:  publicHost,
+		options:     options,
 	}
 	s.buildMuxer()
 	return &s, nil
-}
-
-func (s *Server) setTransportToAddr(addr string) {
-	// #nosec
-	tlsConfig := tls.Config{InsecureSkipVerify: true}
-	s.transport = &http.Transport{
-		TLSClientConfig: &tlsConfig,
-		DialTLS: func(string, string) (net.Conn, error) {
-			return tls.Dial("tcp", addr, &tlsConfig)
-		},
-	}
 }
 
 func (s *Server) setTransportToMux(handler http.Handler) {
@@ -247,7 +239,14 @@ func (s *Server) URL() string {
 
 // PublicURL returns the server's public download URL.
 func (s *Server) PublicURL() string {
-	return fmt.Sprintf("https://%s", s.publicHost)
+	return fmt.Sprintf("%s://%s", s.scheme(), s.publicHost)
+}
+
+func (s *Server) scheme() string {
+	if s.options.Scheme == "http" {
+		return "http"
+	}
+	return "https"
 }
 
 // HTTPClient returns an HTTP client configured to talk to the server.
@@ -257,8 +256,7 @@ func (s *Server) HTTPClient() *http.Client {
 
 // Client returns a GCS client configured to talk to the server.
 func (s *Server) Client() *storage.Client {
-	opt := option.WithHTTPClient(s.HTTPClient())
-	client, _ := storage.NewClient(context.Background(), opt)
+	client, _ := storage.NewClient(context.Background(), option.WithHTTPClient(s.HTTPClient()))
 	return client
 }
 

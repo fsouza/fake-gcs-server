@@ -79,6 +79,60 @@ func TestNewServerLogging(t *testing.T) {
 	}
 }
 
+func TestPublicURL(t *testing.T) {
+	t.Parallel()
+	var tests = []struct {
+		name     string
+		options  Options
+		expected string
+	}{
+		{
+			name:     "https scheme",
+			options:  Options{Scheme: "https", NoListener: true},
+			expected: "https://storage.googleapis.com",
+		},
+		{
+			name:     "http scheme",
+			options:  Options{Scheme: "http", NoListener: true},
+			expected: "http://storage.googleapis.com",
+		},
+		{
+			name:     "no scheme",
+			options:  Options{NoListener: true},
+			expected: "https://storage.googleapis.com",
+		},
+		{
+			name:     "https scheme - custom public host",
+			options:  Options{Scheme: "https", NoListener: true, PublicHost: "localhost:8080"},
+			expected: "https://localhost:8080",
+		},
+		{
+			name:     "no scheme - custom public host",
+			options:  Options{NoListener: true, PublicHost: "localhost:8080"},
+			expected: "https://localhost:8080",
+		},
+		{
+			name:     "http scheme - custom public host",
+			options:  Options{Scheme: "http", NoListener: true, PublicHost: "localhost:8080"},
+			expected: "http://localhost:8080",
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			server, err := NewServerWithOptions(test.options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer server.Stop()
+			if publicURL := server.PublicURL(); publicURL != test.expected {
+				t.Errorf("wrong public url returned\nwant %q\ngot  %q", test.expected, publicURL)
+			}
+		})
+	}
+}
+
 func TestDownloadObject(t *testing.T) {
 	objs := []Object{
 		{BucketName: "some-bucket", Name: "files/txt/text-01.txt", Content: []byte("something")},
@@ -101,48 +155,46 @@ func testDownloadObject(t *testing.T, server *Server) {
 		{
 			"GET: bucket in the path",
 			http.MethodGet,
-			"https://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
+			"://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
 			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
 			"something",
 		},
 		{
 			"GET: bucket in the host",
 			http.MethodGet,
-			"https://other-bucket.storage.googleapis.com/static/css/website.css",
+			"://other-bucket.storage.googleapis.com/static/css/website.css",
 			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
 			"body {display: none;}",
 		},
 		{
 			"GET: using storage api",
 			http.MethodGet,
-			"https://storage.googleapis.com/storage/v1/b/some-bucket/o/files/txt/text-01.txt?alt=media",
+			"://storage.googleapis.com/storage/v1/b/some-bucket/o/files/txt/text-01.txt?alt=media",
 			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
 			"something",
 		},
 		{
 			"HEAD: bucket in the path",
 			http.MethodHead,
-			"https://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
+			"://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
 			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
 			"",
 		},
 		{
 			"HEAD: bucket in the host",
 			http.MethodHead,
-			"https://other-bucket.storage.googleapis.com/static/css/website.css",
+			"://other-bucket.storage.googleapis.com/static/css/website.css",
 			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
 			"",
 		},
 	}
-	expected := "https://storage.googleapis.com"
-	if server.PublicURL() != expected {
-		t.Fatalf("Expected PublicURL \"%s\", is \"%s\".", expected, server.PublicURL())
-	}
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			client := server.HTTPClient()
-			req, err := http.NewRequest(test.method, test.url, nil)
+			url := server.scheme() + test.url
+			req, err := http.NewRequest(test.method, url, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -186,7 +238,7 @@ func testDownloadObjectRange(t *testing.T, server *Server) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			client := server.HTTPClient()
-			req, err := http.NewRequest("GET", "https://storage.googleapis.com/some-bucket/files/txt/text-01.txt", nil)
+			req, err := http.NewRequest("GET", server.scheme()+"://storage.googleapis.com/some-bucket/files/txt/text-01.txt", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -372,21 +424,33 @@ func TestCORSRequests(t *testing.T) {
 }
 
 func runServersTest(t *testing.T, objs []Object, fn func(*testing.T, *Server)) {
-	t.Run("tcp listener", func(t *testing.T) {
-		t.Parallel()
-		tcpServer, err := NewServerWithOptions(Options{NoListener: false, InitialObjects: objs})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer tcpServer.Stop()
-		fn(t, tcpServer)
-	})
-	t.Run("no listener", func(t *testing.T) {
-		t.Parallel()
-		noListenerServer, err := NewServerWithOptions(Options{NoListener: true, InitialObjects: objs})
-		if err != nil {
-			t.Fatal(err)
-		}
-		fn(t, noListenerServer)
-	})
+	var testScenarios = []struct {
+		name    string
+		options Options
+	}{
+		{
+			name:    "https listener",
+			options: Options{NoListener: false, InitialObjects: objs},
+		},
+		{
+			name:    "http listener",
+			options: Options{Scheme: "http", NoListener: false, InitialObjects: objs},
+		},
+		{
+			name:    "no listener",
+			options: Options{NoListener: true, InitialObjects: objs},
+		},
+	}
+	for _, test := range testScenarios {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			server, err := NewServerWithOptions(test.options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer server.Stop()
+			fn(t, server)
+		})
+	}
 }
