@@ -123,7 +123,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		handler = handlers.LoggingHandler(options.Writer, handler)
 	}
 	handler = requestCompressHandler(handler)
-	s.setTransportToMux(handler)
+	s.transport = &muxTransport{handler: handler}
 	if options.NoListener {
 		return s, nil
 	}
@@ -172,10 +172,6 @@ func newServer(options Options) (*Server, error) {
 	}
 	s.buildMuxer()
 	return &s, nil
-}
-
-func (s *Server) setTransportToMux(handler http.Handler) {
-	s.transport = &muxTransport{handler: handler}
 }
 
 func (s *Server) buildMuxer() {
