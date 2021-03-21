@@ -361,10 +361,7 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter, versions == "true")
 
 	if err != nil {
-		return jsonResponse{
-			status: http.StatusNotFound,
-			err:    errors.New(http.StatusText(http.StatusNotFound)),
-		}
+		return jsonResponse{status: http.StatusNotFound}
 	}
 	return jsonResponse{data: newListObjectsResponse(objs, prefixes)}
 }
@@ -381,14 +378,14 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
 		if err != nil {
 			statusCode := http.StatusNotFound
-			responseErr := errors.New(http.StatusText(statusCode))
+			var errMessage string
 			if errors.Is(err, errInvalidGeneration) {
 				statusCode = http.StatusBadRequest
-				responseErr = err
+				errMessage = err.Error()
 			}
 			return jsonResponse{
-				status: statusCode,
-				err:    responseErr,
+				status:       statusCode,
+				errorMessage: errMessage,
 			}
 		}
 		header := make(http.Header)
@@ -407,10 +404,7 @@ func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
 
 	if err != nil {
-		return jsonResponse{
-			status: http.StatusNotFound,
-			err:    errors.New(http.StatusText(http.StatusNotFound)),
-		}
+		return jsonResponse{status: http.StatusNotFound}
 	}
 	return jsonResponse{}
 }
@@ -420,10 +414,7 @@ func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
-		return jsonResponse{
-			status: http.StatusNotFound,
-			err:    errors.New(http.StatusText(http.StatusNotFound)),
-		}
+		return jsonResponse{status: http.StatusNotFound}
 	}
 
 	return jsonResponse{data: newACLListResponse(obj)}
@@ -434,10 +425,7 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
 	if err != nil {
-		return jsonResponse{
-			status: http.StatusNotFound,
-			err:    errors.New(http.StatusText(http.StatusNotFound)),
-		}
+		return jsonResponse{status: http.StatusNotFound}
 	}
 
 	var data struct {
@@ -448,8 +436,8 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&data); err != nil {
 		return jsonResponse{
-			status: http.StatusBadRequest,
-			err:    err,
+			status:       http.StatusBadRequest,
+			errorMessage: err.Error(),
 		}
 	}
 
@@ -470,18 +458,18 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	obj, err := s.objectWithGenerationOnValidGeneration(vars["sourceBucket"], vars["sourceObject"], r.FormValue("sourceGeneration"))
 	if err != nil {
 		statusCode := http.StatusNotFound
-		responseErr := errors.New(http.StatusText(statusCode))
+		var errMessage string
 		if errors.Is(err, errInvalidGeneration) {
 			statusCode = http.StatusBadRequest
-			responseErr = err
+			errMessage = err.Error()
 		}
-		return jsonResponse{err: responseErr, status: statusCode}
+		return jsonResponse{errorMessage: errMessage, status: statusCode}
 	}
 
 	var metadata multipartMetadata
 	err = json.NewDecoder(r.Body).Decode(&metadata)
 	if err != nil && err != io.EOF { // The body is optional
-		return jsonResponse{err: errors.New("Invalid metadata"), status: http.StatusBadRequest}
+		return jsonResponse{errorMessage: "Invalid metadata", status: http.StatusBadRequest}
 	}
 
 	// Only supplied metadata overwrites the new object's metdata
@@ -579,15 +567,15 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	err := json.NewDecoder(r.Body).Decode(&metadata)
 	if err != nil {
 		return jsonResponse{
-			status: http.StatusBadRequest,
-			err:    errors.New("Metadata in the request couldn't decode"),
+			status:       http.StatusBadRequest,
+			errorMessage: "Metadata in the request couldn't decode",
 		}
 	}
 	backendObj, err := s.backend.PatchObject(bucketName, objectName, metadata.Metadata)
 	if err != nil {
 		return jsonResponse{
-			status: http.StatusNotFound,
-			err:    errors.New("Object not found to be PATCHed"),
+			status:       http.StatusNotFound,
+			errorMessage: "Object not found to be PATCHed",
 		}
 	}
 	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}

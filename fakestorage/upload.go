@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -51,10 +50,7 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 	bucketName := mux.Vars(r)["bucketName"]
 
 	if _, err := s.backend.GetBucket(bucketName); err != nil {
-		return jsonResponse{
-			err:    errors.New("Not found"),
-			status: http.StatusNotFound,
-		}
+		return jsonResponse{status: http.StatusNotFound}
 	}
 	uploadType := r.URL.Query().Get("uploadType")
 	if uploadType == "" && r.Header.Get("X-Goog-Upload-Protocol") == uploadTypeResumable {
@@ -78,7 +74,7 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 				return s.signedUpload(bucketName, r)
 			}
 		}
-		return jsonResponse{err: errors.New("invalid uploadType"), status: http.StatusBadRequest}
+		return jsonResponse{errorMessage: "invalid uploadType", status: http.StatusBadRequest}
 	}
 }
 
@@ -88,14 +84,14 @@ func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, ob
 	if ifGenerationMatch == "0" {
 		if _, err := s.backend.GetObject(bucketName, objectName); err == nil {
 			return &jsonResponse{
-				status: http.StatusPreconditionFailed,
-				err:    errors.New("Precondition failed"),
+				status:       http.StatusPreconditionFailed,
+				errorMessage: "Precondition failed",
 			}
 		}
 	} else if ifGenerationMatch != "" || r.URL.Query().Get("ifGenerationNotMatch") != "" {
 		return &jsonResponse{
-			status: http.StatusNotImplemented,
-			err:    errors.New("Precondition support not implemented"),
+			status:       http.StatusNotImplemented,
+			errorMessage: "Precondition support not implemented",
 		}
 	}
 
@@ -109,13 +105,13 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if name == "" {
 		return jsonResponse{
-			status: http.StatusBadRequest,
-			err:    errors.New("name is required for simple uploads"),
+			status:       http.StatusBadRequest,
+			errorMessage: "name is required for simple uploads",
 		}
 	}
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 	obj := Object{
 		BucketName:      bucketName,
@@ -129,7 +125,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 	return jsonResponse{data: obj}
 }
@@ -155,7 +151,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 	obj := Object{
 		BucketName:      bucketName,
@@ -170,7 +166,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 	return jsonResponse{data: obj}
 }
@@ -229,8 +225,8 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 	_, params, err := mime.ParseMediaType(r.Header.Get(contentTypeHeader))
 	if err != nil {
 		return jsonResponse{
-			status: http.StatusBadRequest,
-			err:    errors.New("invalid Content-Type header"),
+			status:       http.StatusBadRequest,
+			errorMessage: "invalid Content-Type header",
 		}
 	}
 	var (
@@ -253,7 +249,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		}
 	}
 	if err != io.EOF {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 
 	objName := r.URL.Query().Get("name")
@@ -279,7 +275,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 	return jsonResponse{data: obj}
 }
@@ -289,7 +285,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	metadata, err := loadMetadata(r.Body)
 	if err != nil {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 	objName := r.URL.Query().Get("name")
 	if objName == "" {
@@ -304,7 +300,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	uploadID, err := generateUploadID()
 	if err != nil {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 	s.uploads.Store(uploadID, obj)
 	header := make(http.Header)
@@ -358,15 +354,12 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	uploadID := mux.Vars(r)["uploadId"]
 	rawObj, ok := s.uploads.Load(uploadID)
 	if !ok {
-		return jsonResponse{
-			status: http.StatusNotFound,
-			err:    errors.New("upload not found"),
-		}
+		return jsonResponse{status: http.StatusNotFound}
 	}
 	obj := rawObj.(Object)
 	content, err := loadContent(r.Body)
 	if err != nil {
-		return jsonResponse{err: err}
+		return jsonResponse{errorMessage: err.Error()}
 	}
 	commit := true
 	status := http.StatusOK
@@ -378,7 +371,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
 		parsed, err := parseContentRange(contentRange)
 		if err != nil {
-			return jsonResponse{err: err, status: http.StatusBadRequest}
+			return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
 		}
 		if parsed.KnownRange {
 			// Middle of streaming request, or any part of chunked request
@@ -394,7 +387,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 		s.uploads.Delete(uploadID)
 		obj, err = s.createObject(obj)
 		if err != nil {
-			return jsonResponse{err: err}
+			return jsonResponse{errorMessage: err.Error()}
 		}
 	} else {
 		if _, no308 := r.Header["X-Guploader-No-308"]; no308 {
