@@ -11,6 +11,7 @@ type Storage interface {
 	CreateBucket(name string, versioningEnabled bool) error
 	ListBuckets() ([]Bucket, error)
 	GetBucket(name string) (Bucket, error)
+	DeleteBucket(name string) error
 	CreateObject(obj Object) (Object, error)
 	ListObjects(bucketName string, versions bool) ([]Object, error)
 	GetObject(bucketName, objectName string) (Object, error)
@@ -18,3 +19,10 @@ type Storage interface {
 	DeleteObject(bucketName, objectName string) error
 	PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error)
 }
+
+type Error string
+
+func (e Error) Error() string { return string(e) }
+
+const BucketNotFound = Error("bucket not found")
+const BucketNotEmpty = Error("bucket must be empty prior to deletion")

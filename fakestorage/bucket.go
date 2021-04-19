@@ -11,6 +11,8 @@ import (
 	"regexp"
 
 	"github.com/gorilla/mux"
+
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
 var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$`)
@@ -97,6 +99,21 @@ func (s *Server) getBucket(r *http.Request) jsonResponse {
 		return jsonResponse{status: http.StatusNotFound}
 	}
 	return jsonResponse{data: newBucketResponse(bucket)}
+}
+
+func (s *Server) deleteBucket(r *http.Request) jsonResponse {
+	bucketName := mux.Vars(r)["bucketName"]
+	err := s.backend.DeleteBucket(bucketName)
+	if err == backend.BucketNotFound {
+		return jsonResponse{status: http.StatusNotFound}
+	}
+	if err == backend.BucketNotEmpty {
+		return jsonResponse{status: http.StatusPreconditionFailed, errorMessage: err.Error()}
+	}
+	if err != nil {
+		return jsonResponse{status: http.StatusInternalServerError, errorMessage: err.Error()}
+	}
+	return jsonResponse{}
 }
 
 func validateBucketName(bucketName string) error {

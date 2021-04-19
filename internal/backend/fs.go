@@ -107,6 +107,21 @@ func (s *storageFS) GetBucket(name string) (Bucket, error) {
 	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo))}, err
 }
 
+// DeleteBucket removes the bucket from the backend.
+func (s *storageFS) DeleteBucket(name string) error {
+	objs, err := s.ListObjects(name, false)
+	if err != nil {
+		return BucketNotFound
+	}
+	if len(objs) > 0 {
+		return BucketNotEmpty
+	}
+
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	return os.RemoveAll(filepath.Join(s.rootDir, url.PathEscape(name)))
+}
+
 // CreateObject stores an object as a regular file in the disk.
 func (s *storageFS) CreateObject(obj Object) (Object, error) {
 	if obj.Generation > 0 {

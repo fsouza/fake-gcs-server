@@ -160,6 +160,22 @@ func (s *storageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
 	return bucketInMemory{}, fmt.Errorf("no bucket named %s", name)
 }
 
+// DeleteBucket removes the bucket from the backend.
+func (s *storageMemory) DeleteBucket(name string) error {
+	objs, err := s.ListObjects(name, false)
+	if err != nil {
+		return BucketNotFound
+	}
+	if len(objs) > 0 {
+		return BucketNotEmpty
+	}
+
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	delete(s.buckets, name)
+	return nil
+}
+
 // CreateObject stores an object in the backend.
 func (s *storageMemory) CreateObject(obj Object) (Object, error) {
 	s.mtx.Lock()

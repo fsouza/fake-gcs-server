@@ -64,6 +64,50 @@ func TestServerClientBucketAttrsAfterCreateBucket(t *testing.T) {
 	}
 }
 
+func TestServerClientDeleteBucket(t *testing.T) {
+	t.Run("it deletes empty buckets", func(t *testing.T) {
+		const bucketName = "bucket-to-delete"
+		runServersTest(t, nil, func(t *testing.T, server *Server) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+			client := server.Client()
+			err := client.Bucket(bucketName).Delete(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			attrs, err := client.Bucket(bucketName).Attrs(context.Background())
+			if err == nil {
+				t.Error("unexpected <nil> error")
+			}
+			if attrs != nil {
+				t.Errorf("unexpected non-nil attrs: %#v", attrs)
+			}
+		})
+	})
+
+	t.Run("it returns an error for non-empty buckets", func(t *testing.T) {
+		const bucketName = "non-empty-bucket"
+		objs := []Object{{BucketName: bucketName, Name: "static/js/app.js"}}
+		runServersTest(t, objs, func(t *testing.T, server *Server) {
+			client := server.Client()
+			err := client.Bucket(bucketName).Delete(context.Background())
+			if err == nil {
+				t.Fatal(err)
+			}
+		})
+	})
+
+	t.Run("it returns an error for unknown buckets", func(t *testing.T) {
+		const bucketName = "non-existent-bucket"
+		runServersTest(t, nil, func(t *testing.T, server *Server) {
+			client := server.Client()
+			err := client.Bucket(bucketName).Delete(context.Background())
+			if err == nil {
+				t.Fatal(err)
+			}
+		})
+	})
+}
+
 func TestServerClientBucketAttrsAfterCreateBucketByPost(t *testing.T) {
 	t.Parallel()
 	for _, versioningEnabled := range []bool{true, false} {
