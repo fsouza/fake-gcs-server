@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/gorilla/mux"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
+	"github.com/gorilla/mux"
 )
 
 var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$`)
