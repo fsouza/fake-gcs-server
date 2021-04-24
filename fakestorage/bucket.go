@@ -11,7 +11,6 @@ import (
 	"regexp"
 
 	"github.com/gorilla/mux"
-
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
