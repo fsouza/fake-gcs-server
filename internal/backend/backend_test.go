@@ -193,7 +193,7 @@ func TestObjectQueryErrors(t *testing.T) {
 	}
 }
 
-func TestBucketCreateGetList(t *testing.T) {
+func TestBucketCreateGetListDelete(t *testing.T) {
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		buckets, err := storage.ListBuckets()
 		if err != nil {
@@ -206,7 +206,7 @@ func TestBucketCreateGetList(t *testing.T) {
 			{"prod-bucket", false, time.Time{}},
 			{"prod-bucket-with-versioning", true, time.Time{}},
 		}
-		for i, bucket := range bucketsToTest {
+		for _, bucket := range bucketsToTest {
 			_, err := storage.GetBucket(bucket.Name)
 			if err == nil {
 				t.Fatalf("bucket %s, exists before being created", bucket.Name)
@@ -238,17 +238,15 @@ func TestBucketCreateGetList(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(buckets) != i+1 {
-				t.Errorf("number of buckets does not match the times we have lopped. Expected %d, found %d", i, len(buckets))
+			if len(buckets) != 1 {
+				t.Errorf("found unexpected number of buckets. Expected 1, found %d", len(buckets))
 			}
-			found := false
-			for _, listedBucket := range buckets {
-				if listedBucket.Name == bucket.Name {
-					found = true
-				}
+			if buckets[0].Name != bucket.Name {
+				t.Errorf("listed bucket has unexpected name. Expected %s, actual: %v", bucket.Name, buckets[0].Name)
 			}
-			if !found {
-				t.Errorf("Bucket we have just created is not part of the bucket listing. Expected %s, results: %v", bucket.Name, buckets)
+			err = storage.DeleteBucket(bucket.Name)
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
 	})

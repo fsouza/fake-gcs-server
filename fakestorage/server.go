@@ -187,6 +187,7 @@ func (s *Server) buildMuxer() {
 		r.Path("/b").Methods("GET").HandlerFunc(jsonToHTTPHandler(s.listBuckets))
 		r.Path("/b").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.createBucketByPost))
 		r.Path("/b/{bucketName}").Methods("GET").HandlerFunc(jsonToHTTPHandler(s.getBucket))
+		r.Path("/b/{bucketName}").Methods("DELETE").HandlerFunc(jsonToHTTPHandler(s.deleteBucket))
 		r.Path("/b/{bucketName}/o").Methods("GET").HandlerFunc(jsonToHTTPHandler(s.listObjects))
 		r.Path("/b/{bucketName}/o").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("PATCH").HandlerFunc(jsonToHTTPHandler(s.patchObject))
