@@ -9,7 +9,7 @@ function pick_tag() {
 	if [ "${GITHUB_REF##refs/tags/}" != "${GITHUB_REF}" ]; then
 		tag=${GITHUB_REF##refs/tags/}
 	fi
-	echo $tag
+	echo "$tag"
 }
 
 function additional_tags() {
@@ -19,7 +19,7 @@ function additional_tags() {
 		tags="${filtered} ${filtered%.*} ${filtered%%.*}"
 
 		for tag in $tags; do
-			docker tag ${IMAGE_NAME}:${original_tag} ${IMAGE_NAME}:${tag}
+			docker tag "${IMAGE_NAME}:${original_tag} ${IMAGE_NAME}:${tag}"
 		done
 	fi
 }

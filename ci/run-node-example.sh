@@ -5,7 +5,7 @@
 set -e
 
 export STORAGE_EMULATOR_HOST=http://localhost:8080/storage/v1
-./fake-gcs-server -backend memory -data $PWD/examples/data -scheme http -port 8080 &
+./fake-gcs-server -backend memory -data "${PWD}"/examples/data -scheme http -port 8080 &
 
 (
 	cd examples/node
