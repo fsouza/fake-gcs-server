@@ -25,19 +25,23 @@ const (
 )
 
 type Config struct {
-	Seed                string
-	publicHost          string
-	externalURL         string
-	allowedCORSHeaders  []string
-	scheme              string
-	host                string
-	port                uint
-	backend             string
-	fsRoot              string
-	eventPubsubProjecID string
-	eventPubsubTopic    string
-	eventPrefix         string
-	eventList           []string
+	Seed               string
+	publicHost         string
+	externalURL        string
+	allowedCORSHeaders []string
+	scheme             string
+	host               string
+	port               uint
+	backend            string
+	fsRoot             string
+	event              EventConfig
+}
+
+type EventConfig struct {
+	pubsubProjectID string
+	pubsubTopic     string
+	prefix          string
+	list            []string
 }
 
 // Load parses the given arguments list and return a config object (and/or an
@@ -57,10 +61,10 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
 	fs.StringVar(&allowedCORSHeaders, "cors-headers", "", "comma separated list of headers to add to the CORS allowlist")
 	fs.UintVar(&cfg.port, "port", 4443, "port to bind to")
-	fs.StringVar(&cfg.eventPubsubProjecID, "event-pubsub-project-id", "", "project ID containing the pubsub topic")
-	fs.StringVar(&cfg.eventPubsubTopic, "event-pubsub-topic", "", "pubsub topic name to publish events on")
-	fs.StringVar(&cfg.eventPrefix, "event-object-prefix", "", "if not empty, only objects having this prefix will generate trigger events")
-	fs.StringVar(&eventList, "event-list", eventFinalize, "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
+	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", "", "project ID containing the pubsub topic")
+	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", "", "pubsub topic name to publish events on")
+	fs.StringVar(&cfg.event.prefix, "event.object-prefix", "", "if not empty, only objects having this prefix will generate trigger events")
+	fs.StringVar(&eventList, "event.list", eventFinalize, "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -71,7 +75,7 @@ func Load(args []string) (Config, error) {
 		cfg.allowedCORSHeaders = strings.Split(allowedCORSHeaders, ",")
 	}
 	if eventList != "" {
-		cfg.eventList = strings.Split(eventList, ",")
+		cfg.event.list = strings.Split(eventList, ",")
 	}
 
 	return cfg, cfg.validate()
@@ -91,25 +95,25 @@ func (c *Config) validate() error {
 		return fmt.Errorf("port %d is too high, maximum value is %d", c.port, math.MaxUint16)
 	}
 
-	switch c.eventPubsubProjecID {
+	switch c.event.pubsubProjectID {
 	case "":
-		if c.eventPubsubTopic != "" {
+		if c.event.pubsubTopic != "" {
 			return fmt.Errorf("missing event pubsub project ID")
 		}
 	default:
-		if c.eventPubsubTopic == "" {
+		if c.event.pubsubTopic == "" {
 			return fmt.Errorf("missing event pubsub topic ID")
 		}
-		for i, event := range c.eventList {
+		for i, event := range c.event.list {
 			e := strings.TrimSpace(event)
 			switch e {
 			case eventFinalize, eventDelete, eventMetadataUpdate:
 			default:
 				return fmt.Errorf("%s is an invalid event", e)
 			}
-			c.eventList[i] = e
+			c.event.list[i] = e
 		}
-		if len(c.eventList) == 0 {
+		if len(c.event.list) == 0 {
 			return fmt.Errorf("event list cannot be empty")
 		}
 	}
@@ -122,12 +126,12 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 		storageRoot = ""
 	}
 	eventOptions := fakestorage.EventManagerOptions{
-		ProjectID:    c.eventPubsubProjecID,
-		TopicName:    c.eventPubsubTopic,
-		ObjectPrefix: c.eventPrefix,
+		ProjectID:    c.event.pubsubProjectID,
+		TopicName:    c.event.pubsubTopic,
+		ObjectPrefix: c.event.prefix,
 	}
-	if c.eventPubsubProjecID != "" && c.eventPubsubTopic != "" {
-		for _, event := range c.eventList {
+	if c.event.pubsubProjectID != "" && c.event.pubsubTopic != "" {
+		for _, event := range c.event.list {
 			switch event {
 			case eventFinalize:
 				eventOptions.NotifyOn.Finalize = true

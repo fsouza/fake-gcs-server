@@ -32,25 +32,27 @@ func TestLoadConfig(t *testing.T) {
 				"-port", "443",
 				"-data", "/var/gcs",
 				"-scheme", "http",
-				"-event-pubsub-project-id", "test-project",
-				"-event-pubsub-topic", "gcs-events",
-				"-event-object-prefix", "uploads/",
-				"-event-list", "finalize,delete,metadataUpdate",
+				"-event.pubsub-project-id", "test-project",
+				"-event.pubsub-topic", "gcs-events",
+				"-event.object-prefix", "uploads/",
+				"-event.list", "finalize,delete,metadataUpdate",
 			},
 			expectedConfig: Config{
-				Seed:                "/var/gcs",
-				backend:             "memory",
-				fsRoot:              "/tmp/something",
-				publicHost:          "127.0.0.1.nip.io:8443",
-				externalURL:         "https://myhost.example.com:8443",
-				allowedCORSHeaders:  []string{"X-Goog-Meta-Uploader"},
-				host:                "127.0.0.1",
-				port:                443,
-				scheme:              "http",
-				eventPubsubProjecID: "test-project",
-				eventPubsubTopic:    "gcs-events",
-				eventPrefix:         "uploads/",
-				eventList:           []string{"finalize", "delete", "metadataUpdate"},
+				Seed:               "/var/gcs",
+				backend:            "memory",
+				fsRoot:             "/tmp/something",
+				publicHost:         "127.0.0.1.nip.io:8443",
+				externalURL:        "https://myhost.example.com:8443",
+				allowedCORSHeaders: []string{"X-Goog-Meta-Uploader"},
+				host:               "127.0.0.1",
+				port:               443,
+				scheme:             "http",
+				event: EventConfig{
+					pubsubProjectID: "test-project",
+					pubsubTopic:     "gcs-events",
+					prefix:          "uploads/",
+					list:            []string{"finalize", "delete", "metadataUpdate"},
+				},
 			},
 		},
 		{
@@ -65,7 +67,9 @@ func TestLoadConfig(t *testing.T) {
 				host:               "0.0.0.0",
 				port:               4443,
 				scheme:             "https",
-				eventList:          []string{"finalize"},
+				event: EventConfig{
+					list: []string{"finalize"},
+				},
 			},
 		},
 		{
@@ -90,17 +94,17 @@ func TestLoadConfig(t *testing.T) {
 		},
 		{
 			name:      "missing event pubsub project ID",
-			args:      []string{"-event-pubsub-topic", "gcs-events"},
+			args:      []string{"-event.pubsub-topic", "gcs-events"},
 			expectErr: true,
 		},
 		{
 			name:      "missing event pubsub topic",
-			args:      []string{"-event-pubsub-project-id", "test-project"},
+			args:      []string{"-event.pubsub-project-id", "test-project"},
 			expectErr: true,
 		},
 		{
 			name:      "invalid events",
-			args:      []string{"-event-list", "invalid,stuff", "-event-pubsub-topic", "gcs-events", "-event-pubsub-project-id", "test-project"},
+			args:      []string{"-event.list", "invalid,stuff", "-event.pubsub-topic", "gcs-events", "-event.pubsub-project-id", "test-project"},
 			expectErr: true,
 		},
 	}
@@ -114,7 +118,7 @@ func TestLoadConfig(t *testing.T) {
 			} else if err == nil && test.expectErr {
 				t.Fatal("unexpected <nil> error")
 			}
-			if diff := cmp.Diff(cfg, test.expectedConfig, cmp.AllowUnexported(Config{})); !test.expectErr && diff != "" {
+			if diff := cmp.Diff(cfg, test.expectedConfig, cmp.AllowUnexported(Config{}, EventConfig{})); !test.expectErr && diff != "" {
 				t.Errorf("wrong config returned\nwant %#v\ngot  %#v\ndiff: %v", test.expectedConfig, cfg, diff)
 			}
 		})
@@ -131,16 +135,18 @@ func TestToFakeGcsOptions(t *testing.T) {
 		{
 			"filesystem",
 			Config{
-				backend:             "filesystem",
-				fsRoot:              "/tmp/something",
-				publicHost:          "127.0.0.1.nip.io:8443",
-				externalURL:         "https://myhost.example.com:8443",
-				host:                "0.0.0.0",
-				port:                443,
-				eventPubsubProjecID: "test-project",
-				eventPubsubTopic:    "gcs-events",
-				eventPrefix:         "uploads/",
-				eventList:           []string{"finalize", "delete"},
+				backend:     "filesystem",
+				fsRoot:      "/tmp/something",
+				publicHost:  "127.0.0.1.nip.io:8443",
+				externalURL: "https://myhost.example.com:8443",
+				host:        "0.0.0.0",
+				port:        443,
+				event: EventConfig{
+					pubsubProjectID: "test-project",
+					pubsubTopic:     "gcs-events",
+					prefix:          "uploads/",
+					list:            []string{"finalize", "delete"},
+				},
 			},
 			fakestorage.Options{
 				StorageRoot: "/tmp/something",
