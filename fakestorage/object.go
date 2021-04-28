@@ -223,13 +223,14 @@ func (s *Server) CreateObject(obj Object) {
 }
 
 func (s *Server) createObject(obj Object) (Object, error) {
-	newObj, err := s.backend.CreateObject(toBackendObjects([]Object{obj})[0])
+	newBackendObj, err := s.backend.CreateObject(toBackendObjects([]Object{obj})[0])
 	if err != nil {
 		return Object{}, err
 	}
 
-	s.eventManager.Trigger(&obj, EventFinalize)
-	return fromBackendObjects([]backend.Object{newObj})[0], nil
+	newObj := fromBackendObjects([]backend.Object{newBackendObj})[0]
+	s.eventManager.Trigger(&newObj, EventFinalize)
+	return newObj, nil
 }
 
 // ListObjects returns a sorted list of objects that match the given criteria,
