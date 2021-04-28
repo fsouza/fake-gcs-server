@@ -95,28 +95,33 @@ func (c *Config) validate() error {
 		return fmt.Errorf("port %d is too high, maximum value is %d", c.port, math.MaxUint16)
 	}
 
-	switch c.event.pubsubProjectID {
+	return c.event.validate()
+}
+
+func (c *EventConfig) validate() error {
+	switch c.pubsubProjectID {
 	case "":
-		if c.event.pubsubTopic != "" {
+		if c.pubsubTopic != "" {
 			return fmt.Errorf("missing event pubsub project ID")
 		}
 	default:
-		if c.event.pubsubTopic == "" {
+		if c.pubsubTopic == "" {
 			return fmt.Errorf("missing event pubsub topic ID")
 		}
-		for i, event := range c.event.list {
+		for i, event := range c.list {
 			e := strings.TrimSpace(event)
 			switch e {
 			case eventFinalize, eventDelete, eventMetadataUpdate:
 			default:
 				return fmt.Errorf("%s is an invalid event", e)
 			}
-			c.event.list[i] = e
+			c.list[i] = e
 		}
-		if len(c.event.list) == 0 {
+		if len(c.list) == 0 {
 			return fmt.Errorf("event list cannot be empty")
 		}
 	}
+
 	return nil
 }
 
