@@ -32,7 +32,7 @@ type Server struct {
 	transport    http.RoundTripper
 	ts           *httptest.Server
 	mux          *mux.Router
-	options     Options
+	options      Options
 	externalURL  string
 	publicHost   string
 	eventManager *eventManager
@@ -175,11 +175,11 @@ func newServer(options Options) (*Server, error) {
 	}
 
 	s := Server{
-		backend:     backendStorage,
-		uploads:     sync.Map{},
-		externalURL: options.ExternalURL,
-		publicHost:  publicHost,
-		options:     options,
+		backend:      backendStorage,
+		uploads:      sync.Map{},
+		externalURL:  options.ExternalURL,
+		publicHost:   publicHost,
+		options:      options,
 		eventManager: &eventManager{},
 	}
 	s.buildMuxer()
@@ -210,18 +210,34 @@ func (s *Server) buildMuxer() {
 		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/rewriteTo/b/{destinationBucket}/o/{destinationObject:.+}").HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
 	}
 
+	publicHostname, _, _ := net.SplitHostPort(s.publicHost)
+
+	var localhost string
+	if publicHostname != "localhost" {
+		localhost = fmt.Sprintf("localhost:%d", s.options.Port)
+	}
+
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	if localhost != "" {
+		s.mux.Host(fmt.Sprintf("{bucketName}.%s", localhost)).Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	}
 	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.downloadObject)
 	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Path("/upload/resumable/{uploadId}").Methods("PUT", "POST").HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	if localhost != "" {
+		s.mux.Host(localhost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	}
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 
 	// Signed URL Uploads
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	if localhost != "" {
+		s.mux.Host(localhost).Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	}
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 }
 
