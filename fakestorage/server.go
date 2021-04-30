@@ -237,6 +237,7 @@ func (s *Server) buildMuxer() {
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	if localhost != "" {
 		s.mux.Host(localhost).Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
+		s.mux.Host(fmt.Sprintf("{bucketName}.%s", localhost)).Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	}
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 }
