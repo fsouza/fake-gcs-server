@@ -27,14 +27,15 @@ const defaultPublicHost = "storage.googleapis.com"
 //
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
-	backend     backend.Storage
-	uploads     sync.Map
-	transport   http.RoundTripper
-	ts          *httptest.Server
-	mux         *mux.Router
-	options     Options
-	externalURL string
-	publicHost  string
+	backend      backend.Storage
+	uploads      sync.Map
+	transport    http.RoundTripper
+	ts           *httptest.Server
+	mux          *mux.Router
+	options      Options
+	externalURL  string
+	publicHost   string
+	eventManager *eventManager
 }
 
 // NewServer creates a new instance of the server, pre-loaded with the given
@@ -91,6 +92,10 @@ type Options struct {
 
 	// Destination for writing log.
 	Writer io.Writer
+
+	// EventOptions contains the events that should be published and the URL
+	// of the Google cloud function such events should be published to.
+	EventOptions EventManagerOptions
 }
 
 // NewServerWithOptions creates a new server configured according to the
@@ -128,6 +133,11 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		return s, nil
 	}
 
+	s.eventManager, err = newEventManager(options.EventOptions, options.Writer)
+	if err != nil {
+		return nil, err
+	}
+
 	s.ts = httptest.NewUnstartedServer(handler)
 	startFunc := s.ts.StartTLS
 	if options.Scheme == "http" {
@@ -163,12 +173,14 @@ func newServer(options Options) (*Server, error) {
 	if publicHost == "" {
 		publicHost = defaultPublicHost
 	}
+
 	s := Server{
-		backend:     backendStorage,
-		uploads:     sync.Map{},
-		externalURL: options.ExternalURL,
-		publicHost:  publicHost,
-		options:     options,
+		backend:      backendStorage,
+		uploads:      sync.Map{},
+		externalURL:  options.ExternalURL,
+		publicHost:   publicHost,
+		options:      options,
+		eventManager: &eventManager{},
 	}
 	s.buildMuxer()
 	return &s, nil
@@ -198,18 +210,35 @@ func (s *Server) buildMuxer() {
 		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/rewriteTo/b/{destinationBucket}/o/{destinationObject:.+}").HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
 	}
 
+	publicHostname, _, _ := net.SplitHostPort(s.publicHost)
+
+	var localhost string
+	if publicHostname != "localhost" {
+		localhost = fmt.Sprintf("localhost:%d", s.options.Port)
+	}
+
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	if localhost != "" {
+		s.mux.Host(fmt.Sprintf("{bucketName}.%s", localhost)).Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	}
 	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.downloadObject)
 	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Path("/upload/resumable/{uploadId}").Methods("PUT", "POST").HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	if localhost != "" {
+		s.mux.Host(localhost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	}
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 
 	// Signed URL Uploads
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	if localhost != "" {
+		s.mux.Host(localhost).Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
+		s.mux.Host(fmt.Sprintf("{bucketName}.%s", localhost)).Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	}
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 }
 

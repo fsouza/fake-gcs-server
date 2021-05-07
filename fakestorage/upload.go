@@ -222,7 +222,12 @@ func encodedMd5Hash(content []byte) string {
 
 func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
-	_, params, err := mime.ParseMediaType(r.Header.Get(contentTypeHeader))
+
+	rawHeader := r.Header.Get(contentTypeHeader)
+	// ParseMediaType expects the multipart boundary to be enclosed within double quotes. gsutil sends a boundary
+	// enclosed within single quotes instead
+	sanitizedHeader := strings.ReplaceAll(rawHeader, "'", "\"")
+	_, params, err := mime.ParseMediaType(sanitizedHeader)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusBadRequest,
