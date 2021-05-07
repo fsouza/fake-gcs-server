@@ -53,9 +53,31 @@ curl --insecure https://0.0.0.0:4443/storage/v1/b/sample-bucket/o
 
 This will result in one bucket called ``sample-bucket`` containing one object called ``some_file.txt``.
 
+### Running with HTTP
+
+fake-gcs-server defaults to HTTPS, but it can also be used with HTTP. The flag
+`-scheme` can be used to specify the protocol. For example, the previous
+example could be changed to pass `-scheme http`:
+
+```shell
+docker run -d --name fake-gcs-server -p 4443:4443 -v ${PWD}/examples/data:/data fsouza/fake-gcs-server -scheme http
+```
+
+And now we can curl it without the `--insecure` flag and using `http://`
+instead of `https://`:
+
+```shell
+curl http://0.0.0.0:4443/storage/v1/b
+{"kind":"storage#buckets","items":[{"kind":"storage#bucket","id":"sample-bucket","name":"sample-bucket"}],"prefixes":null}
+
+curl http://0.0.0.0:4443/storage/v1/b/sample-bucket/o
+{"kind":"storage#objects","items":[{"kind":"storage#object","name":"some_file.txt","id":"sample-bucket/some_file.txt","bucket":"sample-bucket","size":"33"}],"prefixes":[]}
+```
+
 ## Client library examples
 
-For examples using the Python, Node.js and Go clients, check out the [``examples``](/examples/) directory.
+For examples using the Python, Node.js and Go clients, check out the
+[``examples``](/examples/) directory.
 
 ### Building the image locally
 
