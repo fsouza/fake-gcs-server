@@ -380,11 +380,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 			commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
 		} else {
 			// End of a streaming request
-			contentLength := 0
-			if obj.Content != nil {
-				contentLength = len(obj.Content)
-			}
-			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", contentLength))
+			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", len(obj.Content)))
 		}
 	}
 	if commit {
