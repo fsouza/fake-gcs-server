@@ -192,6 +192,7 @@ func (s *Server) buildMuxer() {
 		r.Path("/b/{bucketName}/o").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("PATCH").HandlerFunc(jsonToHTTPHandler(s.patchObject))
 		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods("GET").HandlerFunc(jsonToHTTPHandler(s.listObjectACL))
+		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.setObjectACL))
 		r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods("PUT").HandlerFunc(jsonToHTTPHandler(s.setObjectACL))
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.getObject)
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("DELETE").HandlerFunc(jsonToHTTPHandler(s.deleteObject))
