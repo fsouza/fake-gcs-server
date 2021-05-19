@@ -488,6 +488,10 @@ func TestParseContentRange(t *testing.T) {
 			contentRange{KnownTotal: true, Start: -1, End: -1, Total: 1024},
 		},
 		{
+			"bytes 0-*/*", // Start and end of a streaming request as done by nodeJS client lib
+			contentRange{KnownTotal: false, Start: 0, End: -1, Total: -1},
+		},
+		{
 			"bytes 1024-2047/4096", // Range with a known total
 			contentRange{KnownRange: true, KnownTotal: true, Start: 1024, End: 2047, Total: 4096},
 		},
