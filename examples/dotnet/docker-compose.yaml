@@ -1,0 +1,9 @@
+version: "3.7"
+
+services:
+
+  storage:
+    image: fsouza/fake-gcs-server:v1.25.0
+    ports:
+      - 8080:8080
+    command: ["-scheme", "http", "-port", "8080", "-external-url", "http://localhost:8080"]
