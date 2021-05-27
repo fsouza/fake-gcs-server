@@ -120,7 +120,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 
 func checkChecksum(t *testing.T, content []byte, obj Object) {
 	t.Helper()
-	if expect := encodedCrc32cChecksum(content); expect != obj.Crc32c {
+	if expect := EncodedCrc32cChecksum(content); expect != obj.Crc32c {
 		t.Errorf("wrong checksum in the object\nwant %s\ngot  %s", expect, obj.Crc32c)
 	}
 }

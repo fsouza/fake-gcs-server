@@ -119,8 +119,8 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		Content:         data,
 		ContentType:     r.Header.Get(contentTypeHeader),
 		ContentEncoding: contentEncoding,
-		Crc32c:          encodedCrc32cChecksum(data),
-		Md5Hash:         encodedMd5Hash(data),
+		Crc32c:          EncodedCrc32cChecksum(data),
+		Md5Hash:         EncodedMd5Hash(data),
 		ACL:             getObjectACL(predefinedACL),
 	}
 	obj, err = s.createObject(obj)
@@ -159,8 +159,8 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		Content:         data,
 		ContentType:     r.Header.Get(contentTypeHeader),
 		ContentEncoding: contentEncoding,
-		Crc32c:          encodedCrc32cChecksum(data),
-		Md5Hash:         encodedMd5Hash(data),
+		Crc32c:          EncodedCrc32cChecksum(data),
+		Md5Hash:         EncodedMd5Hash(data),
 		ACL:             getObjectACL(predefinedACL),
 		Metadata:        metaData,
 	}
@@ -201,7 +201,7 @@ func encodedChecksum(checksum []byte) string {
 	return base64.StdEncoding.EncodeToString(checksum)
 }
 
-func encodedCrc32cChecksum(content []byte) string {
+func EncodedCrc32cChecksum(content []byte) string {
 	return encodedChecksum(crc32cChecksum(content))
 }
 
@@ -216,7 +216,7 @@ func encodedHash(hash []byte) string {
 	return base64.StdEncoding.EncodeToString(hash)
 }
 
-func encodedMd5Hash(content []byte) string {
+func EncodedMd5Hash(content []byte) string {
 	return encodedHash(md5Hash(content))
 }
 
@@ -268,8 +268,8 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		Content:         content,
 		ContentType:     contentType,
 		ContentEncoding: metadata.ContentEncoding,
-		Crc32c:          encodedCrc32cChecksum(content),
-		Md5Hash:         encodedMd5Hash(content),
+		Crc32c:          EncodedCrc32cChecksum(content),
+		Md5Hash:         EncodedMd5Hash(content),
 		ACL:             getObjectACL(predefinedACL),
 		Metadata:        metadata.Metadata,
 	}
@@ -364,8 +364,8 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	commit := true
 	status := http.StatusOK
 	obj.Content = append(obj.Content, content...)
-	obj.Crc32c = encodedCrc32cChecksum(obj.Content)
-	obj.Md5Hash = encodedMd5Hash(obj.Content)
+	obj.Crc32c = EncodedCrc32cChecksum(obj.Content)
+	obj.Md5Hash = EncodedMd5Hash(obj.Content)
 	obj.ContentType = r.Header.Get(contentTypeHeader)
 	responseHeader := make(http.Header)
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {

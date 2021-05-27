@@ -93,6 +93,8 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object
 				BucketName: bucketName,
 				Name:       objectKey,
 				Content:    fileContent,
+				Crc32c:     fakestorage.EncodedCrc32cChecksum(fileContent),
+				Md5Hash:    fakestorage.EncodedMd5Hash(fileContent),
 			})
 		}
 		return nil
