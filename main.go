@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
+	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/fsouza/fake-gcs-server/internal/config"
 	"github.com/sirupsen/logrus"
 )
@@ -93,8 +94,8 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object
 				BucketName: bucketName,
 				Name:       objectKey,
 				Content:    fileContent,
-				Crc32c:     fakestorage.EncodedCrc32cChecksum(fileContent),
-				Md5Hash:    fakestorage.EncodedMd5Hash(fileContent),
+				Crc32c:     checksum.EncodedCrc32cChecksum(fileContent),
+				Md5Hash:    checksum.EncodedMd5Hash(fileContent),
 			})
 		}
 		return nil

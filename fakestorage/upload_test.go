@@ -19,14 +19,15 @@ import (
 	"testing"
 
 	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"google.golang.org/api/googleapi"
 )
 
 func TestServerClientObjectWriter(t *testing.T) {
 	const baseContent = "some nice content"
 	content := strings.Repeat(baseContent+"\n", googleapi.MinUploadChunkSize)
-	checksum := uint32Checksum([]byte(content))
-	hash := md5Hash([]byte(content))
+	u32Checksum := uint32Checksum([]byte(content))
+	hash := checksum.MD5Hash([]byte(content))
 
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		tests := []struct {
@@ -80,16 +81,16 @@ func TestServerClientObjectWriter(t *testing.T) {
 						n, baseContent)
 				}
 
-				if returnedChecksum := w.Attrs().CRC32C; returnedChecksum != checksum {
-					t.Errorf("wrong writer.Attrs() checksum returned\nwant %d\ngot  %d", checksum, returnedChecksum)
+				if returnedChecksum := w.Attrs().CRC32C; returnedChecksum != u32Checksum {
+					t.Errorf("wrong writer.Attrs() checksum returned\nwant %d\ngot  %d", u32Checksum, returnedChecksum)
 				}
-				if base64Checksum := encodedChecksum(uint32ToBytes(checksum)); obj.Crc32c != base64Checksum {
+				if base64Checksum := checksum.EncodedChecksum(uint32ToBytes(u32Checksum)); obj.Crc32c != base64Checksum {
 					t.Errorf("wrong obj.Crc32c returned\nwant %s\ngot %s", base64Checksum, obj.Crc32c)
 				}
 				if returnedHash := w.Attrs().MD5; !bytes.Equal(returnedHash, hash) {
 					t.Errorf("wrong writer.Attrs() hash returned\nwant %d\ngot  %d", hash, returnedHash)
 				}
-				if stringHash := encodedHash(hash); obj.Md5Hash != stringHash {
+				if stringHash := checksum.EncodedHash(hash); obj.Md5Hash != stringHash {
 					t.Errorf("wrong obj.Md5Hash returned\nwant %s\ngot %s", stringHash, obj.Md5Hash)
 				}
 				if obj.ContentType != contentType {
@@ -120,7 +121,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 
 func checkChecksum(t *testing.T, content []byte, obj Object) {
 	t.Helper()
-	if expect := EncodedCrc32cChecksum(content); expect != obj.Crc32c {
+	if expect := checksum.EncodedCrc32cChecksum(content); expect != obj.Crc32c {
 		t.Errorf("wrong checksum in the object\nwant %s\ngot  %s", expect, obj.Crc32c)
 	}
 }
@@ -242,7 +243,6 @@ func TestServerClientSimpleUpload(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	client := http.Client{
 		Transport: &http.Transport{
-			// #nosec
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
@@ -287,7 +287,6 @@ func TestServerClientSignedUpload(t *testing.T) {
 	req.Header.Set("X-Goog-Meta-Key", "Value")
 	client := http.Client{
 		Transport: &http.Transport{
-			// #nosec
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
@@ -379,7 +378,6 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	client := http.Client{
 		Transport: &http.Transport{
-			// #nosec
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
@@ -436,7 +434,6 @@ func TestServerClientSimpleUploadNoName(t *testing.T) {
 	}
 	client := http.Client{
 		Transport: &http.Transport{
-			// #nosec
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
@@ -462,7 +459,6 @@ func TestServerInvalidUploadType(t *testing.T) {
 	}
 	client := http.Client{
 		Transport: &http.Transport{
-			// #nosec
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}

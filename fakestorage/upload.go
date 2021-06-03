@@ -5,12 +5,9 @@
 package fakestorage
 
 import (
-	"crypto/md5" // #nosec G501
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -20,6 +17,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/gorilla/mux"
 )
 
@@ -119,8 +117,8 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		Content:         data,
 		ContentType:     r.Header.Get(contentTypeHeader),
 		ContentEncoding: contentEncoding,
-		Crc32c:          EncodedCrc32cChecksum(data),
-		Md5Hash:         EncodedMd5Hash(data),
+		Crc32c:          checksum.EncodedCrc32cChecksum(data),
+		Md5Hash:         checksum.EncodedMd5Hash(data),
 		ACL:             getObjectACL(predefinedACL),
 	}
 	obj, err = s.createObject(obj)
@@ -159,8 +157,8 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		Content:         data,
 		ContentType:     r.Header.Get(contentTypeHeader),
 		ContentEncoding: contentEncoding,
-		Crc32c:          EncodedCrc32cChecksum(data),
-		Md5Hash:         EncodedMd5Hash(data),
+		Crc32c:          checksum.EncodedCrc32cChecksum(data),
+		Md5Hash:         checksum.EncodedMd5Hash(data),
 		ACL:             getObjectACL(predefinedACL),
 		Metadata:        metaData,
 	}
@@ -187,37 +185,6 @@ func getObjectACL(predefinedACL string) []storage.ACLRule {
 			Role:   "OWNER",
 		},
 	}
-}
-
-var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
-
-func crc32cChecksum(content []byte) []byte {
-	checksummer := crc32.New(crc32cTable)
-	checksummer.Write(content)
-	return checksummer.Sum(make([]byte, 0, 4))
-}
-
-func encodedChecksum(checksum []byte) string {
-	return base64.StdEncoding.EncodeToString(checksum)
-}
-
-func EncodedCrc32cChecksum(content []byte) string {
-	return encodedChecksum(crc32cChecksum(content))
-}
-
-func md5Hash(b []byte) []byte {
-	/* #nosec G401 */
-	h := md5.New()
-	h.Write(b)
-	return h.Sum(nil)
-}
-
-func encodedHash(hash []byte) string {
-	return base64.StdEncoding.EncodeToString(hash)
-}
-
-func EncodedMd5Hash(content []byte) string {
-	return encodedHash(md5Hash(content))
 }
 
 func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonResponse {
@@ -268,8 +235,8 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		Content:         content,
 		ContentType:     contentType,
 		ContentEncoding: metadata.ContentEncoding,
-		Crc32c:          EncodedCrc32cChecksum(content),
-		Md5Hash:         EncodedMd5Hash(content),
+		Crc32c:          checksum.EncodedCrc32cChecksum(content),
+		Md5Hash:         checksum.EncodedMd5Hash(content),
 		ACL:             getObjectACL(predefinedACL),
 		Metadata:        metadata.Metadata,
 	}
@@ -364,8 +331,8 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	commit := true
 	status := http.StatusOK
 	obj.Content = append(obj.Content, content...)
-	obj.Crc32c = EncodedCrc32cChecksum(obj.Content)
-	obj.Md5Hash = EncodedMd5Hash(obj.Content)
+	obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
+	obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
 	obj.ContentType = r.Header.Get(contentTypeHeader)
 	responseHeader := make(http.Header)
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
