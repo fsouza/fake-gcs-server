@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"google.golang.org/api/iterator"
 )
 
@@ -28,7 +29,7 @@ func uint32ToBytes(ui uint32) []byte {
 }
 
 func uint32Checksum(b []byte) uint32 {
-	checksummer := crc32.New(crc32cTable)
+	checksummer := crc32.New(crc32.MakeTable(crc32.Castagnoli))
 	checksummer.Write(b)
 	return checksummer.Sum32()
 }
@@ -47,25 +48,25 @@ func getObjectTestCases() objectTestCases {
 		metaValue       = "MetaValue"
 	)
 	testInitExecTime := time.Now().Truncate(time.Microsecond)
-	checksum := uint32Checksum([]byte(content))
-	hash := md5Hash([]byte(content))
+	u32Checksum := uint32Checksum([]byte(content))
+	hash := checksum.MD5Hash([]byte(content))
 
 	tests := objectTestCases{
 		{
 			"object but no creation nor modification date",
-			Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash)},
+			Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: checksum.EncodedChecksum(uint32ToBytes(u32Checksum)), Md5Hash: checksum.EncodedHash(hash)},
 		},
 		{
 			"object with creation and modification dates",
-			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime},
+			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: checksum.EncodedChecksum(uint32ToBytes(u32Checksum)), Md5Hash: checksum.EncodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime},
 		},
 		{
 			"object with creation, modification dates and generation",
-			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime, Generation: testInitExecTime.UnixNano()},
+			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, Crc32c: checksum.EncodedChecksum(uint32ToBytes(u32Checksum)), Md5Hash: checksum.EncodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime, Generation: testInitExecTime.UnixNano()},
 		},
 		{
 			"object with everything",
-			Object{BucketName: bucketName, Name: "img/location/meta.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: encodedChecksum(uint32ToBytes(checksum)), Md5Hash: encodedHash(hash), Metadata: map[string]string{"MetaHeader": metaValue}},
+			Object{BucketName: bucketName, Name: "img/location/meta.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: checksum.EncodedChecksum(uint32ToBytes(u32Checksum)), Md5Hash: checksum.EncodedHash(hash), Metadata: map[string]string{"MetaHeader": metaValue}},
 		},
 		{
 			"object with no contents neither dates",
@@ -120,8 +121,8 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	if testObj.Content != nil && attrs.CRC32C != uint32Checksum(testObj.Content) {
 		t.Errorf("wrong checksum returned\nwant %d\ngot   %d", uint32Checksum(testObj.Content), attrs.CRC32C)
 	}
-	if testObj.Content != nil && !bytes.Equal(attrs.MD5, md5Hash(testObj.Content)) {
-		t.Errorf("wrong hash returned\nwant %d\ngot   %d", md5Hash(testObj.Content), attrs.MD5)
+	if testObj.Content != nil && !bytes.Equal(attrs.MD5, checksum.MD5Hash(testObj.Content)) {
+		t.Errorf("wrong hash returned\nwant %d\ngot   %d", checksum.MD5Hash(testObj.Content), attrs.MD5)
 	}
 	if testObj.Metadata != nil {
 		if val, err := getMetadataHeaderFromAttrs(attrs, "MetaHeader"); err != nil || val != testObj.Metadata["MetaHeader"] {
@@ -175,7 +176,7 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 			metaValue   = "MetaValue"
 		)
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: true})
-		initialObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: encodedHash(md5Hash([]byte(content))), Metadata: map[string]string{"MetaHeader": metaValue}}
+		initialObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: checksum.EncodedHash(checksum.MD5Hash([]byte(content))), Metadata: map[string]string{"MetaHeader": metaValue}}
 		server.CreateObject(initialObj)
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(initialObj.Name)
@@ -189,7 +190,7 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 		// sleep for at least 100ns or more, so the creation time will differ on all platforms.
 		time.Sleep(time.Microsecond)
 
-		latestObjVersion := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content2), ContentType: contentType, Crc32c: encodedChecksum(uint32ToBytes(uint32Checksum([]byte(content2)))), Md5Hash: encodedHash(md5Hash([]byte(content2)))}
+		latestObjVersion := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content2), ContentType: contentType, Crc32c: checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(content2)))), Md5Hash: checksum.EncodedHash(checksum.MD5Hash([]byte(content2)))}
 		server.CreateObject(latestObjVersion)
 		objHandle = client.Bucket(bucketName).Object(latestObjVersion.Name)
 		latestAttrs, err := objHandle.Attrs(context.TODO())
@@ -906,16 +907,16 @@ func TestServiceClientRewriteObject(t *testing.T) {
 		content     = "some content"
 		contentType = "text/plain; charset=utf-8"
 	)
-	checksum := uint32Checksum([]byte(content))
-	hash := md5Hash([]byte(content))
+	u32Checksum := uint32Checksum([]byte(content))
+	hash := checksum.MD5Hash([]byte(content))
 	objs := []Object{
 		{
 			BucketName:  "first-bucket",
 			Name:        "files/some-file.txt",
 			Content:     []byte(content),
 			ContentType: contentType,
-			Crc32c:      encodedChecksum(uint32ToBytes(checksum)),
-			Md5Hash:     encodedHash(hash),
+			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+			Md5Hash:     checksum.EncodedHash(hash),
 			Metadata:    map[string]string{"foo": "bar"},
 		},
 	}
@@ -933,22 +934,22 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				"same bucket same file",
 				"first-bucket",
 				"files/some-file.txt",
-				checksum,
-				encodedHash(hash),
+				u32Checksum,
+				checksum.EncodedHash(hash),
 			},
 			{
 				"same bucket",
 				"first-bucket",
 				"files/other-file.txt",
-				checksum,
-				encodedHash(hash),
+				u32Checksum,
+				checksum.EncodedHash(hash),
 			},
 			{
 				"different bucket",
 				"empty-bucket",
 				"some/interesting/file.txt",
-				checksum,
-				encodedHash(hash),
+				u32Checksum,
+				checksum.EncodedHash(hash),
 			},
 		}
 		for _, test := range tests {
@@ -973,8 +974,8 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				if attrs.Size != int64(len(content)) {
 					t.Errorf("wrong size in copied object attrs\nwant %d\ngot  %d", len(content), attrs.Size)
 				}
-				if attrs.CRC32C != checksum {
-					t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", checksum, attrs.CRC32C)
+				if attrs.CRC32C != u32Checksum {
+					t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", u32Checksum, attrs.CRC32C)
 				}
 				if attrs.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
@@ -989,10 +990,10 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				if string(obj.Content) != content {
 					t.Errorf("wrong content on object\nwant %q\ngot  %q", content, string(obj.Content))
 				}
-				if expect := encodedChecksum(uint32ToBytes(checksum)); expect != obj.Crc32c {
+				if expect := checksum.EncodedChecksum(uint32ToBytes(u32Checksum)); expect != obj.Crc32c {
 					t.Errorf("wrong checksum on object\nwant %s\ngot  %s", expect, obj.Crc32c)
 				}
-				if expect := encodedHash(hash); expect != obj.Md5Hash {
+				if expect := checksum.EncodedHash(hash); expect != obj.Md5Hash {
 					t.Errorf("wrong hash on object\nwant %s\ngot  %s", expect, obj.Md5Hash)
 				}
 				if obj.ContentType != contentType {
@@ -1019,8 +1020,8 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 			Name:        "files/some-file.txt",
 			Content:     []byte(overwrittenContent),
 			ContentType: contentType,
-			Crc32c:      encodedChecksum(uint32ToBytes(uint32Checksum([]byte(overwrittenContent)))),
-			Md5Hash:     encodedHash(md5Hash([]byte(overwrittenContent))),
+			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(overwrittenContent)))),
+			Md5Hash:     checksum.EncodedHash(checksum.MD5Hash([]byte(overwrittenContent))),
 			Generation:  overwrittenGeneration,
 		},
 		{
@@ -1028,8 +1029,8 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 			Name:        "files/some-file.txt",
 			Content:     []byte(latestContent),
 			ContentType: contentType,
-			Crc32c:      encodedChecksum(uint32ToBytes(uint32Checksum([]byte(latestContent)))),
-			Md5Hash:     encodedHash(md5Hash([]byte(latestContent))),
+			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(latestContent)))),
+			Md5Hash:     checksum.EncodedHash(checksum.MD5Hash([]byte(latestContent))),
 		},
 	}
 	tests := []struct {
@@ -1081,7 +1082,7 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 				sourceObject := client.Bucket("first-bucket").Object("files/some-file.txt").Generation(overwrittenGeneration)
 				expectedContent := overwrittenContent
 				expectedChecksum := uint32Checksum([]byte(overwrittenContent))
-				expectedHash := md5Hash([]byte(overwrittenContent))
+				expectedHash := checksum.MD5Hash([]byte(overwrittenContent))
 				dstObject := client.Bucket(test.bucketName).Object(test.objectName)
 				copier := dstObject.CopierFrom(sourceObject)
 				copier.ContentType = contentType
@@ -1117,10 +1118,10 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 				if string(obj.Content) != expectedContent {
 					t.Errorf("wrong content on object\nwant %q\ngot  %q", expectedContent, string(obj.Content))
 				}
-				if expect := encodedChecksum(uint32ToBytes(expectedChecksum)); expect != obj.Crc32c {
+				if expect := checksum.EncodedChecksum(uint32ToBytes(expectedChecksum)); expect != obj.Crc32c {
 					t.Errorf("wrong checksum on object\nwant %s\ngot  %s", expect, obj.Crc32c)
 				}
-				if expect := encodedHash(expectedHash); expect != obj.Md5Hash {
+				if expect := checksum.EncodedHash(expectedHash); expect != obj.Md5Hash {
 					t.Errorf("wrong hash on object\nwant %s\ngot  %s", expect, obj.Md5Hash)
 				}
 				if obj.ContentType != contentType {
