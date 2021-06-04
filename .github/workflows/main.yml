@@ -119,6 +119,12 @@ jobs:
           entrypoint: sh
           args: ci/run-go-example.sh
 
+      - name: test-dotnet-example
+        uses: docker://mcr.microsoft.com/dotnet/sdk:5.0
+        with:
+          entrypoint: sh
+          args: ci/run-dotnet-example.sh
+
       - name: docker-publish
         uses: docker://docker
         env:
