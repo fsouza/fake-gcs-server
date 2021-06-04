@@ -3,84 +3,83 @@ on:
   push:
     branches:
       - main
-      - dotnet-example
 
   pull_request:
     branches:
       - main
 
 jobs:
-  # test:
-  #   strategy:
-  #     matrix:
-  #       go_version:
-  #         - 1.15
-  #         - 1.16
-  #       os:
-  #         - macos
-  #         - ubuntu
-  #         - windows
+  test:
+    strategy:
+      matrix:
+        go_version:
+          - 1.15
+          - 1.16
+        os:
+          - macos
+          - ubuntu
+          - windows
 
-  #   name: tests (${{ matrix.os }}/go-${{ matrix.go_version }})
-  #   runs-on: ${{ matrix.os }}-latest
-  #   steps:
-  #     - uses: actions/setup-go@v2.1.3
-  #       id: go
-  #       with:
-  #         stable: false
-  #         go-version: ${{ matrix.go_version }}
+    name: tests (${{ matrix.os }}/go-${{ matrix.go_version }})
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - uses: actions/setup-go@v2.1.3
+        id: go
+        with:
+          stable: false
+          go-version: ${{ matrix.go_version }}
 
-  #     - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.4
 
-  #     - name: run-tests
-  #       run: go test -race -vet all -mod readonly ./...
+      - name: run-tests
+        run: go test -race -vet all -mod readonly ./...
 
-  # lint:
-  #   name: lint
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2.3.4
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.4
 
-  #     - uses: golangci/golangci-lint-action@v2.5.2
+      - uses: golangci/golangci-lint-action@v2.5.2
 
-  # staticcheck:
-  #   name: staticcheck
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/setup-go@v2.1.3
-  #       id: go
-  #       with:
-  #         stable: false
-  #         go-version: 1.16
+  staticcheck:
+    name: staticcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2.1.3
+        id: go
+        with:
+          stable: false
+          go-version: 1.16
 
-  #     - run: |
-  #         go install honnef.co/go/tools/cmd/staticcheck@master
+      - run: |
+          go install honnef.co/go/tools/cmd/staticcheck@master
 
-  #     - name: get staticcheck version
-  #       id: get-staticcheck-version
-  #       run: |
-  #         echo "::set-output name=version::$(staticcheck --version | sed -e 's/,//g')"
+      - name: get staticcheck version
+        id: get-staticcheck-version
+        run: |
+          echo "::set-output name=version::$(staticcheck --version | sed -e 's/,//g')"
 
-  #     - name: staticcheck cache
-  #       id: staticcheck-cache
-  #       uses: actions/cache@v2.1.6
-  #       with:
-  #         path: ~/.cache/staticcheck
-  #         key: "${{ steps.get-staticcheck-version.outputs.version }}"
+      - name: staticcheck cache
+        id: staticcheck-cache
+        uses: actions/cache@v2.1.6
+        with:
+          path: ~/.cache/staticcheck
+          key: "${{ steps.get-staticcheck-version.outputs.version }}"
 
-  #     - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.4
 
-  #     - name: run staticcheck
-  #       run: |
-  #         staticcheck ./...
+      - name: run staticcheck
+        run: |
+          staticcheck ./...
 
   build:
     name: build-and-publish
     runs-on: ubuntu-latest
-    # needs:
-    #   - test
-    #   - lint
-    #   - staticcheck
+    needs:
+      - test
+      - lint
+      - staticcheck
     steps:
       - uses: actions/checkout@v2.3.4
 
