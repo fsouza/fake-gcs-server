@@ -30,6 +30,12 @@ updates:
   schedule:
     interval: daily
   open-pull-requests-limit: 99
+- package-ecosystem: nuget
+  directory: "/examples/dotnet"
+  schedule:
+    interval: daily
+  target-branch: dotnet-example
+  open-pull-requests-limit: 99
 - package-ecosystem: docker
   directory: "/"
   schedule:
