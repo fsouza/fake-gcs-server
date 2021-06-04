@@ -1,5 +1,7 @@
 name: Build
 on:
+  workflow_dispatch:
+
   push:
     branches:
       - main
@@ -120,7 +122,7 @@ jobs:
           args: ci/run-go-example.sh
 
       - name: test-dotnet-example
-        uses: docker://mcr.microsoft.com/dotnet/sdk:5.0
+        uses: docker://mcr.microsoft.com/dotnet/sdk-alpine:5.0
         with:
           entrypoint: sh
           args: ci/run-dotnet-example.sh
