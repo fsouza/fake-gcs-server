@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-FROM golang:1.16.4 AS builder
+FROM golang:1.16.5 AS builder
 WORKDIR /code
 ADD go.mod go.sum ./
 RUN go mod download
