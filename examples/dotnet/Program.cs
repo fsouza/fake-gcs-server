@@ -12,6 +12,8 @@ var client = new StorageClientBuilder
     UnauthenticatedAccess = true
 }.Build();
 
+throw new Exception("does not work");
+
 Console.WriteLine("Creating bucket");
 client.CreateBucket("test-project", "test-bucket");
 
