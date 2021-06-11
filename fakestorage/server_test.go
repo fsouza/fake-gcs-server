@@ -231,8 +231,8 @@ func testDownloadObjectRange(t *testing.T, server *Server) {
 	}{
 		{"No range specified", map[string]string{}, http.StatusOK, "something"},
 		{"Partial range specified", map[string]string{"Range": "bytes=1-4"}, http.StatusPartialContent, "omet"},
-		{"Exact range specified", map[string]string{"Range": "bytes=0-8"}, http.StatusOK, "something"},
-		{"Too-long range specified", map[string]string{"Range": "bytes=0-100"}, http.StatusOK, "something"},
+		{"Exact range specified", map[string]string{"Range": "bytes=0-8"}, http.StatusPartialContent, "something"},
+		{"Too-long range specified", map[string]string{"Range": "bytes=0-100"}, http.StatusPartialContent, "something"},
 	}
 	for _, test := range tests {
 		test := test
