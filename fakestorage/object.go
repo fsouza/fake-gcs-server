@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -544,7 +545,7 @@ func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, conte
 				var err error
 				if end, err = strconv.Atoi(rangeParts[1]); err != nil {
 					end = len(obj.Content)
-				} else {
+				} else if end != math.MaxInt64 {
 					end++
 				}
 				if end > len(obj.Content) {
