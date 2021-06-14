@@ -516,8 +516,8 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := http.StatusOK
-	start, end, content := s.handleRange(obj, r)
-	if len(content) != len(obj.Content) {
+	ranged, start, end, content := s.handleRange(obj, r)
+	if ranged {
 		status = http.StatusPartialContent
 		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(obj.Content)))
 	}
@@ -535,7 +535,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, content []byte) {
+func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start, end int, content []byte) {
 	if reqRange := r.Header.Get("Range"); reqRange != "" {
 		parts := strings.SplitN(reqRange, "=", 2)
 		if len(parts) == 2 && parts[0] == "bytes" {
@@ -551,11 +551,11 @@ func (s *Server) handleRange(obj Object, r *http.Request) (start, end int, conte
 				if end > len(obj.Content) {
 					end = len(obj.Content)
 				}
-				return start, end, obj.Content[start:end]
+				return true, start, end, obj.Content[start:end]
 			}
 		}
 	}
-	return 0, 0, obj.Content
+	return false, 0, 0, obj.Content
 }
 
 func (s *Server) patchObject(r *http.Request) jsonResponse {
