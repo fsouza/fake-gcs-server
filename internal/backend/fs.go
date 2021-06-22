@@ -92,7 +92,7 @@ func (s *storageFS) ListBuckets() ([]Bucket, error) {
 }
 
 func timespecToTime(ts syscall.Timespec) time.Time {
-	return time.Unix(ts.Sec, ts.Nsec)
+	return time.Unix(int64(ts.Sec), int64(ts.Nsec))
 }
 
 // GetBucket returns information about the given bucket, or an error if it

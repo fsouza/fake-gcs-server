@@ -535,21 +535,21 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start, end int, content []byte) {
+func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start int64, end int64, content []byte) {
 	if reqRange := r.Header.Get("Range"); reqRange != "" {
 		parts := strings.SplitN(reqRange, "=", 2)
 		if len(parts) == 2 && parts[0] == "bytes" {
 			rangeParts := strings.SplitN(parts[1], "-", 2)
 			if len(rangeParts) == 2 {
-				start, _ = strconv.Atoi(rangeParts[0])
+				start, _ = strconv.ParseInt(rangeParts[0], 10, 64)
 				var err error
-				if end, err = strconv.Atoi(rangeParts[1]); err != nil {
-					end = len(obj.Content)
+				if end, err = strconv.ParseInt(rangeParts[1], 10, 64); err != nil {
+					end = int64(len(obj.Content))
 				} else if end != math.MaxInt64 {
 					end++
 				}
-				if end > len(obj.Content) {
-					end = len(obj.Content)
+				if end > int64(len(obj.Content)) {
+					end = int64(len(obj.Content))
 				}
 				return true, start, end, obj.Content[start:end]
 			}
