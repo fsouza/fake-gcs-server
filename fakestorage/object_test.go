@@ -628,6 +628,43 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 			[]string{},
 			nil,
 		},
+		{
+			fmt.Sprintf("filtering endOffset, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{EndOffset: "img/low-res"},
+			[]string{
+				"img/brand.jpg",
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering startOffset and endOffset, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{StartOffset: "img/hi-res", EndOffset: "img/low-res"},
+			[]string{
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering prefix, delimiter, startOffset and endOffset, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{Prefix: "img/", Delimiter: "/", StartOffset: "img/hi-res", EndOffset: "img/low-res"},
+			[]string{},
+			[]string{"img/hi-res/"},
+		},
+		{
+			fmt.Sprintf("filtering prefix, delimiter and endOffset, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{Prefix: "img/", Delimiter: "/", StartOffset: "", EndOffset: "img/low-res"},
+			[]string{"img/brand.jpg"},
+			[]string{"img/hi-res/"},
+		},
 	}
 }
 

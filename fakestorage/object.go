@@ -234,7 +234,7 @@ func (s *Server) createObject(obj Object) (Object, error) {
 
 // ListObjects returns a sorted list of objects that match the given criteria,
 // or an error if the bucket doesn't exist.
-func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool) ([]Object, []string, error) {
+func (s *Server) ListObjects(bucketName, prefix, delimiter, startOffset, endOffset string, versions bool) ([]Object, []string, error) {
 	backendObjects, err := s.backend.ListObjects(bucketName, versions)
 	if err != nil {
 		return nil, nil, err
@@ -249,9 +249,14 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool
 			objName := strings.Replace(obj.Name, prefix, "", 1)
 			delimPos := strings.Index(objName, delimiter)
 			if delimiter != "" && delimPos > -1 {
-				prefixes[obj.Name[:len(prefix)+delimPos+1]] = true
+				prefix := obj.Name[:len(prefix)+delimPos+1]
+				if isInOffset(prefix, startOffset, endOffset) {
+					prefixes[prefix] = true
+				}
 			} else {
-				respObjects = append(respObjects, obj)
+				if isInOffset(obj.Name, startOffset, endOffset) {
+					respObjects = append(respObjects, obj)
+				}
 			}
 		}
 	}
@@ -261,6 +266,18 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool
 	}
 	sort.Strings(respPrefixes)
 	return respObjects, respPrefixes, nil
+}
+
+func isInOffset(name, startOffset, endOffset string) bool {
+	if endOffset != "" && startOffset != "" {
+		return strings.Compare(name, endOffset) < 0 && strings.Compare(name, startOffset) >= 0
+	} else if endOffset != "" {
+		return strings.Compare(name, endOffset) < 0
+	} else if startOffset != "" {
+		return strings.Compare(name, startOffset) >= 0
+	} else {
+		return true
+	}
 }
 
 func getCurrentIfZero(date time.Time) time.Time {
@@ -358,8 +375,10 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 	prefix := r.URL.Query().Get("prefix")
 	delimiter := r.URL.Query().Get("delimiter")
 	versions := r.URL.Query().Get("versions")
+	endOffset := r.URL.Query().Get("endOffset")
+	startOffset := r.URL.Query().Get("startOffset")
 
-	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter, versions == "true")
+	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter, startOffset, endOffset, versions == "true")
 
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
