@@ -242,15 +242,17 @@ type ListOptions struct {
 
 // ListObjects returns a sorted list of objects that match the given criteria,
 // or an error if the bucket doesn't exist.
+//
+// Deprecated: use ListObjectsWithOptions.
 func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool) ([]Object, []string, error) {
-	return s.ListObjectsWithOptions(bucketName, &ListOptions{
+	return s.ListObjectsWithOptions(bucketName, ListOptions{
 		Prefix:    prefix,
 		Delimiter: delimiter,
 		Versions:  versions,
 	})
 }
 
-func (s *Server) ListObjectsWithOptions(bucketName string, options *ListOptions) ([]Object, []string, error) {
+func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) ([]Object, []string, error) {
 	backendObjects, err := s.backend.ListObjects(bucketName, options.Versions)
 	if err != nil {
 		return nil, nil, err
@@ -388,15 +390,13 @@ func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, g
 
 func (s *Server) listObjects(r *http.Request) jsonResponse {
 	bucketName := mux.Vars(r)["bucketName"]
-	options := ListOptions{
+	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, ListOptions{
 		Prefix:      r.URL.Query().Get("prefix"),
 		Delimiter:   r.URL.Query().Get("delimiter"),
 		Versions:    r.URL.Query().Get("versions") == "true",
 		StartOffset: r.URL.Query().Get("startOffset"),
 		EndOffset:   r.URL.Query().Get("endOffset"),
-	}
-
-	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, &options)
+	})
 
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
