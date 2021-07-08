@@ -232,10 +232,26 @@ func (s *Server) createObject(obj Object) (Object, error) {
 	return fromBackendObjects([]backend.Object{newObj})[0], nil
 }
 
+type ListOptions struct {
+	Prefix      string
+	Delimiter   string
+	Versions    bool
+	StartOffset string
+	EndOffset   string
+}
+
 // ListObjects returns a sorted list of objects that match the given criteria,
 // or an error if the bucket doesn't exist.
-func (s *Server) ListObjects(bucketName, prefix, delimiter, startOffset, endOffset string, versions bool) ([]Object, []string, error) {
-	backendObjects, err := s.backend.ListObjects(bucketName, versions)
+func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool) ([]Object, []string, error) {
+	return s.ListObjectsWithOptions(bucketName, &ListOptions{
+		Prefix:    prefix,
+		Delimiter: delimiter,
+		Versions:  versions,
+	})
+}
+
+func (s *Server) ListObjectsWithOptions(bucketName string, options *ListOptions) ([]Object, []string, error) {
+	backendObjects, err := s.backend.ListObjects(bucketName, options.Versions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -245,16 +261,16 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter, startOffset, endOffs
 	var respObjects []Object
 	prefixes := make(map[string]bool)
 	for _, obj := range olist {
-		if strings.HasPrefix(obj.Name, prefix) {
-			objName := strings.Replace(obj.Name, prefix, "", 1)
-			delimPos := strings.Index(objName, delimiter)
-			if delimiter != "" && delimPos > -1 {
-				prefix := obj.Name[:len(prefix)+delimPos+1]
-				if isInOffset(prefix, startOffset, endOffset) {
+		if strings.HasPrefix(obj.Name, options.Prefix) {
+			objName := strings.Replace(obj.Name, options.Prefix, "", 1)
+			delimPos := strings.Index(objName, options.Delimiter)
+			if options.Delimiter != "" && delimPos > -1 {
+				prefix := obj.Name[:len(options.Prefix)+delimPos+1]
+				if isInOffset(prefix, options.StartOffset, options.EndOffset) {
 					prefixes[prefix] = true
 				}
 			} else {
-				if isInOffset(obj.Name, startOffset, endOffset) {
+				if isInOffset(obj.Name, options.StartOffset, options.EndOffset) {
 					respObjects = append(respObjects, obj)
 				}
 			}
@@ -372,13 +388,15 @@ func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, g
 
 func (s *Server) listObjects(r *http.Request) jsonResponse {
 	bucketName := mux.Vars(r)["bucketName"]
-	prefix := r.URL.Query().Get("prefix")
-	delimiter := r.URL.Query().Get("delimiter")
-	versions := r.URL.Query().Get("versions")
-	endOffset := r.URL.Query().Get("endOffset")
-	startOffset := r.URL.Query().Get("startOffset")
+	options := ListOptions{
+		Prefix:      r.URL.Query().Get("prefix"),
+		Delimiter:   r.URL.Query().Get("delimiter"),
+		Versions:    r.URL.Query().Get("versions") == "true",
+		StartOffset: r.URL.Query().Get("startOffset"),
+		EndOffset:   r.URL.Query().Get("endOffset"),
+	}
 
-	objs, prefixes, err := s.ListObjects(bucketName, prefix, delimiter, startOffset, endOffset, versions == "true")
+	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, &options)
 
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
