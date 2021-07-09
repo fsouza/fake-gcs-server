@@ -279,9 +279,6 @@ func requestCompressHandler(h http.Handler) http.Handler {
 }
 
 func matchFormData(r *http.Request, _ *mux.RouteMatch) bool {
-	contentType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil {
-		return false
-	}
+	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	return contentType == "multipart/form-data"
 }

@@ -690,7 +690,6 @@ func TestFormDataUpload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-
 	if fieldWriter, err = writer.CreateFormFile("file", "object.txt"); err != nil {
 		t.Fatal(err)
 	}
@@ -708,7 +707,7 @@ func TestFormDataUpload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req.Header.Set("Content-Type",  writer.FormDataContentType())
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 	client := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
