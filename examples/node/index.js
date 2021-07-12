@@ -17,11 +17,13 @@ async function run() {
   });
   // [END storage_list_buckets]
 
-  const response = await storage.bucket('sample-bucket')
+  const [content] = await storage.bucket('sample-bucket')
     .file('some_file.txt')
-    .download();
+    .download({
+      validation: false // FIXME
+    });
   console.log("Contents:")
-  console.log(response)
+  console.log(content.toString())
 }
 
 
