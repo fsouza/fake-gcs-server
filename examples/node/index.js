@@ -1,4 +1,4 @@
-async function listBuckets() {
+async function run() {
   // [START storage_list_buckets]
   // Imports the Google Cloud client library
   const { Storage } = require("@google-cloud/storage");
@@ -16,9 +16,16 @@ async function listBuckets() {
     console.log(bucket.id);
   });
   // [END storage_list_buckets]
+
+  const response = await storage.bucket('sample-bucket')
+    .file('some_file.txt')
+    .download();
+  console.log("Contents:")
+  console.log(response)
 }
 
-listBuckets().catch((err) => {
+
+run().catch((err) => {
   console.error(err);
   process.exit(1);
 });
