@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -209,6 +210,10 @@ func (s *Server) buildMuxer() {
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
 
+	// Form Uploads
+	s.mux.Host(s.publicHost).Path("/{bucketName}").MatcherFunc(matchFormData).Methods("POST", "PUT").HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
+	s.mux.Host(bucketHost).MatcherFunc(matchFormData).Methods("POST", "PUT").HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
+
 	// Signed URL Uploads
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
@@ -271,4 +276,9 @@ func requestCompressHandler(h http.Handler) http.Handler {
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+func matchFormData(r *http.Request, _ *mux.RouteMatch) bool {
+	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return contentType == "multipart/form-data"
 }

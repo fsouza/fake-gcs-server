@@ -76,6 +76,75 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 	}
 }
 
+func (s *Server) insertFormObject(r *http.Request) xmlResponse {
+	bucketName := mux.Vars(r)["bucketName"]
+
+	if err := r.ParseMultipartForm(32 << 20); nil != err {
+		return xmlResponse{errorMessage: "invalid form", status: http.StatusBadRequest}
+	}
+
+	// Load metadata
+	var name string
+	if keys, ok := r.MultipartForm.Value["key"]; ok {
+		name = keys[0]
+	}
+	if name == "" {
+		return xmlResponse{errorMessage: "missing key", status: http.StatusBadRequest}
+	}
+	var predefinedACL string
+	if acls, ok := r.MultipartForm.Value["acl"]; ok {
+		predefinedACL = acls[0]
+	}
+	var contentEncoding string
+	if contentEncodings, ok := r.MultipartForm.Value["Content-Encoding"]; ok {
+		contentEncoding = contentEncodings[0]
+	}
+	var contentType string
+	if contentTypes, ok := r.MultipartForm.Value["Content-Type"]; ok {
+		contentType = contentTypes[0]
+	}
+	metaData := make(map[string]string)
+	for key := range r.MultipartForm.Value {
+		lowerKey := strings.ToLower(key)
+		if metaDataKey := strings.TrimPrefix(lowerKey, "x-goog-meta-"); metaDataKey != lowerKey {
+			metaData[metaDataKey] = r.MultipartForm.Value[key][0]
+		}
+	}
+
+	// Load file
+	var file *multipart.FileHeader
+	if files, ok := r.MultipartForm.File["file"]; ok {
+		file = files[0]
+	}
+	if file == nil {
+		return xmlResponse{errorMessage: "missing file", status: http.StatusBadRequest}
+	}
+	infile, err := file.Open()
+	if err != nil {
+		return xmlResponse{errorMessage: err.Error()}
+	}
+	data, err := ioutil.ReadAll(infile)
+	if err != nil {
+		return xmlResponse{errorMessage: err.Error()}
+	}
+	obj := Object{
+		BucketName:      bucketName,
+		Name:            name,
+		Content:         data,
+		ContentType:     contentType,
+		ContentEncoding: contentEncoding,
+		Crc32c:          checksum.EncodedCrc32cChecksum(data),
+		Md5Hash:         checksum.EncodedMd5Hash(data),
+		ACL:             getObjectACL(predefinedACL),
+		Metadata:        metaData,
+	}
+	obj, err = s.createObject(obj)
+	if err != nil {
+		return xmlResponse{errorMessage: err.Error()}
+	}
+	return xmlResponse{status: http.StatusNoContent}
+}
+
 func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, objectName string) *jsonResponse {
 	ifGenerationMatch := r.URL.Query().Get("ifGenerationMatch")
 

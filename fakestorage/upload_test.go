@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"reflect"
 	"strings"
@@ -652,6 +653,90 @@ func TestServerGzippedUpload(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestFormDataUpload(t *testing.T) {
+	server, err := NewServerWithOptions(Options{PublicHost: "127.0.0.1"})
+	if err != nil {
+		t.Fatalf("could not start server: %v", err)
+	}
+	defer server.Stop()
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
+
+	var buf bytes.Buffer
+	const content = "some weird content"
+	const contentType = "text/plain"
+	writer := multipart.NewWriter(&buf)
+
+	var fieldWriter io.Writer
+	if fieldWriter, err = writer.CreateFormField("key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte("object.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("Content-Type"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(contentType)); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("x-goog-meta-key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte("Value")); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormFile("file", "object.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", server.URL()+"/other-bucket", &buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	expectedStatus := http.StatusNoContent
+	if resp.StatusCode != expectedStatus {
+		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
+	}
+
+	obj, err := server.GetObject("other-bucket", "object.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(obj.Content) != content {
+		t.Errorf("wrong content\nwant %q\ngot  %q", string(obj.Content), content)
+	}
+	if obj.ContentType != contentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+	}
+	if want := map[string]string{"key": "Value"}; !reflect.DeepEqual(obj.Metadata, want) {
+		t.Errorf("wrong metadata\nwant %q\ngot  %q", want, obj.Metadata)
+	}
+	checkChecksum(t, []byte(content), obj)
 }
 
 func isACLPublic(acl []storage.ACLRule) bool {
