@@ -19,9 +19,7 @@ async function run() {
 
   const [content] = await storage.bucket('sample-bucket')
     .file('some_file.txt')
-    .download({
-      // validation: false // FIXME: needed when x-goog-hash header isn't present on the response
-    });
+    .download();
   console.log("Contents:")
   console.log(content.toString())
 }
