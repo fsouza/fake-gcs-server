@@ -1,0 +1,9 @@
+services:
+  storage:
+    image: fsouza/fake-gcs-server
+    build: ../../
+    ports:
+      - 8080:8080
+    volumes:
+      - ../data:/data
+    command: ["-scheme", "http", "-port", "8080", "-external-url", "http://localhost:8080", "-backend", "memory"]
