@@ -562,8 +562,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
 	w.Header().Set(contentTypeHeader, obj.ContentType)
 	w.Header().Set("X-Goog-Generation", strconv.FormatInt(obj.Generation, 10))
-	w.Header().Set("X-Goog-Hash", fmt.Sprintf("crc32c=%s", obj.Crc32c))
-	// w.Header().Set("X-Goog-Hash", fmt.Sprintf("md5=%s", obj.Md5Hash))
+	w.Header().Set("X-Goog-Hash", fmt.Sprintf("crc32c=%s,md5=%s", obj.Crc32c, obj.Md5Hash))
 	w.Header().Set("Last-Modified", obj.Updated.Format(http.TimeFormat))
 	if obj.ContentEncoding != "" {
 		w.Header().Set("Content-Encoding", obj.ContentEncoding)
