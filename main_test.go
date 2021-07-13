@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"os"
 	"testing"
 
@@ -17,7 +18,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const testContentType = "text/plain; charset=utf-8"
+
 func TestMain(m *testing.M) {
+	mime.AddExtensionType(".txt", testContentType)
 	const emptyBucketDir = "testdata/basic/empty-bucket"
 	err := ensureEmptyDir(emptyBucketDir)
 	if err != nil {
@@ -44,9 +48,10 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			folder: "testdata/basic",
 			expectedObjects: []fakestorage.Object{
 				{
-					BucketName: "sample-bucket",
-					Name:       "some_file.txt",
-					Content:    []byte("Some amazing content to be loaded"),
+					BucketName:  "sample-bucket",
+					Name:        "some_file.txt",
+					Content:     []byte("Some amazing content to be loaded"),
+					ContentType: testContentType,
 				},
 			},
 			expectedEmptyBuckets: []string{"empty-bucket"},
@@ -56,19 +61,22 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			folder: "testdata/multi-level",
 			expectedObjects: []fakestorage.Object{
 				{
-					BucketName: "some-bucket",
-					Name:       "a/b/c/d/e/f/object1.txt",
-					Content:    []byte("this is object 1\n"),
+					BucketName:  "some-bucket",
+					Name:        "a/b/c/d/e/f/object1.txt",
+					Content:     []byte("this is object 1\n"),
+					ContentType: testContentType,
 				},
 				{
-					BucketName: "some-bucket",
-					Name:       "a/b/c/d/e/f/object2.txt",
-					Content:    []byte("this is object 2\n"),
+					BucketName:  "some-bucket",
+					Name:        "a/b/c/d/e/f/object2.txt",
+					Content:     []byte("this is object 2\n"),
+					ContentType: testContentType,
 				},
 				{
-					BucketName: "some-bucket",
-					Name:       "root-object.txt",
-					Content:    []byte("r00t\n"),
+					BucketName:  "some-bucket",
+					Name:        "root-object.txt",
+					Content:     []byte("r00t\n"),
+					ContentType: testContentType,
 				},
 			},
 		},
@@ -85,24 +93,28 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			folder: "testdata/chaos",
 			expectedObjects: []fakestorage.Object{
 				{
-					BucketName: "bucket1",
-					Name:       "object1.txt",
-					Content:    []byte("object 1\n"),
+					BucketName:  "bucket1",
+					Name:        "object1.txt",
+					Content:     []byte("object 1\n"),
+					ContentType: testContentType,
 				},
 				{
-					BucketName: "bucket1",
-					Name:       "object2.txt",
-					Content:    []byte("object 2\n"),
+					BucketName:  "bucket1",
+					Name:        "object2.txt",
+					Content:     []byte("object 2\n"),
+					ContentType: testContentType,
 				},
 				{
-					BucketName: "bucket2",
-					Name:       "object1.txt",
-					Content:    []byte("object 1\n"),
+					BucketName:  "bucket2",
+					Name:        "object1.txt",
+					Content:     []byte("object 1\n"),
+					ContentType: testContentType,
 				},
 				{
-					BucketName: "bucket2",
-					Name:       "object2.txt",
-					Content:    []byte("object 2\n"),
+					BucketName:  "bucket2",
+					Name:        "object2.txt",
+					Content:     []byte("object 2\n"),
+					ContentType: testContentType,
 				},
 			},
 		},
