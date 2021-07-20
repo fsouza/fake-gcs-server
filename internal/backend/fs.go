@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -18,6 +17,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/fsouza/fake-gcs-server/internal/checksum"
 )
 
 // storageFS is an implementation of the backend storage that stores data on disk
