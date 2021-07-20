@@ -1517,16 +1517,16 @@ func TestServiceClientComposeObject(t *testing.T) {
 				expectedHash := checksum.MD5Hash([]byte(test.expectedContent))
 
 				if attrs.Bucket != test.bucketName {
-					t.Errorf("wrong bucket in composed object attrs\nwant %q\ngot  %q", test.bucketName, attrs.Bucket)
+					t.Errorf("wrong bucket in compose object attrs\nwant %q\ngot  %q", test.bucketName, attrs.Bucket)
 				}
 				if attrs.Name != test.destObjectName {
-					t.Errorf("wrong name in composed object attrs\nwant %q\ngot  %q", test.destObjectName, attrs.Name)
+					t.Errorf("wrong name in compose object attrs\nwant %q\ngot  %q", test.destObjectName, attrs.Name)
 				}
 				if attrs.Size != int64(len(test.expectedContent)) {
-					t.Errorf("wrong size in composed object attrs\nwant %d\ngot  %d", int64(len(test.expectedContent)), attrs.Size)
+					t.Errorf("wrong size in compose object attrs\nwant %d\ngot  %d", int64(len(test.expectedContent)), attrs.Size)
 				}
 				if attrs.CRC32C != expectedChecksum {
-					t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", u32Checksum, attrs.CRC32C)
+					t.Errorf("wrong checksum in compose object attrs\nwant %d\ngot  %d", u32Checksum, attrs.CRC32C)
 				}
 				if attrs.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)

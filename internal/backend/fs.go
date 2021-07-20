@@ -221,14 +221,12 @@ func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[stri
 }
 
 func (s *storageFS) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string) (Object, error) {
-	var objects []Object
 	var data []byte
 	for _, n := range objectNames {
 		obj, err := s.GetObject(bucketName, n)
 		if err != nil {
 			return Object{}, err
 		}
-		objects = append(objects, obj)
 		data = append(data, obj.Content...)
 	}
 
