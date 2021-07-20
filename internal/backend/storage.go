@@ -18,6 +18,7 @@ type Storage interface {
 	GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error)
 	DeleteObject(bucketName, objectName string) error
 	PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error)
+	ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string) (Object, error)
 }
 
 type Error string

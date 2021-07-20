@@ -1411,3 +1411,149 @@ func TestParseRangeRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestServiceClientComposeObject(t *testing.T) {
+	const (
+		source1Content = "some content"
+		source2Content = "other content"
+		source3Content = "third test"
+		contentType    = "text/plain; charset=utf-8"
+	)
+	u32Checksum := uint32Checksum([]byte(source1Content))
+	hash := checksum.MD5Hash([]byte(source1Content))
+
+	objs := []Object{
+		{
+			BucketName:  "first-bucket",
+			Name:        "files/source1.txt",
+			Content:     []byte(source1Content),
+			ContentType: contentType,
+			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+			Md5Hash:     checksum.EncodedHash(hash),
+			Metadata:    map[string]string{"foo": "bar"},
+		},
+		{
+			BucketName:  "first-bucket",
+			Name:        "files/source2.txt",
+			Content:     []byte(source2Content),
+			ContentType: contentType,
+			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+			Md5Hash:     checksum.EncodedHash(hash),
+			Metadata:    map[string]string{"foo": "bar"},
+		},
+		{
+			BucketName:  "first-bucket",
+			Name:        "files/source3.txt",
+			Content:     []byte(source3Content),
+			ContentType: contentType,
+			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+			Md5Hash:     checksum.EncodedHash(hash),
+			Metadata:    map[string]string{"foo": "bar"},
+		},
+		{
+			BucketName:  "first-bucket",
+			Name:        "files/destination.txt",
+			Content:     []byte("test"),
+			ContentType: contentType,
+			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+			Md5Hash:     checksum.EncodedHash(hash),
+			Metadata:    map[string]string{"foo": "bar"},
+		},
+	}
+
+	runServersTest(t, objs, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
+		tests := []struct {
+			testCase          string
+			bucketName        string
+			destObjectName    string
+			sourceObjectNames []string
+			expectedContent   string
+		}{
+			{
+				"destination file doesn't exist",
+				"first-bucket",
+				"files/some-file.txt",
+				[]string{"files/source1.txt", "files/source2.txt"},
+				source1Content + source2Content,
+			},
+			{
+				"destination file already exists",
+				"first-bucket",
+				"files/destination.txt",
+				[]string{"files/source1.txt", "files/source2.txt"},
+				source1Content + source2Content,
+			},
+			{
+				"destination is a source",
+				"first-bucket",
+				"files/source3.txt",
+				[]string{"files/source2.txt", "files/source3.txt"},
+				source2Content + source3Content,
+			},
+		}
+		for _, test := range tests {
+			test := test
+			t.Run(test.testCase, func(t *testing.T) {
+				client := server.Client()
+
+				var sourceObjects []*storage.ObjectHandle
+				for _, n := range test.sourceObjectNames {
+					obj := client.Bucket(test.bucketName).Object(n)
+					sourceObjects = append(sourceObjects, obj)
+				}
+
+				dstObject := client.Bucket(test.bucketName).Object(test.destObjectName)
+				composer := dstObject.ComposerFrom(sourceObjects...)
+
+				composer.ContentType = contentType
+				composer.Metadata = map[string]string{"baz": "qux"}
+				attrs, err := composer.Run(context.TODO())
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				expectedChecksum := uint32Checksum([]byte(test.expectedContent))
+				expectedHash := checksum.MD5Hash([]byte(test.expectedContent))
+
+				if attrs.Bucket != test.bucketName {
+					t.Errorf("wrong bucket in composed object attrs\nwant %q\ngot  %q", test.bucketName, attrs.Bucket)
+				}
+				if attrs.Name != test.destObjectName {
+					t.Errorf("wrong name in composed object attrs\nwant %q\ngot  %q", test.destObjectName, attrs.Name)
+				}
+				if attrs.Size != int64(len(test.expectedContent)) {
+					t.Errorf("wrong size in composed object attrs\nwant %d\ngot  %d", int64(len(test.expectedContent)), attrs.Size)
+				}
+				if attrs.CRC32C != expectedChecksum {
+					t.Errorf("wrong checksum in copied object attrs\nwant %d\ngot  %d", u32Checksum, attrs.CRC32C)
+				}
+				if attrs.ContentType != contentType {
+					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
+				}
+				if !bytes.Equal(attrs.MD5, expectedHash) {
+					t.Errorf("wrong hash returned\nwant %d\ngot   %d", hash, attrs.MD5)
+				}
+				obj, err := server.GetObject(test.bucketName, test.destObjectName)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(obj.Content) != test.expectedContent {
+					t.Errorf("wrong content on object\nwant %q\ngot  %q", test.expectedContent, string(obj.Content))
+				}
+				if expect := checksum.EncodedChecksum(uint32ToBytes(expectedChecksum)); expect != obj.Crc32c {
+					t.Errorf("wrong checksum on object\nwant %s\ngot  %s", expect, obj.Crc32c)
+				}
+				if expect := checksum.EncodedHash(expectedHash); expect != obj.Md5Hash {
+					t.Errorf("wrong hash on object\nwant %s\ngot  %s", expect, obj.Md5Hash)
+				}
+				if obj.ContentType != contentType {
+					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+				}
+				if !reflect.DeepEqual(obj.Metadata, composer.Metadata) {
+					t.Errorf("wrong meta data\nwant %+v\ngot  %+v", composer.Metadata, obj.Metadata)
+				}
+			})
+		}
+	})
+}

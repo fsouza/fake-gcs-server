@@ -199,6 +199,7 @@ func (s *Server) buildMuxer() {
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("DELETE").HandlerFunc(jsonToHTTPHandler(s.deleteObject))
 		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/copyTo/b/{destinationBucket}/o/{destinationObject:.+}").HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
 		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/rewriteTo/b/{destinationBucket}/o/{destinationObject:.+}").HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
+		r.Path("/b/{bucketName}/o/{destinationObject:.+}/compose").HandlerFunc(jsonToHTTPHandler(s.composeObject))
 	}
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
