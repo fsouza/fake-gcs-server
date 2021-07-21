@@ -17,6 +17,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/fsouza/fake-gcs-server/internal/checksum"
 )
 
 // storageFS is an implementation of the backend storage that stores data on disk
@@ -217,4 +219,37 @@ func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[stri
 	}
 	s.CreateObject(obj) // recreate object
 	return obj, nil
+}
+
+func (s *storageFS) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string) (Object, error) {
+	var data []byte
+	for _, n := range objectNames {
+		obj, err := s.GetObject(bucketName, n)
+		if err != nil {
+			return Object{}, err
+		}
+		data = append(data, obj.Content...)
+	}
+
+	dest, err := s.GetObject(bucketName, destinationName)
+	if err != nil {
+		dest = Object{
+			BucketName:  bucketName,
+			Name:        destinationName,
+			ContentType: contentType,
+			Created:     time.Now().String(),
+		}
+	}
+
+	dest.Content = data
+	dest.Crc32c = checksum.EncodedCrc32cChecksum(data)
+	dest.Md5Hash = checksum.EncodedMd5Hash(data)
+	dest.Metadata = metadata
+
+	result, err := s.CreateObject(dest)
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
 }

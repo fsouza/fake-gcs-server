@@ -621,3 +621,46 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	}
 	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}
 }
+
+func (s *Server) composeObject(r *http.Request) jsonResponse {
+	vars := mux.Vars(r)
+	bucketName := vars["bucketName"]
+	destinationObject := vars["destinationObject"]
+
+	var composeRequest struct {
+		SourceObjects []struct {
+			Name string
+		}
+		Destination struct {
+			Bucket      string
+			ContentType string
+			Metadata    map[string]string
+		}
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&composeRequest)
+	if err != nil {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: "Error parsing request body",
+		}
+	}
+
+	var sourceNames []string
+	for _, n := range composeRequest.SourceObjects {
+		sourceNames = append(sourceNames, n.Name)
+	}
+
+	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType)
+	if err != nil {
+		return jsonResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: "Error running compose",
+		}
+	}
+
+	obj := fromBackendObjects([]backend.Object{backendObj})[0]
+
+	return jsonResponse{data: newObjectResponse(obj)}
+}
