@@ -627,22 +627,16 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 	bucketName := vars["bucketName"]
 	destinationObject := vars["destinationObject"]
 
-	type SourceObject struct {
-		Name string
+	var composeRequest struct {
+		SourceObjects []struct {
+			Name string
+		}
+		Destination struct {
+			Bucket      string
+			ContentType string
+			Metadata    map[string]string
+		}
 	}
-
-	type DestinationObject struct {
-		Bucket      string
-		ContentType string
-		Metadata    map[string]string
-	}
-
-	type ComposeRequest struct {
-		SourceObjects []SourceObject
-		Destination   DestinationObject
-	}
-
-	var composeRequest ComposeRequest
 
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&composeRequest)
@@ -661,7 +655,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType)
 	if err != nil {
 		return jsonResponse{
-			status:       http.StatusBadRequest,
+			status:       http.StatusInternalServerError,
 			errorMessage: "Error running compose",
 		}
 	}
