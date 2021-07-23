@@ -185,40 +185,40 @@ func (s *Server) buildMuxer() {
 	}
 
 	for _, r := range routers {
-		r.Path("/b").Methods("GET").HandlerFunc(jsonToHTTPHandler(s.listBuckets))
-		r.Path("/b").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.createBucketByPost))
-		r.Path("/b/{bucketName}").Methods("GET").HandlerFunc(jsonToHTTPHandler(s.getBucket))
-		r.Path("/b/{bucketName}").Methods("DELETE").HandlerFunc(jsonToHTTPHandler(s.deleteBucket))
-		r.Path("/b/{bucketName}/o").Methods("GET").HandlerFunc(jsonToHTTPHandler(s.listObjects))
-		r.Path("/b/{bucketName}/o").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.insertObject))
-		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("PATCH").HandlerFunc(jsonToHTTPHandler(s.patchObject))
-		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods("GET").HandlerFunc(jsonToHTTPHandler(s.listObjectACL))
-		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.setObjectACL))
-		r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods("PUT").HandlerFunc(jsonToHTTPHandler(s.setObjectACL))
-		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.getObject)
-		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods("DELETE").HandlerFunc(jsonToHTTPHandler(s.deleteObject))
-		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/copyTo/b/{destinationBucket}/o/{destinationObject:.+}").HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
-		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/rewriteTo/b/{destinationBucket}/o/{destinationObject:.+}").HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
-		r.Path("/b/{bucketName}/o/{destinationObject:.+}/compose").HandlerFunc(jsonToHTTPHandler(s.composeObject))
+		r.Path("/b").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.listBuckets))
+		r.Path("/b").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.createBucketByPost))
+		r.Path("/b/{bucketName}").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.getBucket))
+		r.Path("/b/{bucketName}").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteBucket))
+		r.Path("/b/{bucketName}/o").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.listObjects))
+		r.Path("/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodPatch).HandlerFunc(jsonToHTTPHandler(s.patchObject))
+		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.listObjectACL))
+		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.setObjectACL))
+		r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.setObjectACL))
+		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet).HandlerFunc(s.getObject)
+		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteObject))
+		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/copyTo/b/{destinationBucket}/o/{destinationObject:.+}").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
+		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/rewriteTo/b/{destinationBucket}/o/{destinationObject:.+}").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
+		r.Path("/b/{bucketName}/o/{destinationObject:.+}/compose").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.composeObject))
 	}
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
-	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
-	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods("GET").HandlerFunc(s.downloadObject)
-	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods("POST").HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	s.mux.Path("/upload/resumable/{uploadId}").Methods("PUT", "POST").HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
+	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet).HandlerFunc(s.downloadObject)
+	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	s.mux.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
-	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
-	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("GET", "HEAD").HandlerFunc(s.downloadObject)
+	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 
 	// Form Uploads
-	s.mux.Host(s.publicHost).Path("/{bucketName}").MatcherFunc(matchFormData).Methods("POST", "PUT").HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
-	s.mux.Host(bucketHost).MatcherFunc(matchFormData).Methods("POST", "PUT").HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
+	s.mux.Host(s.publicHost).Path("/{bucketName}").MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
+	s.mux.Host(bucketHost).MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
 
 	// Signed URL Uploads
-	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods("POST", "PUT").HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 }
 
 // Stop stops the server, closing all connections.
