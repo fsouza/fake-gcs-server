@@ -47,7 +47,7 @@ func newBucketResponse(bucket backend.Bucket) bucketResponse {
 	}
 }
 
-func newListObjectsResponse(objs []Object, prefixes []string) listResponse {
+func newListObjectsResponse(objs []ObjectAttrs, prefixes []string) listResponse {
 	resp := listResponse{
 		Kind:     "storage#objects",
 		Items:    make([]interface{}, len(objs)),
@@ -98,7 +98,7 @@ type objectResponse struct {
 	Metadata        map[string]string      `json:"metadata,omitempty"`
 }
 
-func newObjectResponse(obj Object) objectResponse {
+func newObjectResponse(obj ObjectAttrs) objectResponse {
 	acl := getAccessControlsListFromObject(obj)
 
 	return objectResponse{
@@ -106,7 +106,7 @@ func newObjectResponse(obj Object) objectResponse {
 		ID:              obj.id(),
 		Bucket:          obj.BucketName,
 		Name:            obj.Name,
-		Size:            int64(len(obj.Content)),
+		Size:            obj.Size,
 		ContentType:     obj.ContentType,
 		ContentEncoding: obj.ContentEncoding,
 		Crc32c:          obj.Crc32c,
@@ -124,14 +124,14 @@ type aclListResponse struct {
 	Items []*objectAccessControl `json:"items"`
 }
 
-func newACLListResponse(obj Object) aclListResponse {
+func newACLListResponse(obj ObjectAttrs) aclListResponse {
 	if len(obj.ACL) == 0 {
 		return aclListResponse{}
 	}
 	return aclListResponse{Items: getAccessControlsListFromObject(obj)}
 }
 
-func getAccessControlsListFromObject(obj Object) []*objectAccessControl {
+func getAccessControlsListFromObject(obj ObjectAttrs) []*objectAccessControl {
 	aclItems := make([]*objectAccessControl, len(obj.ACL))
 	for idx, aclRule := range obj.ACL {
 		aclItems[idx] = &objectAccessControl{
@@ -153,11 +153,11 @@ type rewriteResponse struct {
 	Resource            objectResponse `json:"resource"`
 }
 
-func newObjectRewriteResponse(obj Object) rewriteResponse {
+func newObjectRewriteResponse(obj ObjectAttrs) rewriteResponse {
 	return rewriteResponse{
 		Kind:                "storage#rewriteResponse",
-		TotalBytesRewritten: int64(len(obj.Content)),
-		ObjectSize:          int64(len(obj.Content)),
+		TotalBytesRewritten: obj.Size,
+		ObjectSize:          obj.Size,
 		Done:                true,
 		RewriteToken:        "",
 		Resource:            newObjectResponse(obj),

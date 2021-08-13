@@ -132,10 +132,12 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 		const content = "other content"
 		const contentType = "text/plain"
 		server.CreateObject(Object{
-			BucketName:  "some-bucket",
-			Name:        "some-object.txt",
-			Content:     []byte("some content"),
-			ContentType: "some-stff",
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "some-bucket",
+				Name:        "some-object.txt",
+				ContentType: "some-stff",
+			},
+			Content: []byte("some content"),
 		})
 		objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
 		w := objHandle.NewWriter(context.Background())
@@ -324,7 +326,7 @@ func TestServerClientSignedUploadBucketCNAME(t *testing.T) {
 	expectedHash := "bHupxaFBQh4cA8uYB8l8dA=="
 	opts := Options{
 		InitialObjects: []Object{
-			{BucketName: "mybucket.mydomain.com", Name: "files/txt/text-01.txt", Content: []byte("something")},
+			{ObjectAttrs: ObjectAttrs{BucketName: "mybucket.mydomain.com", Name: "files/txt/text-01.txt"}, Content: []byte("something")},
 		},
 	}
 	server, err := NewServerWithOptions(opts)

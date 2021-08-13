@@ -48,10 +48,12 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			folder: "testdata/basic",
 			expectedObjects: []fakestorage.Object{
 				{
-					BucketName:  "sample-bucket",
-					Name:        "some_file.txt",
-					Content:     []byte("Some amazing content to be loaded"),
-					ContentType: testContentType,
+					ObjectAttrs: fakestorage.ObjectAttrs{
+						BucketName:  "sample-bucket",
+						Name:        "some_file.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("Some amazing content to be loaded"),
 				},
 			},
 			expectedEmptyBuckets: []string{"empty-bucket"},
@@ -61,22 +63,28 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			folder: "testdata/multi-level",
 			expectedObjects: []fakestorage.Object{
 				{
-					BucketName:  "some-bucket",
-					Name:        "a/b/c/d/e/f/object1.txt",
-					Content:     []byte("this is object 1\n"),
-					ContentType: testContentType,
+					ObjectAttrs: fakestorage.ObjectAttrs{
+						BucketName:  "some-bucket",
+						Name:        "a/b/c/d/e/f/object1.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("this is object 1\n"),
 				},
 				{
-					BucketName:  "some-bucket",
-					Name:        "a/b/c/d/e/f/object2.txt",
-					Content:     []byte("this is object 2\n"),
-					ContentType: testContentType,
+					ObjectAttrs: fakestorage.ObjectAttrs{
+						BucketName:  "some-bucket",
+						Name:        "a/b/c/d/e/f/object2.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("this is object 2\n"),
 				},
 				{
-					BucketName:  "some-bucket",
-					Name:        "root-object.txt",
-					Content:     []byte("r00t\n"),
-					ContentType: testContentType,
+					ObjectAttrs: fakestorage.ObjectAttrs{
+						BucketName:  "some-bucket",
+						Name:        "root-object.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("r00t\n"),
 				},
 			},
 		},
@@ -93,28 +101,36 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			folder: "testdata/chaos",
 			expectedObjects: []fakestorage.Object{
 				{
-					BucketName:  "bucket1",
-					Name:        "object1.txt",
-					Content:     []byte("object 1\n"),
-					ContentType: testContentType,
+					ObjectAttrs: fakestorage.ObjectAttrs{
+						BucketName:  "bucket1",
+						Name:        "object1.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("object 1\n"),
 				},
 				{
-					BucketName:  "bucket1",
-					Name:        "object2.txt",
-					Content:     []byte("object 2\n"),
-					ContentType: testContentType,
+					ObjectAttrs: fakestorage.ObjectAttrs{
+						BucketName:  "bucket1",
+						Name:        "object2.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("object 2\n"),
 				},
 				{
-					BucketName:  "bucket2",
-					Name:        "object1.txt",
-					Content:     []byte("object 1\n"),
-					ContentType: testContentType,
+					ObjectAttrs: fakestorage.ObjectAttrs{
+						BucketName:  "bucket2",
+						Name:        "object1.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("object 1\n"),
 				},
 				{
-					BucketName:  "bucket2",
-					Name:        "object2.txt",
-					Content:     []byte("object 2\n"),
-					ContentType: testContentType,
+					ObjectAttrs: fakestorage.ObjectAttrs{
+						BucketName:  "bucket2",
+						Name:        "object2.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("object 2\n"),
 				},
 			},
 		},

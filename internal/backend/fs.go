@@ -144,7 +144,7 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 
 // ListObjects lists the objects in a given bucket with a given prefix and
 // delimeter.
-func (s *storageFS) ListObjects(bucketName string, versions bool) ([]Object, error) {
+func (s *storageFS) ListObjects(bucketName string, versions bool) ([]ObjectAttrs, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
@@ -152,7 +152,7 @@ func (s *storageFS) ListObjects(bucketName string, versions bool) ([]Object, err
 	if err != nil {
 		return nil, err
 	}
-	objects := []Object{}
+	objects := []ObjectAttrs{}
 	for _, info := range infos {
 		unescaped, err := url.PathUnescape(info.Name())
 		if err != nil {
@@ -162,7 +162,8 @@ func (s *storageFS) ListObjects(bucketName string, versions bool) ([]Object, err
 		if err != nil {
 			return nil, err
 		}
-		objects = append(objects, object)
+		object.Size = int64(len(object.Content))
+		objects = append(objects, object.ObjectAttrs)
 	}
 	return objects, nil
 }
@@ -192,6 +193,7 @@ func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
 	}
 	obj.Name = filepath.ToSlash(objectName)
 	obj.BucketName = bucketName
+	obj.Size = int64(len(obj.Content))
 	return obj, nil
 }
 
@@ -233,11 +235,14 @@ func (s *storageFS) ComposeObject(bucketName string, objectNames []string, desti
 
 	dest, err := s.GetObject(bucketName, destinationName)
 	if err != nil {
-		dest = Object{
+		oattrs := ObjectAttrs{
 			BucketName:  bucketName,
 			Name:        destinationName,
 			ContentType: contentType,
 			Created:     time.Now().String(),
+		}
+		dest = Object{
+			ObjectAttrs: oattrs,
 		}
 	}
 

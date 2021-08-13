@@ -17,11 +17,11 @@ import (
 
 func TestServerClientBucketAttrs(t *testing.T) {
 	objs := []Object{
-		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
-		{BucketName: "other_bucket", Name: "static/css/website.css"},
-		{BucketName: "dot.bucket", Name: "static/js/app.js"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "other_bucket", Name: "static/css/website.css"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "dot.bucket", Name: "static/js/app.js"}},
 	}
 	startTime := time.Now()
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -86,7 +86,7 @@ func TestServerClientDeleteBucket(t *testing.T) {
 
 	t.Run("it returns an error for non-empty buckets", func(t *testing.T) {
 		const bucketName = "non-empty-bucket"
-		objs := []Object{{BucketName: bucketName, Name: "static/js/app.js"}}
+		objs := []Object{{ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "static/js/app.js"}}}
 		runServersTest(t, objs, func(t *testing.T, server *Server) {
 			client := server.Client()
 			err := client.Bucket(bucketName).Delete(context.Background())
@@ -179,11 +179,11 @@ func TestServerClientBucketAttrsNotFound(t *testing.T) {
 
 func TestServerClientListBuckets(t *testing.T) {
 	objs := []Object{
-		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
-		{BucketName: "other_bucket", Name: "static/css/website.css"},
-		{BucketName: "dot.bucket", Name: "static/js/app.js"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "other_bucket", Name: "static/css/website.css"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "dot.bucket", Name: "static/js/app.js"}},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -224,9 +224,9 @@ func TestServerClientListBuckets(t *testing.T) {
 
 func TestServerClientListObjects(t *testing.T) {
 	objects := []Object{
-		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"}},
 	}
 	dir, err := ioutil.TempDir("", "fakestorage-test-root-")
 	if err != nil {

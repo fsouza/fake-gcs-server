@@ -23,13 +23,13 @@ import (
 
 var errInvalidGeneration = errors.New("invalid generation ID")
 
-// Object represents the object that is stored within the fake server.
-type Object struct {
+// ObjectAttrs returns only the meta-data about an object without its contents.
+type ObjectAttrs struct {
 	BucketName      string
 	Name            string
+	Size            int64
 	ContentType     string
 	ContentEncoding string
-	Content         []byte
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string
 	Md5Hash string
@@ -43,11 +43,22 @@ type Object struct {
 	Metadata   map[string]string
 }
 
+func (o *ObjectAttrs) id() string {
+	return o.BucketName + "/" + o.Name
+}
+
+// Object represents the object that is stored within the fake server.
+type Object struct {
+	ObjectAttrs
+	Content []byte
+}
+
 // MarshalJSON for Object to use ACLRule instead of storage.ACLRule
 func (o Object) MarshalJSON() ([]byte, error) {
 	temp := struct {
 		BucketName      string            `json:"bucket"`
 		Name            string            `json:"name"`
+		Size            int64             `json:"-"`
 		ContentType     string            `json:"contentType"`
 		ContentEncoding string            `json:"contentEncoding"`
 		Content         []byte            `json:"-"`
@@ -85,6 +96,7 @@ func (o *Object) UnmarshalJSON(data []byte) error {
 	temp := struct {
 		BucketName      string            `json:"bucket"`
 		Name            string            `json:"name"`
+		Size            int64             `json:"-"`
 		ContentType     string            `json:"contentType"`
 		ContentEncoding string            `json:"contentEncoding"`
 		Content         []byte            `json:"-"`
@@ -193,21 +205,18 @@ func (team *projectTeam) UnmarshalJSON(data []byte) error {
 	team.Team = temp.Team
 	return nil
 }
-func (o *Object) id() string {
-	return o.BucketName + "/" + o.Name
-}
 
-type objectList []Object
+type objectAttrsList []ObjectAttrs
 
-func (o objectList) Len() int {
+func (o objectAttrsList) Len() int {
 	return len(o)
 }
 
-func (o objectList) Less(i int, j int) bool {
+func (o objectAttrsList) Less(i int, j int) bool {
 	return o[i].Name < o[j].Name
 }
 
-func (o *objectList) Swap(i int, j int) {
+func (o *objectAttrsList) Swap(i int, j int) {
 	d := *o
 	d[i], d[j] = d[j], d[i]
 }
@@ -244,7 +253,7 @@ type ListOptions struct {
 // or an error if the bucket doesn't exist.
 //
 // Deprecated: use ListObjectsWithOptions.
-func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool) ([]Object, []string, error) {
+func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool) ([]ObjectAttrs, []string, error) {
 	return s.ListObjectsWithOptions(bucketName, ListOptions{
 		Prefix:    prefix,
 		Delimiter: delimiter,
@@ -252,15 +261,15 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool
 	})
 }
 
-func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) ([]Object, []string, error) {
+func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) ([]ObjectAttrs, []string, error) {
 	backendObjects, err := s.backend.ListObjects(bucketName, options.Versions)
 	if err != nil {
 		return nil, nil, err
 	}
-	objects := fromBackendObjects(backendObjects)
-	olist := objectList(objects)
+	objects := fromBackendObjectsAttrs(backendObjects)
+	olist := objectAttrsList(objects)
 	sort.Sort(&olist)
-	var respObjects []Object
+	var respObjects []ObjectAttrs
 	prefixes := make(map[string]bool)
 	for _, obj := range olist {
 		if strings.HasPrefix(obj.Name, options.Prefix) {
@@ -309,19 +318,22 @@ func toBackendObjects(objects []Object) []backend.Object {
 	backendObjects := []backend.Object{}
 	for _, o := range objects {
 		backendObjects = append(backendObjects, backend.Object{
-			BucketName:      o.BucketName,
-			Name:            o.Name,
-			Content:         o.Content,
-			ContentType:     o.ContentType,
-			ContentEncoding: o.ContentEncoding,
-			Crc32c:          o.Crc32c,
-			Md5Hash:         o.Md5Hash,
-			ACL:             o.ACL,
-			Created:         getCurrentIfZero(o.Created).Format(timestampFormat),
-			Deleted:         o.Deleted.Format(timestampFormat),
-			Updated:         getCurrentIfZero(o.Updated).Format(timestampFormat),
-			Generation:      o.Generation,
-			Metadata:        o.Metadata,
+			ObjectAttrs: backend.ObjectAttrs{
+				BucketName:      o.BucketName,
+				Name:            o.Name,
+				Size:            int64(len(o.Content)),
+				ContentType:     o.ContentType,
+				ContentEncoding: o.ContentEncoding,
+				Crc32c:          o.Crc32c,
+				Md5Hash:         o.Md5Hash,
+				ACL:             o.ACL,
+				Created:         getCurrentIfZero(o.Created).Format(timestampFormat),
+				Deleted:         o.Deleted.Format(timestampFormat),
+				Updated:         getCurrentIfZero(o.Updated).Format(timestampFormat),
+				Generation:      o.Generation,
+				Metadata:        o.Metadata,
+			},
+			Content: o.Content,
 		})
 	}
 	return backendObjects
@@ -331,9 +343,34 @@ func fromBackendObjects(objects []backend.Object) []Object {
 	backendObjects := []Object{}
 	for _, o := range objects {
 		backendObjects = append(backendObjects, Object{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:      o.BucketName,
+				Name:            o.Name,
+				Size:            int64(len(o.Content)),
+				ContentType:     o.ContentType,
+				ContentEncoding: o.ContentEncoding,
+				Crc32c:          o.Crc32c,
+				Md5Hash:         o.Md5Hash,
+				ACL:             o.ACL,
+				Created:         convertTimeWithoutError(o.Created),
+				Deleted:         convertTimeWithoutError(o.Deleted),
+				Updated:         convertTimeWithoutError(o.Updated),
+				Generation:      o.Generation,
+				Metadata:        o.Metadata,
+			},
+			Content: o.Content,
+		})
+	}
+	return backendObjects
+}
+
+func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
+	oattrs := []ObjectAttrs{}
+	for _, o := range objectAttrs {
+		oattrs = append(oattrs, ObjectAttrs{
 			BucketName:      o.BucketName,
 			Name:            o.Name,
-			Content:         o.Content,
+			Size:            o.Size,
 			ContentType:     o.ContentType,
 			ContentEncoding: o.ContentEncoding,
 			Crc32c:          o.Crc32c,
@@ -346,7 +383,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 			Metadata:        o.Metadata,
 		})
 	}
-	return backendObjects
+	return oattrs
 }
 
 func convertTimeWithoutError(t string) time.Time {
@@ -430,7 +467,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		header.Set("Accept-Ranges", "bytes")
 		return jsonResponse{
 			header: header,
-			data:   newObjectResponse(obj),
+			data:   newObjectResponse(obj.ObjectAttrs),
 		}
 	})
 
@@ -455,7 +492,7 @@ func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 		return jsonResponse{status: http.StatusNotFound}
 	}
 
-	return jsonResponse{data: newACLListResponse(obj)}
+	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs)}
 }
 
 func (s *Server) setObjectACL(r *http.Request) jsonResponse {
@@ -488,7 +525,7 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 
 	s.CreateObject(obj)
 
-	return jsonResponse{data: newACLListResponse(obj)}
+	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs)}
 }
 
 func (s *Server) rewriteObject(r *http.Request) jsonResponse {
@@ -523,19 +560,22 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 
 	dstBucket := vars["destinationBucket"]
 	newObject := Object{
-		BucketName:      dstBucket,
-		Name:            vars["destinationObject"],
-		Content:         append([]byte(nil), obj.Content...),
-		Crc32c:          obj.Crc32c,
-		Md5Hash:         obj.Md5Hash,
-		ACL:             obj.ACL,
-		ContentType:     metadata.ContentType,
-		ContentEncoding: metadata.ContentEncoding,
-		Metadata:        metadata.Metadata,
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      dstBucket,
+			Name:            vars["destinationObject"],
+			Size:            int64(len(obj.Content)),
+			Crc32c:          obj.Crc32c,
+			Md5Hash:         obj.Md5Hash,
+			ACL:             obj.ACL,
+			ContentType:     metadata.ContentType,
+			ContentEncoding: metadata.ContentEncoding,
+			Metadata:        metadata.Metadata,
+		},
+		Content: append([]byte(nil), obj.Content...),
 	}
 
 	s.CreateObject(newObject)
-	return jsonResponse{data: newObjectRewriteResponse(newObject)}
+	return jsonResponse{data: newObjectRewriteResponse(newObject.ObjectAttrs)}
 }
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
@@ -662,5 +702,5 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 
 	obj := fromBackendObjects([]backend.Object{backendObj})[0]
 
-	return jsonResponse{data: newObjectResponse(obj)}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs)}
 }

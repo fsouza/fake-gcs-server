@@ -10,13 +10,13 @@ import (
 	"cloud.google.com/go/storage"
 )
 
-// Object represents the object that is stored within the fake server.
-type Object struct {
+// ObjectAttrs represents the meta-data without its contents.
+type ObjectAttrs struct {
 	BucketName      string `json:"-"`
 	Name            string `json:"-"`
+	Size            int64  `json:"-"`
 	ContentType     string
 	ContentEncoding string
-	Content         []byte
 	Crc32c          string
 	Md5Hash         string
 	ACL             []storage.ACLRule
@@ -28,11 +28,17 @@ type Object struct {
 }
 
 // ID is used for comparing objects.
-func (o *Object) ID() string {
+func (o *ObjectAttrs) ID() string {
 	return fmt.Sprintf("%s#%d", o.IDNoGen(), o.Generation)
 }
 
 // IDNoGen does not consider the generation field.
-func (o *Object) IDNoGen() string {
+func (o *ObjectAttrs) IDNoGen() string {
 	return fmt.Sprintf("%s/%s", o.BucketName, o.Name)
+}
+
+// Object represents the object that is stored within the fake server.
+type Object struct {
+	ObjectAttrs
+	Content []byte
 }

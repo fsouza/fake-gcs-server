@@ -16,10 +16,10 @@ import (
 func TestNewServer(t *testing.T) {
 	t.Parallel()
 	server := NewServer([]Object{
-		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
-		{BucketName: "other-bucket", Name: "static/css/website.css"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "other-bucket", Name: "static/css/website.css"}},
 	})
 	defer server.Stop()
 	url := server.URL()
@@ -135,10 +135,10 @@ func TestPublicURL(t *testing.T) {
 
 func TestDownloadObject(t *testing.T) {
 	objs := []Object{
-		{BucketName: "some-bucket", Name: "files/txt/text-01.txt", Content: []byte("something")},
-		{BucketName: "some-bucket", Name: "files/txt/text-02.txt"},
-		{BucketName: "some-bucket", Name: "files/txt/text-03.txt"},
-		{BucketName: "other-bucket", Name: "static/css/website.css", Content: []byte("body {display: none;}")},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-01.txt"}, Content: []byte("something")},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-02.txt"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-03.txt"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "other-bucket", Name: "static/css/website.css"}, Content: []byte("body {display: none;}")},
 	}
 	runServersTest(t, objs, testDownloadObject)
 	runServersTest(t, objs, testDownloadObjectRange)
@@ -302,8 +302,8 @@ func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 		},
 	}
 	objs := []Object{
-		{BucketName: "some-bucket", Name: "files/txt/text-01.txt", Content: []byte("something")},
-		{BucketName: "other-bucket", Name: "static/css/website.css", Content: []byte("body {display: none;}")},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-01.txt"}, Content: []byte("something")},
+		{ObjectAttrs: ObjectAttrs{BucketName: "other-bucket", Name: "static/css/website.css"}, Content: []byte("body {display: none;}")},
 	}
 	opts := Options{
 		InitialObjects: objs,

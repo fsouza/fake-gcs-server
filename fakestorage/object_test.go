@@ -54,23 +54,73 @@ func getObjectTestCases() objectTestCases {
 	tests := objectTestCases{
 		{
 			"object but no creation nor modification date",
-			Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: checksum.EncodedChecksum(uint32ToBytes(u32Checksum)), Md5Hash: checksum.EncodedHash(hash)},
+			Object{
+				Content: []byte(content), ObjectAttrs: ObjectAttrs{
+					BucketName:      bucketName,
+					Name:            "img/low-res/party-01.jpg",
+					ContentType:     contentType,
+					ContentEncoding: contentEncoding,
+					Crc32c:          checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+					Md5Hash:         checksum.EncodedHash(hash),
+				},
+			},
 		},
 		{
 			"object with creation and modification dates",
-			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: checksum.EncodedChecksum(uint32ToBytes(u32Checksum)), Md5Hash: checksum.EncodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime},
+			Object{
+				Content: []byte(content),
+				ObjectAttrs: ObjectAttrs{
+					BucketName:      bucketName,
+					Name:            "img/low-res/party-02.jpg",
+					ContentType:     contentType,
+					ContentEncoding: contentEncoding,
+					Crc32c:          checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+					Md5Hash:         checksum.EncodedHash(hash),
+					Created:         testInitExecTime,
+					Updated:         testInitExecTime,
+				},
+			},
 		},
 		{
 			"object with creation, modification dates and generation",
-			Object{BucketName: bucketName, Name: "img/low-res/party-02.jpg", Content: []byte(content), ContentType: contentType, Crc32c: checksum.EncodedChecksum(uint32ToBytes(u32Checksum)), Md5Hash: checksum.EncodedHash(hash), Created: testInitExecTime, Updated: testInitExecTime, Generation: testInitExecTime.UnixNano()},
+			Object{
+				Content: []byte(content),
+				ObjectAttrs: ObjectAttrs{
+					BucketName:  bucketName,
+					Name:        "img/low-res/party-02.jpg",
+					ContentType: contentType,
+					Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+					Md5Hash:     checksum.EncodedHash(hash),
+					Created:     testInitExecTime,
+					Updated:     testInitExecTime,
+					Generation:  testInitExecTime.UnixNano(),
+				},
+			},
 		},
 		{
 			"object with everything",
-			Object{BucketName: bucketName, Name: "img/location/meta.jpg", Content: []byte(content), ContentType: contentType, ContentEncoding: contentEncoding, Crc32c: checksum.EncodedChecksum(uint32ToBytes(u32Checksum)), Md5Hash: checksum.EncodedHash(hash), Metadata: map[string]string{"MetaHeader": metaValue}},
+			Object{
+				Content: []byte(content),
+				ObjectAttrs: ObjectAttrs{
+					BucketName:      bucketName,
+					Name:            "img/location/meta.jpg",
+					ContentType:     contentType,
+					ContentEncoding: contentEncoding,
+					Crc32c:          checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+					Md5Hash:         checksum.EncodedHash(hash),
+					Metadata:        map[string]string{"MetaHeader": metaValue},
+				},
+			},
 		},
 		{
 			"object with no contents neither dates",
-			Object{BucketName: bucketName, Name: "video/hi-res/best_video_1080p.mp4", ContentType: "text/html; charset=utf-8"},
+			Object{
+				ObjectAttrs: ObjectAttrs{
+					BucketName:  bucketName,
+					Name:        "video/hi-res/best_video_1080p.mp4",
+					ContentType: "text/html; charset=utf-8",
+				},
+			},
 		},
 	}
 	return tests
@@ -176,7 +226,10 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 			metaValue   = "MetaValue"
 		)
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: true})
-		initialObj := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content), ContentType: contentType, Crc32c: checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: checksum.EncodedHash(checksum.MD5Hash([]byte(content))), Metadata: map[string]string{"MetaHeader": metaValue}}
+		initialObj := Object{
+			Content:     []byte(content),
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "img/low-res/party-01.jpg", ContentType: contentType, Crc32c: checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(content)))), Md5Hash: checksum.EncodedHash(checksum.MD5Hash([]byte(content))), Metadata: map[string]string{"MetaHeader": metaValue}},
+		}
 		server.CreateObject(initialObj)
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(initialObj.Name)
@@ -190,7 +243,10 @@ func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
 		// sleep for at least 100ns or more, so the creation time will differ on all platforms.
 		time.Sleep(time.Microsecond)
 
-		latestObjVersion := Object{BucketName: bucketName, Name: "img/low-res/party-01.jpg", Content: []byte(content2), ContentType: contentType, Crc32c: checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(content2)))), Md5Hash: checksum.EncodedHash(checksum.MD5Hash([]byte(content2)))}
+		latestObjVersion := Object{
+			Content:     []byte(content2),
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "img/low-res/party-01.jpg", ContentType: contentType, Crc32c: checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(content2)))), Md5Hash: checksum.EncodedHash(checksum.MD5Hash([]byte(content2)))},
+		}
 		server.CreateObject(latestObjVersion)
 		objHandle = client.Bucket(bucketName).Object(latestObjVersion.Name)
 		latestAttrs, err := objHandle.Attrs(context.TODO())
@@ -230,7 +286,7 @@ func getMetadataHeaderFromAttrs(attrs *storage.ObjectAttrs, headerName string) (
 
 func TestServerClientObjectAttrsErrors(t *testing.T) {
 	objs := []Object{
-		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -275,10 +331,12 @@ func TestServerClientObjectReader(t *testing.T) {
 	)
 	objs := []Object{
 		{
-			BucketName:  bucketName,
-			Name:        objectName,
-			Content:     []byte(content),
-			ContentType: contentType,
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+			},
+			Content: []byte(content),
 		},
 	}
 
@@ -312,10 +370,12 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 	)
 	objs := []Object{
 		{
-			BucketName:  bucketName,
-			Name:        objectName,
-			Content:     []byte(content),
-			ContentType: contentType,
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+			},
+			Content: []byte(content),
 		},
 	}
 
@@ -381,10 +441,12 @@ func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		server.CreateObject(Object{
-			BucketName:  bucketName,
-			Name:        objectName,
-			Content:     []byte(content),
-			ContentType: contentType,
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+			},
+			Content: []byte(content),
 		})
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(objectName)
@@ -417,18 +479,22 @@ func TestServerClientObjectReaderAgainstSpecificGenerations(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: true})
 		object1 := Object{
-			BucketName:  bucketName,
-			Name:        objectName,
-			Content:     []byte(content),
-			ContentType: contentType,
-			Generation:  1111,
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+				Generation:  1111,
+			},
+			Content: []byte(content),
 		}
 		server.CreateObject(object1)
 		object2 := Object{
-			BucketName:  bucketName,
-			Name:        objectName,
-			Content:     []byte(content + "2"),
-			ContentType: contentType,
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+			},
+			Content: []byte(content + "2"),
 		}
 		server.CreateObject(object2)
 		client := server.Client()
@@ -462,7 +528,7 @@ func TestServerClientObjectReaderAgainstSpecificGenerations(t *testing.T) {
 
 func TestServerClientObjectReaderError(t *testing.T) {
 	objs := []Object{
-		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -504,7 +570,7 @@ func TestServerClientObjectReadBucketCNAME(t *testing.T) {
 	expectedBody := "something"
 	opts := Options{
 		InitialObjects: []Object{
-			{BucketName: "mybucket.mydomain.com", Name: "files/txt/text-01.txt", Content: []byte("something")},
+			{ObjectAttrs: ObjectAttrs{BucketName: "mybucket.mydomain.com", Name: "files/txt/text-01.txt"}, Content: []byte("something")},
 		},
 	}
 	server, err := NewServerWithOptions(opts)
@@ -540,15 +606,15 @@ func TestServerClientObjectReadBucketCNAME(t *testing.T) {
 
 func getObjectsForListTests() []Object {
 	return []Object{
-		{BucketName: "some-bucket", Name: "img/low-res/party-01.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
-		{BucketName: "some-bucket", Name: "img/low-res/party-02.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"},
-		{BucketName: "some-bucket", Name: "img/low-res/party-03.jpg"},
-		{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"},
-		{BucketName: "some-bucket", Name: "img/brand.jpg"},
-		{BucketName: "some-bucket", Name: "video/hi-res/some_video_1080p.mp4"},
-		{BucketName: "other-bucket", Name: "static/css/style.css"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/low-res/party-01.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/low-res/party-02.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/low-res/party-03.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/brand.jpg"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "video/hi-res/some_video_1080p.mp4"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "other-bucket", Name: "static/css/style.css"}},
 	}
 }
 
@@ -948,13 +1014,16 @@ func TestServiceClientRewriteObject(t *testing.T) {
 	hash := checksum.MD5Hash([]byte(content))
 	objs := []Object{
 		{
-			BucketName:  "first-bucket",
-			Name:        "files/some-file.txt",
-			Content:     []byte(content),
-			ContentType: contentType,
-			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-			Md5Hash:     checksum.EncodedHash(hash),
-			Metadata:    map[string]string{"foo": "bar"},
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "first-bucket",
+				Name:        "files/some-file.txt",
+				Size:        int64(len([]byte(content))),
+				ContentType: contentType,
+				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:     checksum.EncodedHash(hash),
+				Metadata:    map[string]string{"foo": "bar"},
+			},
+			Content: []byte(content),
 		},
 	}
 
@@ -1053,21 +1122,25 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 	)
 	objs := []Object{
 		{
-			BucketName:  "first-bucket",
-			Name:        "files/some-file.txt",
-			Content:     []byte(overwrittenContent),
-			ContentType: contentType,
-			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(overwrittenContent)))),
-			Md5Hash:     checksum.EncodedHash(checksum.MD5Hash([]byte(overwrittenContent))),
-			Generation:  overwrittenGeneration,
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "first-bucket",
+				Name:        "files/some-file.txt",
+				ContentType: contentType,
+				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(overwrittenContent)))),
+				Md5Hash:     checksum.EncodedHash(checksum.MD5Hash([]byte(overwrittenContent))),
+				Generation:  overwrittenGeneration,
+			},
+			Content: []byte(overwrittenContent),
 		},
 		{
-			BucketName:  "first-bucket",
-			Name:        "files/some-file.txt",
-			Content:     []byte(latestContent),
-			ContentType: contentType,
-			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(latestContent)))),
-			Md5Hash:     checksum.EncodedHash(checksum.MD5Hash([]byte(latestContent))),
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "first-bucket",
+				Name:        "files/some-file.txt",
+				ContentType: contentType,
+				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(uint32Checksum([]byte(latestContent)))),
+				Md5Hash:     checksum.EncodedHash(checksum.MD5Hash([]byte(latestContent))),
+			},
+			Content: []byte(latestContent),
 		},
 	}
 	tests := []struct {
@@ -1176,7 +1249,7 @@ func TestServerClientObjectDelete(t *testing.T) {
 		content    = "some nice content"
 	)
 	objs := []Object{
-		{BucketName: bucketName, Name: objectName, Content: []byte(content)},
+		{ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: objectName}, Content: []byte(content)},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -1194,7 +1267,7 @@ func TestServerClientObjectDelete(t *testing.T) {
 }
 
 func TestServerClientObjectDeleteWithVersioning(t *testing.T) {
-	obj := Object{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg", Content: []byte("some nice content"), Generation: 123}
+	obj := Object{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg", Generation: 123}, Content: []byte("some nice content")}
 
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: obj.BucketName, VersioningEnabled: true})
@@ -1222,7 +1295,7 @@ func TestServerClientObjectDeleteWithVersioning(t *testing.T) {
 
 func TestServerClientObjectDeleteErrors(t *testing.T) {
 	objs := []Object{
-		{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -1257,7 +1330,7 @@ func TestServerClientObjectDeleteErrors(t *testing.T) {
 
 func TestServerClientObjectSetAclPrivate(t *testing.T) {
 	objs := []Object{
-		{BucketName: "some-bucket", Name: "img/public-to-private.jpg"},
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/public-to-private.jpg"}},
 	}
 
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -1303,10 +1376,12 @@ func TestServerClientObjectPatchMetadata(t *testing.T) {
 	)
 	objs := []Object{
 		{
-			BucketName:  bucketName,
-			Name:        objectName,
-			Content:     []byte(content),
-			ContentType: contentType,
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+			},
+			Content: []byte(content),
 		},
 	}
 	runServersTest(t, objs, func(t *testing.T, server *Server) {
@@ -1365,10 +1440,12 @@ func TestParseRangeRequest(t *testing.T) {
 	srv, _ := NewServerWithOptions(Options{
 		InitialObjects: []Object{
 			{
-				BucketName:  "test-bucket",
-				Name:        "test-object",
-				ContentType: "text/plain",
-				Content:     in,
+				ObjectAttrs: ObjectAttrs{
+					BucketName:  "test-bucket",
+					Name:        "test-object",
+					ContentType: "text/plain",
+				},
+				Content: in,
 			},
 		},
 		NoListener: true,
@@ -1424,40 +1501,48 @@ func TestServiceClientComposeObject(t *testing.T) {
 
 	objs := []Object{
 		{
-			BucketName:  "first-bucket",
-			Name:        "files/source1.txt",
-			Content:     []byte(source1Content),
-			ContentType: contentType,
-			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-			Md5Hash:     checksum.EncodedHash(hash),
-			Metadata:    map[string]string{"foo": "bar"},
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "first-bucket",
+				Name:        "files/source1.txt",
+				ContentType: contentType,
+				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:     checksum.EncodedHash(hash),
+				Metadata:    map[string]string{"foo": "bar"},
+			},
+			Content: []byte(source1Content),
 		},
 		{
-			BucketName:  "first-bucket",
-			Name:        "files/source2.txt",
-			Content:     []byte(source2Content),
-			ContentType: contentType,
-			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-			Md5Hash:     checksum.EncodedHash(hash),
-			Metadata:    map[string]string{"foo": "bar"},
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "first-bucket",
+				Name:        "files/source2.txt",
+				ContentType: contentType,
+				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:     checksum.EncodedHash(hash),
+				Metadata:    map[string]string{"foo": "bar"},
+			},
+			Content: []byte(source2Content),
 		},
 		{
-			BucketName:  "first-bucket",
-			Name:        "files/source3.txt",
-			Content:     []byte(source3Content),
-			ContentType: contentType,
-			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-			Md5Hash:     checksum.EncodedHash(hash),
-			Metadata:    map[string]string{"foo": "bar"},
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "first-bucket",
+				Name:        "files/source3.txt",
+				ContentType: contentType,
+				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:     checksum.EncodedHash(hash),
+				Metadata:    map[string]string{"foo": "bar"},
+			},
+			Content: []byte(source3Content),
 		},
 		{
-			BucketName:  "first-bucket",
-			Name:        "files/destination.txt",
-			Content:     []byte("test"),
-			ContentType: contentType,
-			Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-			Md5Hash:     checksum.EncodedHash(hash),
-			Metadata:    map[string]string{"foo": "bar"},
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "first-bucket",
+				Name:        "files/destination.txt",
+				ContentType: contentType,
+				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:     checksum.EncodedHash(hash),
+				Metadata:    map[string]string{"foo": "bar"},
+			},
+			Content: []byte("test"),
 		},
 	}
 
