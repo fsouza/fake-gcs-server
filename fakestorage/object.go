@@ -262,7 +262,7 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool
 }
 
 func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) ([]ObjectAttrs, []string, error) {
-	backendObjects, err := s.backend.ListObjects(bucketName, options.Versions)
+	backendObjects, err := s.backend.ListObjects(bucketName, options.Prefix, options.Versions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -272,18 +272,19 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 	var respObjects []ObjectAttrs
 	prefixes := make(map[string]bool)
 	for _, obj := range olist {
-		if strings.HasPrefix(obj.Name, options.Prefix) {
-			objName := strings.Replace(obj.Name, options.Prefix, "", 1)
-			delimPos := strings.Index(objName, options.Delimiter)
-			if options.Delimiter != "" && delimPos > -1 {
-				prefix := obj.Name[:len(options.Prefix)+delimPos+1]
-				if isInOffset(prefix, options.StartOffset, options.EndOffset) {
-					prefixes[prefix] = true
-				}
-			} else {
-				if isInOffset(obj.Name, options.StartOffset, options.EndOffset) {
-					respObjects = append(respObjects, obj)
-				}
+		if !strings.HasPrefix(obj.Name, options.Prefix) {
+			continue
+		}
+		objName := strings.Replace(obj.Name, options.Prefix, "", 1)
+		delimPos := strings.Index(objName, options.Delimiter)
+		if options.Delimiter != "" && delimPos > -1 {
+			prefix := obj.Name[:len(options.Prefix)+delimPos+1]
+			if isInOffset(prefix, options.StartOffset, options.EndOffset) {
+				prefixes[prefix] = true
+			}
+		} else {
+			if isInOffset(obj.Name, options.StartOffset, options.EndOffset) {
+				respObjects = append(respObjects, obj)
 			}
 		}
 	}

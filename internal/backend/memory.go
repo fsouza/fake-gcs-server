@@ -7,6 +7,7 @@ package backend
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -165,7 +166,7 @@ func (s *storageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
 
 // DeleteBucket removes the bucket from the backend.
 func (s *storageMemory) DeleteBucket(name string) error {
-	objs, err := s.ListObjects(name, false)
+	objs, err := s.ListObjects(name, "", false)
 	if err != nil {
 		return BucketNotFound
 	}
@@ -194,7 +195,7 @@ func (s *storageMemory) CreateObject(obj Object) (Object, error) {
 
 // ListObjects lists the objects in a given bucket with a given prefix and
 // delimeter.
-func (s *storageMemory) ListObjects(bucketName string, versions bool) ([]ObjectAttrs, error) {
+func (s *storageMemory) ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
@@ -203,6 +204,9 @@ func (s *storageMemory) ListObjects(bucketName string, versions bool) ([]ObjectA
 	}
 	objAttrs := make([]ObjectAttrs, 0, len(bucketInMemory.activeObjects))
 	for _, obj := range bucketInMemory.activeObjects {
+		if prefix != "" && !strings.HasPrefix(obj.Name, prefix) {
+			continue
+		}
 		objAttrs = append(objAttrs, obj.ObjectAttrs)
 	}
 	if !versions {
@@ -211,6 +215,9 @@ func (s *storageMemory) ListObjects(bucketName string, versions bool) ([]ObjectA
 
 	archvObjs := make([]ObjectAttrs, 0, len(bucketInMemory.archivedObjects))
 	for _, obj := range bucketInMemory.archivedObjects {
+		if prefix != "" && !strings.HasPrefix(obj.Name, prefix) {
+			continue
+		}
 		archvObjs = append(archvObjs, obj.ObjectAttrs)
 	}
 	return append(objAttrs, archvObjs...), nil

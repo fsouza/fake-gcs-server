@@ -111,7 +111,7 @@ func (s *storageFS) GetBucket(name string) (Bucket, error) {
 
 // DeleteBucket removes the bucket from the backend.
 func (s *storageFS) DeleteBucket(name string) error {
-	objs, err := s.ListObjects(name, false)
+	objs, err := s.ListObjects(name, "", false)
 	if err != nil {
 		return BucketNotFound
 	}
@@ -144,7 +144,7 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 
 // ListObjects lists the objects in a given bucket with a given prefix and
 // delimeter.
-func (s *storageFS) ListObjects(bucketName string, versions bool) ([]ObjectAttrs, error) {
+func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
@@ -157,6 +157,9 @@ func (s *storageFS) ListObjects(bucketName string, versions bool) ([]ObjectAttrs
 		unescaped, err := url.PathUnescape(info.Name())
 		if err != nil {
 			return nil, fmt.Errorf("failed to unescape object name %s: %w", info.Name(), err)
+		}
+		if prefix != "" && !strings.HasPrefix(unescaped, prefix) {
+			continue
 		}
 		object, err := s.getObject(bucketName, unescaped)
 		if err != nil {
