@@ -116,12 +116,27 @@ func TestObjectCRUD(t *testing.T) {
 				return
 			}
 
-			initialObject := Object{BucketName: bucketName, Name: objectName, Content: content1, Crc32c: crc1, Md5Hash: md51}
+			initialObject := Object{
+				ObjectAttrs: ObjectAttrs{
+					BucketName: bucketName,
+					Name:       objectName,
+					Crc32c:     crc1,
+					Md5Hash:    md51,
+				},
+				Content: content1,
+			}
 			t.Logf("create an initial object on an empty bucket with versioning %t", versioningEnabled)
 			initialGeneration := uploadAndCompare(t, storage, initialObject)
 
 			t.Logf("create (update) in existent case with explicit generation and versioning %t", versioningEnabled)
-			secondVersionWithGeneration := Object{BucketName: bucketName, Name: objectName, Content: content2, Generation: 1234}
+			secondVersionWithGeneration := Object{
+				ObjectAttrs: ObjectAttrs{
+					BucketName: bucketName,
+					Name:       objectName,
+					Generation: 1234,
+				},
+				Content: content2,
+			}
 			uploadAndCompare(t, storage, secondVersionWithGeneration)
 
 			initialObjectFromGeneration, err := storage.GetObjectWithGeneration(initialObject.BucketName, initialObject.Name, initialGeneration)
@@ -135,7 +150,7 @@ func TestObjectCRUD(t *testing.T) {
 			}
 
 			t.Logf("checking active object is the expected one when versioning is %t", versioningEnabled)
-			objs, err := storage.ListObjects(bucketName, false)
+			objs, err := storage.ListObjects(bucketName, "", false)
 			noError(t, err)
 			if len(objs) != 1 {
 				t.Errorf("wrong number of objects returned\nwant 1\ngot  %d", len(objs))
@@ -145,7 +160,7 @@ func TestObjectCRUD(t *testing.T) {
 			}
 
 			t.Logf("checking all object listing is the expected one when versioning is %t", versioningEnabled)
-			objs, err = storage.ListObjects(bucketName, true)
+			objs, err = storage.ListObjects(bucketName, "", true)
 			noError(t, err)
 			if versioningEnabled && len(objs) != 2 {
 				t.Errorf("wrong number of objects returned\nwant 2\ngot  %d", len(objs))
@@ -184,7 +199,13 @@ func TestObjectQueryErrors(t *testing.T) {
 				shouldError(t, err)
 				return
 			}
-			validObject := Object{BucketName: bucketName, Name: "random-object", Content: []byte("random-content")}
+			validObject := Object{
+				ObjectAttrs: ObjectAttrs{
+					BucketName: bucketName,
+					Name:       "random-object",
+				},
+				Content: []byte("random-content"),
+			}
 			_, err = storage.CreateObject(validObject)
 			noError(t, err)
 			_, err = storage.GetObjectWithGeneration(validObject.BucketName, validObject.Name, 33333)

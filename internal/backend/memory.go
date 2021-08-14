@@ -7,6 +7,7 @@ package backend
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,7 @@ func newBucketInMemory(name string, versioningEnabled bool) bucketInMemory {
 }
 
 func (bm *bucketInMemory) addObject(obj Object) Object {
+	obj.Size = int64(len(obj.Content))
 	obj.Generation = getNewGenerationIfZero(obj.Generation)
 	index := findObject(obj, bm.activeObjects, false)
 	if index >= 0 {
@@ -164,7 +166,7 @@ func (s *storageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
 
 // DeleteBucket removes the bucket from the backend.
 func (s *storageMemory) DeleteBucket(name string) error {
-	objs, err := s.ListObjects(name, false)
+	objs, err := s.ListObjects(name, "", false)
 	if err != nil {
 		return BucketNotFound
 	}
@@ -193,17 +195,32 @@ func (s *storageMemory) CreateObject(obj Object) (Object, error) {
 
 // ListObjects lists the objects in a given bucket with a given prefix and
 // delimeter.
-func (s *storageMemory) ListObjects(bucketName string, versions bool) ([]Object, error) {
+func (s *storageMemory) ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
 	if err != nil {
-		return []Object{}, err
+		return []ObjectAttrs{}, err
+	}
+	objAttrs := make([]ObjectAttrs, 0, len(bucketInMemory.activeObjects))
+	for _, obj := range bucketInMemory.activeObjects {
+		if prefix != "" && !strings.HasPrefix(obj.Name, prefix) {
+			continue
+		}
+		objAttrs = append(objAttrs, obj.ObjectAttrs)
 	}
 	if !versions {
-		return bucketInMemory.activeObjects, nil
+		return objAttrs, nil
 	}
-	return append(bucketInMemory.activeObjects, bucketInMemory.archivedObjects...), nil
+
+	archvObjs := make([]ObjectAttrs, 0, len(bucketInMemory.archivedObjects))
+	for _, obj := range bucketInMemory.archivedObjects {
+		if prefix != "" && !strings.HasPrefix(obj.Name, prefix) {
+			continue
+		}
+		archvObjs = append(archvObjs, obj.ObjectAttrs)
+	}
+	return append(objAttrs, archvObjs...), nil
 }
 
 func (s *storageMemory) GetObject(bucketName, objectName string) (Object, error) {
@@ -219,7 +236,7 @@ func (s *storageMemory) GetObjectWithGeneration(bucketName, objectName string, g
 		return Object{}, err
 	}
 	matchGeneration := false
-	obj := Object{BucketName: bucketName, Name: objectName}
+	obj := Object{ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: objectName}}
 	listToConsider := bucketInMemory.activeObjects
 	if generation != 0 {
 		matchGeneration = true
@@ -230,6 +247,7 @@ func (s *storageMemory) GetObjectWithGeneration(bucketName, objectName string, g
 	if index < 0 {
 		return obj, errors.New("object not found")
 	}
+
 	return listToConsider[index], nil
 }
 
@@ -278,10 +296,12 @@ func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, d
 	dest, err := s.GetObject(bucketName, destinationName)
 	if err != nil {
 		dest = Object{
-			BucketName:  bucketName,
-			Name:        destinationName,
-			ContentType: contentType,
-			Created:     time.Now().String(),
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        destinationName,
+				ContentType: contentType,
+				Created:     time.Now().String(),
+			},
 		}
 	}
 

@@ -15,9 +15,11 @@ import (
 func ExampleServer_Client() {
 	server := fakestorage.NewServer([]fakestorage.Object{
 		{
-			BucketName: "some-bucket",
-			Name:       "some/object/file.txt",
-			Content:    []byte("inside the file"),
+			ObjectAttrs: fakestorage.ObjectAttrs{
+				BucketName: "some-bucket",
+				Name:       "some/object/file.txt",
+			},
+			Content: []byte("inside the file"),
 		},
 	})
 	defer server.Stop()
@@ -40,9 +42,11 @@ func ExampleServer_with_host_port() {
 	server, err := fakestorage.NewServerWithOptions(fakestorage.Options{
 		InitialObjects: []fakestorage.Object{
 			{
-				BucketName: "some-bucket",
-				Name:       "some/object/file.txt",
-				Content:    []byte("inside the file"),
+				ObjectAttrs: fakestorage.ObjectAttrs{
+					BucketName: "some-bucket",
+					Name:       "some/object/file.txt",
+				},
+				Content: []byte("inside the file"),
 			},
 		},
 		Host: "127.0.0.1",

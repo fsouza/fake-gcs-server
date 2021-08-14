@@ -111,7 +111,7 @@ func (s *storageFS) GetBucket(name string) (Bucket, error) {
 
 // DeleteBucket removes the bucket from the backend.
 func (s *storageFS) DeleteBucket(name string) error {
-	objs, err := s.ListObjects(name, false)
+	objs, err := s.ListObjects(name, "", false)
 	if err != nil {
 		return BucketNotFound
 	}
@@ -144,7 +144,7 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 
 // ListObjects lists the objects in a given bucket with a given prefix and
 // delimeter.
-func (s *storageFS) ListObjects(bucketName string, versions bool) ([]Object, error) {
+func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
@@ -152,17 +152,21 @@ func (s *storageFS) ListObjects(bucketName string, versions bool) ([]Object, err
 	if err != nil {
 		return nil, err
 	}
-	objects := []Object{}
+	objects := []ObjectAttrs{}
 	for _, info := range infos {
 		unescaped, err := url.PathUnescape(info.Name())
 		if err != nil {
 			return nil, fmt.Errorf("failed to unescape object name %s: %w", info.Name(), err)
 		}
+		if prefix != "" && !strings.HasPrefix(unescaped, prefix) {
+			continue
+		}
 		object, err := s.getObject(bucketName, unescaped)
 		if err != nil {
 			return nil, err
 		}
-		objects = append(objects, object)
+		object.Size = int64(len(object.Content))
+		objects = append(objects, object.ObjectAttrs)
 	}
 	return objects, nil
 }
@@ -192,6 +196,7 @@ func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
 	}
 	obj.Name = filepath.ToSlash(objectName)
 	obj.BucketName = bucketName
+	obj.Size = int64(len(obj.Content))
 	return obj, nil
 }
 
@@ -233,11 +238,14 @@ func (s *storageFS) ComposeObject(bucketName string, objectNames []string, desti
 
 	dest, err := s.GetObject(bucketName, destinationName)
 	if err != nil {
-		dest = Object{
+		oattrs := ObjectAttrs{
 			BucketName:  bucketName,
 			Name:        destinationName,
 			ContentType: contentType,
 			Created:     time.Now().String(),
+		}
+		dest = Object{
+			ObjectAttrs: oattrs,
 		}
 	}
 

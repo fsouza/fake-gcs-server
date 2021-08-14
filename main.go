@@ -92,12 +92,14 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object
 				return fmt.Errorf("could not read file %q: %w", path, err)
 			}
 			objects = append(objects, fakestorage.Object{
-				BucketName:  bucketName,
-				Name:        objectKey,
-				ContentType: mime.TypeByExtension(filepath.Ext(path)),
-				Content:     fileContent,
-				Crc32c:      checksum.EncodedCrc32cChecksum(fileContent),
-				Md5Hash:     checksum.EncodedMd5Hash(fileContent),
+				ObjectAttrs: fakestorage.ObjectAttrs{
+					BucketName:  bucketName,
+					Name:        objectKey,
+					ContentType: mime.TypeByExtension(filepath.Ext(path)),
+					Crc32c:      checksum.EncodedCrc32cChecksum(fileContent),
+					Md5Hash:     checksum.EncodedMd5Hash(fileContent),
+				},
+				Content: fileContent,
 			})
 		}
 		return nil

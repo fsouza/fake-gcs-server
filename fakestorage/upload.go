@@ -128,15 +128,17 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 		return xmlResponse{errorMessage: err.Error()}
 	}
 	obj := Object{
-		BucketName:      bucketName,
-		Name:            name,
-		Content:         data,
-		ContentType:     contentType,
-		ContentEncoding: contentEncoding,
-		Crc32c:          checksum.EncodedCrc32cChecksum(data),
-		Md5Hash:         checksum.EncodedMd5Hash(data),
-		ACL:             getObjectACL(predefinedACL),
-		Metadata:        metaData,
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      bucketName,
+			Name:            name,
+			ContentType:     contentType,
+			ContentEncoding: contentEncoding,
+			Crc32c:          checksum.EncodedCrc32cChecksum(data),
+			Md5Hash:         checksum.EncodedMd5Hash(data),
+			ACL:             getObjectACL(predefinedACL),
+			Metadata:        metaData,
+		},
+		Content: data,
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
@@ -181,14 +183,16 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		return jsonResponse{errorMessage: err.Error()}
 	}
 	obj := Object{
-		BucketName:      bucketName,
-		Name:            name,
-		Content:         data,
-		ContentType:     r.Header.Get(contentTypeHeader),
-		ContentEncoding: contentEncoding,
-		Crc32c:          checksum.EncodedCrc32cChecksum(data),
-		Md5Hash:         checksum.EncodedMd5Hash(data),
-		ACL:             getObjectACL(predefinedACL),
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      bucketName,
+			Name:            name,
+			ContentType:     r.Header.Get(contentTypeHeader),
+			ContentEncoding: contentEncoding,
+			Crc32c:          checksum.EncodedCrc32cChecksum(data),
+			Md5Hash:         checksum.EncodedMd5Hash(data),
+			ACL:             getObjectACL(predefinedACL),
+		},
+		Content: data,
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
@@ -221,15 +225,17 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		return jsonResponse{errorMessage: err.Error()}
 	}
 	obj := Object{
-		BucketName:      bucketName,
-		Name:            name,
-		Content:         data,
-		ContentType:     r.Header.Get(contentTypeHeader),
-		ContentEncoding: contentEncoding,
-		Crc32c:          checksum.EncodedCrc32cChecksum(data),
-		Md5Hash:         checksum.EncodedMd5Hash(data),
-		ACL:             getObjectACL(predefinedACL),
-		Metadata:        metaData,
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      bucketName,
+			Name:            name,
+			ContentType:     r.Header.Get(contentTypeHeader),
+			ContentEncoding: contentEncoding,
+			Crc32c:          checksum.EncodedCrc32cChecksum(data),
+			Md5Hash:         checksum.EncodedMd5Hash(data),
+			ACL:             getObjectACL(predefinedACL),
+			Metadata:        metaData,
+		},
+		Content: data,
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
@@ -299,15 +305,17 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 	}
 
 	obj := Object{
-		BucketName:      bucketName,
-		Name:            objName,
-		Content:         content,
-		ContentType:     contentType,
-		ContentEncoding: metadata.ContentEncoding,
-		Crc32c:          checksum.EncodedCrc32cChecksum(content),
-		Md5Hash:         checksum.EncodedMd5Hash(content),
-		ACL:             getObjectACL(predefinedACL),
-		Metadata:        metadata.Metadata,
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      bucketName,
+			Name:            objName,
+			ContentType:     contentType,
+			ContentEncoding: metadata.ContentEncoding,
+			Crc32c:          checksum.EncodedCrc32cChecksum(content),
+			Md5Hash:         checksum.EncodedMd5Hash(content),
+			ACL:             getObjectACL(predefinedACL),
+			Metadata:        metadata.Metadata,
+		},
+		Content: content,
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
@@ -328,11 +336,13 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 		objName = metadata.Name
 	}
 	obj := Object{
-		BucketName:      bucketName,
-		Name:            objName,
-		ContentEncoding: contentEncoding,
-		ACL:             getObjectACL(predefinedACL),
-		Metadata:        metadata.Metadata,
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      bucketName,
+			Name:            objName,
+			ContentEncoding: contentEncoding,
+			ACL:             getObjectACL(predefinedACL),
+			Metadata:        metadata.Metadata,
+		},
 	}
 	uploadID, err := generateUploadID()
 	if err != nil {

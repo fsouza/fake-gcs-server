@@ -13,7 +13,7 @@ type Storage interface {
 	GetBucket(name string) (Bucket, error)
 	DeleteBucket(name string) error
 	CreateObject(obj Object) (Object, error)
-	ListObjects(bucketName string, versions bool) ([]Object, error)
+	ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error)
 	GetObject(bucketName, objectName string) (Object, error)
 	GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error)
 	DeleteObject(bucketName, objectName string) error
