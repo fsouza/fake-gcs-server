@@ -12,8 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2.3.4
 
-      - name: test Dockerfile
-        uses: docker://docker
+      - uses: fsouza/docker-publish-action@main
         with:
-          entrypoint: docker
-          args: build .
+          docker-image: fsouza/fake-gcs-server
+          skip-push: true

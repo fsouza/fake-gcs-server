@@ -29,10 +29,9 @@ jobs:
 
       - name: docker-publish
         if: github.event.ref_type == 'tag'
-        uses: docker://docker
-        env:
-          DOCKER_USERNAME: ${{ secrets.docker_username }}
-          DOCKER_PASSWORD: ${{ secrets.docker_password }}
+        uses: fsouza/docker-publish-action@main
         with:
-          entrypoint: sh
-          args: ci/docker-build.sh
+          dockerfile: ci/Dockerfile
+          docker-image: fsouza/fake-gcs-server
+          docker-username: ${{ secrets.docker_username }}
+          docker-password: ${{ secrets.docker_password }}
