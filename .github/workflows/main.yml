@@ -141,7 +141,7 @@ jobs:
           args: ci/run-dotnet-example.sh
 
       - name: docker-publish
-        uses: fsouza/docker-publish-action@main
+        uses: fsouza/docker-publish-action@v1.0.0
         with:
           dockerfile: ci/Dockerfile
           docker-image: fsouza/fake-gcs-server
