@@ -141,6 +141,7 @@ jobs:
           args: ci/run-dotnet-example.sh
 
       - name: docker-publish
+        if: github.event_name == 'push'
         uses: fsouza/docker-publish-action@v1.0.0
         with:
           dockerfile: ci/Dockerfile
