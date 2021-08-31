@@ -33,5 +33,5 @@ jobs:
         with:
           dockerfile: ci/Dockerfile
           docker-image: fsouza/fake-gcs-server
-          docker-username: ${{ secrets.docker_username }}
-          docker-password: ${{ secrets.docker_password }}
+          DOCKER-USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
