@@ -117,7 +117,7 @@ jobs:
       - name: test-python-example
         uses: docker://python:3
         with:
-          entrypoint: sh
+          entrypoint: bash
           args: ci/run-python-example.sh
 
       - name: test-node-example
