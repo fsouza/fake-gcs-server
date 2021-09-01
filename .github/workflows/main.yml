@@ -142,7 +142,7 @@ jobs:
 
       - name: docker-publish
         if: github.event_name == 'push'
-        uses: fsouza/docker-publish-action@v1.0.0
+        uses: fsouza/docker-publish-action@v1.0.1
         with:
           dockerfile: ci/Dockerfile
           docker-image: fsouza/fake-gcs-server
