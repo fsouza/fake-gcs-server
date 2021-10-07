@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -148,7 +147,7 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	infos, err := ioutil.ReadDir(path.Join(s.rootDir, url.PathEscape(bucketName)))
+	infos, err := ioutil.ReadDir(filepath.Join(s.rootDir, url.PathEscape(bucketName)))
 	if err != nil {
 		return nil, err
 	}
