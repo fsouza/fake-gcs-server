@@ -115,7 +115,7 @@ jobs:
           args: -c "./fake-gcs-server -h"
 
       - name: test-python-example
-        uses: docker://python:3.9
+        uses: docker://python:3
         with:
           entrypoint: bash
           args: ci/run-python-example.sh
