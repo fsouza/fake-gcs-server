@@ -316,7 +316,7 @@ func getCurrentIfZero(date time.Time) time.Time {
 }
 
 func toBackendObjects(objects []Object) []backend.Object {
-	backendObjects := []backend.Object{}
+	backendObjects := make([]backend.Object, 0, len(objects))
 	for _, o := range objects {
 		backendObjects = append(backendObjects, backend.Object{
 			ObjectAttrs: backend.ObjectAttrs{
@@ -341,7 +341,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 }
 
 func fromBackendObjects(objects []backend.Object) []Object {
-	backendObjects := []Object{}
+	backendObjects := make([]Object, 0, len(objects))
 	for _, o := range objects {
 		backendObjects = append(backendObjects, Object{
 			ObjectAttrs: ObjectAttrs{
@@ -366,7 +366,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 }
 
 func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
-	oattrs := []ObjectAttrs{}
+	oattrs := make([]ObjectAttrs, 0, len(objectAttrs))
 	for _, o := range objectAttrs {
 		oattrs = append(oattrs, ObjectAttrs{
 			BucketName:      o.BucketName,
@@ -435,7 +435,6 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 		StartOffset: r.URL.Query().Get("startOffset"),
 		EndOffset:   r.URL.Query().Get("endOffset"),
 	})
-
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
@@ -478,7 +477,6 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
-
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
@@ -688,7 +686,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 		}
 	}
 
-	var sourceNames []string
+	sourceNames := make([]string, 0, len(composeRequest.SourceObjects))
 	for _, n := range composeRequest.SourceObjects {
 		sourceNames = append(sourceNames, n.Name)
 	}
