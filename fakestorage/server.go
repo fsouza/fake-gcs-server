@@ -19,6 +19,7 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
 
@@ -261,7 +262,10 @@ func (s *Server) HTTPClient() *http.Client {
 
 // Client returns a GCS client configured to talk to the server.
 func (s *Server) Client() *storage.Client {
-	client, _ := storage.NewClient(context.Background(), option.WithHTTPClient(s.HTTPClient()))
+	client, err := storage.NewClient(context.Background(), option.WithHTTPClient(s.HTTPClient()), option.WithCredentials(&google.Credentials{}))
+	if err != nil {
+		panic(err)
+	}
 	return client
 }
 
