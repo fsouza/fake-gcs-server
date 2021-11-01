@@ -22,6 +22,7 @@ jobs:
         arch:
           - 386
           - amd64
+          - arm64
         exclude:
           - os: macos
             arch: 386
