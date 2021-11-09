@@ -679,7 +679,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusNotFound,
-			errorMessage: "Object not found to be PATCHed",
+			errorMessage: "Object not found to be updated",
 		}
 	}
 	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}
