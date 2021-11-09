@@ -661,6 +661,30 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}
 }
 
+func (s *Server) updateObject(r *http.Request) jsonResponse {
+	vars := mux.Vars(r)
+	bucketName := vars["bucketName"]
+	objectName := vars["objectName"]
+	var metadata struct {
+		Metadata map[string]string `json:"metadata"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&metadata)
+	if err != nil {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: "Metadata in the request couldn't decode",
+		}
+	}
+	backendObj, err := s.backend.UpdateObject(bucketName, objectName, metadata.Metadata)
+	if err != nil {
+		return jsonResponse{
+			status:       http.StatusNotFound,
+			errorMessage: "Object not found to be PATCHed",
+		}
+	}
+	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}
+}
+
 func (s *Server) composeObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 	bucketName := vars["bucketName"]
