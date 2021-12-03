@@ -225,6 +225,20 @@ func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[stri
 	return obj, nil
 }
 
+// UpdateObject replaces the given object metadata.
+func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
+	obj, err := s.GetObject(bucketName, objectName)
+	if err != nil {
+		return Object{}, err
+	}
+	obj.Metadata = map[string]string{}
+	for k, v := range metadata {
+		obj.Metadata[k] = v
+	}
+	s.CreateObject(obj) // recreate object
+	return obj, nil
+}
+
 func (s *storageFS) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string) (Object, error) {
 	var data []byte
 	for _, n := range objectNames {
