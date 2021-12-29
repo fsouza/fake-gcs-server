@@ -89,7 +89,7 @@ jobs:
           staticcheck ./...
 
   build:
-    name: build-and-publish
+    name: test-examples
     runs-on: ubuntu-latest
     needs:
       - test
@@ -139,12 +139,3 @@ jobs:
         with:
           entrypoint: sh
           args: ci/run-dotnet-example.sh
-
-      - name: docker-publish
-        if: github.event_name == 'push'
-        uses: fsouza/docker-publish-action@v1.0.1
-        with:
-          dockerfile: ci/Dockerfile
-          docker-image: fsouza/fake-gcs-server
-          docker-username: ${{ secrets.DOCKER_USERNAME }}
-          docker-password: ${{ secrets.DOCKER_PASSWORD }}
