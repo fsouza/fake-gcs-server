@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"io"
 	"math"
 	"net/http"
@@ -19,6 +18,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
+	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/gorilla/mux"
 )
 

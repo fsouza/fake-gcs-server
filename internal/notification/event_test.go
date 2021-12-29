@@ -5,13 +5,14 @@
 package notification
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
-	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"reflect"
 	"strconv"
 	"testing"
+
+	"cloud.google.com/go/pubsub"
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
 type mockPublisher struct {

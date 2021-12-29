@@ -5,10 +5,10 @@
 package config
 
 import (
-	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"testing"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
+	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )

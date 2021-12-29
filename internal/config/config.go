@@ -9,11 +9,11 @@ package config
 import (
 	"flag"
 	"fmt"
-	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"math"
 	"strings"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
+	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/sirupsen/logrus"
 )
 

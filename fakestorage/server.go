@@ -8,7 +8,6 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"io"
 	"mime"
 	"net"
@@ -18,6 +17,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
+	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"golang.org/x/oauth2/google"

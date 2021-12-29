@@ -6,16 +6,17 @@ package fakestorage
 
 import (
 	"bytes"
-	"cloud.google.com/go/storage"
 	"context"
-	"github.com/fsouza/fake-gcs-server/internal/backend"
-	"github.com/fsouza/fake-gcs-server/internal/notification"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
+
+	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/internal/backend"
+	"github.com/fsouza/fake-gcs-server/internal/notification"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewServer(t *testing.T) {

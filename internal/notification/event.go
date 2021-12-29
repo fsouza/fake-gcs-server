@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"io"
 	"strconv"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/pubsub"
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
 // EventType is the type of event to trigger. The descriptions of the events
