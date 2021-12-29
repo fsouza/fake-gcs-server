@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"io"
 	"math"
 	"net/http"
@@ -233,12 +234,35 @@ func (s *Server) CreateObject(obj Object) {
 }
 
 func (s *Server) createObject(obj Object) (Object, error) {
-	newObj, err := s.backend.CreateObject(toBackendObjects([]Object{obj})[0])
+	oldBackendObj, err := s.backend.GetObject(obj.BucketName, obj.Name)
+	prevVersionExisted := err == nil
+
+	newBackendObj, err := s.backend.CreateObject(toBackendObjects([]Object{obj})[0])
 	if err != nil {
 		return Object{}, err
 	}
 
-	return fromBackendObjects([]backend.Object{newObj})[0], nil
+	var newObjEventAttr map[string]string
+	if prevVersionExisted {
+		newObjEventAttr = map[string]string{
+			"overwroteGeneration": strconv.FormatInt(oldBackendObj.Generation, 10),
+		}
+
+		oldObjEventAttr := map[string]string{
+			"overwrittenByGeneration": strconv.FormatInt(newBackendObj.Generation, 10),
+		}
+
+		bucket, _ := s.backend.GetBucket(obj.BucketName)
+		if bucket.VersioningEnabled {
+			s.eventManager.Trigger(&oldBackendObj, notification.EventArchive, oldObjEventAttr)
+		} else {
+			s.eventManager.Trigger(&oldBackendObj, notification.EventDelete, oldObjEventAttr)
+		}
+	}
+
+	newObj := fromBackendObjects([]backend.Object{newBackendObj})[0]
+	s.eventManager.Trigger(&newBackendObj, notification.EventFinalize, newObjEventAttr)
+	return newObj, nil
 }
 
 type ListOptions struct {
@@ -476,9 +500,19 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
-	err := s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	if err == nil {
+		err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+	}
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
+	}
+	bucket, _ := s.backend.GetBucket(obj.BucketName)
+	backendObj := toBackendObjects([]Object{obj})[0]
+	if bucket.VersioningEnabled {
+		s.eventManager.Trigger(&backendObj, notification.EventArchive, nil)
+	} else {
+		s.eventManager.Trigger(&backendObj, notification.EventDelete, nil)
 	}
 	return jsonResponse{}
 }
@@ -658,6 +692,8 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 			errorMessage: "Object not found to be PATCHed",
 		}
 	}
+
+	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}
 }
 
@@ -682,6 +718,8 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 			errorMessage: "Object not found to be updated",
 		}
 	}
+
+	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.Object{backendObj})[0]}
 }
 
@@ -724,6 +762,8 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 	}
 
 	obj := fromBackendObjects([]backend.Object{backendObj})[0]
+
+	s.eventManager.Trigger(&backendObj, notification.EventFinalize, nil)
 
 	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs)}
 }

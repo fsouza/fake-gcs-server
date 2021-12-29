@@ -6,6 +6,11 @@ package fakestorage
 
 import (
 	"bytes"
+	"cloud.google.com/go/storage"
+	"context"
+	"github.com/fsouza/fake-gcs-server/internal/backend"
+	"github.com/fsouza/fake-gcs-server/internal/notification"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -421,6 +426,234 @@ func TestCORSRequests(t *testing.T) {
 			}
 		})
 	}
+}
+
+type clientAction func(client *storage.Client) error
+
+func createObjectAction(obj Object) clientAction {
+	return func(client *storage.Client) error {
+		writer := client.Bucket(obj.BucketName).Object(obj.Name).NewWriter(context.TODO())
+		_, err := bytes.NewBuffer(obj.Content).WriteTo(writer)
+		if err != nil {
+			return err
+		}
+		return writer.Close()
+	}
+}
+
+func deleteObjectAction(obj Object) clientAction {
+	return func(client *storage.Client) error {
+		objHandle := client.Bucket(obj.BucketName).Object(obj.Name)
+		return objHandle.Delete(context.TODO())
+	}
+}
+
+func updateObjectAction(obj Object, newAttr storage.ObjectAttrsToUpdate) clientAction {
+	return func(client *storage.Client) error {
+		objHandle := client.Bucket(obj.BucketName).Object(obj.Name)
+		_, err := objHandle.Update(context.TODO(), newAttr)
+		return err
+	}
+}
+
+func TestServerEventNotification(t *testing.T) {
+	newMetadata := map[string]string{
+		"1-key": "1.1-value",
+		"2-key": "2-value",
+		"3-key": "3-value",
+	}
+	obj := Object{
+		ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-01.txt"},
+		Content:     []byte("something"),
+	}
+	tests := []struct {
+		name              string
+		expectedEvents    []fakeEvent
+		versioningEnabled bool
+		actions           []clientAction
+	}{
+		{
+			"None",
+			nil,
+			false,
+			nil,
+		},
+		{
+			"Finalize only",
+			[]fakeEvent{
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+			},
+			false,
+			[]clientAction{createObjectAction(obj)},
+		},
+		{
+			"Delete",
+			[]fakeEvent{
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventDelete,
+				},
+			},
+			false,
+			[]clientAction{createObjectAction(obj), deleteObjectAction(obj)},
+		},
+		{
+			"Delete versioning enabled",
+			[]fakeEvent{
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventArchive,
+				},
+			},
+			true,
+			[]clientAction{createObjectAction(obj), deleteObjectAction(obj)},
+		},
+		{
+			"Metadata update",
+			[]fakeEvent{
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+				{
+					obj:       fakeEventFieldsFromObjectWithMeta(obj, newMetadata),
+					eventType: notification.EventMetadata,
+				},
+			},
+			false,
+			[]clientAction{createObjectAction(obj), updateObjectAction(obj, storage.ObjectAttrsToUpdate{Metadata: newMetadata})},
+		},
+		{
+			"Metadata update versioning enabled",
+			[]fakeEvent{
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+				{
+					obj:       fakeEventFieldsFromObjectWithMeta(obj, newMetadata),
+					eventType: notification.EventMetadata,
+				},
+			},
+			true,
+			[]clientAction{createObjectAction(obj), updateObjectAction(obj, storage.ObjectAttrsToUpdate{Metadata: newMetadata})},
+		},
+		{
+			"Finalize and overwrite",
+			[]fakeEvent{
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventDelete,
+				},
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+			},
+			false,
+			[]clientAction{createObjectAction(obj), createObjectAction(obj)},
+		},
+		{
+			"Finalize and overwrite versioning enabled",
+			[]fakeEvent{
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventArchive,
+				},
+				{
+					obj:       fakeEventFieldsFromObject(obj),
+					eventType: notification.EventFinalize,
+				},
+			},
+			true,
+			[]clientAction{createObjectAction(obj), createObjectAction(obj)},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			opts := Options{}
+			server, err := NewServerWithOptions(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			eventManager := &fakeEventManager{}
+			server.eventManager = eventManager
+			err = server.backend.CreateBucket(obj.BucketName, test.versioningEnabled)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, action := range test.actions {
+				if err := action(server.Client()); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			server.Stop()
+
+			assert.ElementsMatch(t, test.expectedEvents, eventManager.events)
+		})
+	}
+}
+
+type fakeEventFields struct {
+	BucketName string
+	Name       string
+	Content    []byte
+	Metadata   map[string]string
+}
+
+func fakeEventFieldsFromObject(obj Object) fakeEventFields {
+	return fakeEventFields{
+		BucketName: obj.BucketName,
+		Name:       obj.Name,
+		Content:    obj.Content,
+		Metadata:   obj.Metadata,
+	}
+}
+
+func fakeEventFieldsFromObjectWithMeta(obj Object, meta map[string]string) fakeEventFields {
+	fields := fakeEventFieldsFromObject(obj)
+	fields.Metadata = meta
+	return fields
+}
+
+type fakeEvent struct {
+	obj       fakeEventFields
+	eventType notification.EventType
+}
+
+type fakeEventManager struct {
+	events []fakeEvent
+}
+
+func (m *fakeEventManager) Trigger(o *backend.Object, eventType notification.EventType, extraEventAttr map[string]string) {
+	m.events = append(m.events, fakeEvent{
+		obj:       fakeEventFieldsFromObject(fromBackendObjects([]backend.Object{*o})[0]),
+		eventType: eventType,
+	})
 }
 
 func runServersTest(t *testing.T, objs []Object, fn func(*testing.T, *Server)) {
