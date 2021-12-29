@@ -5,11 +5,6 @@ updates:
   schedule:
     interval: daily
   open-pull-requests-limit: 99
-- package-ecosystem: docker
-  directory: "/ci"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 99
 - package-ecosystem: npm
   directory: "/examples/node"
   schedule:
