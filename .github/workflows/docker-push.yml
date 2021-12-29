@@ -30,7 +30,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/fake-gcs-server
+          images: fsouza/fake-gcs-server
           tags: |
             type=ref,event=branch
             type=ref,event=pr
