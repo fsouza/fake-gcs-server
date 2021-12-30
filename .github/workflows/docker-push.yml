@@ -6,6 +6,8 @@ jobs:
     if: github.event.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2.4.0
+
       - name: docker meta
         id: meta
         uses: docker/metadata-action@v3.6.2
