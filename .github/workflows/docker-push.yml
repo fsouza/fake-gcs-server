@@ -2,7 +2,7 @@ name: docker-push
 on: create
 
 jobs:
-  release:
+  build-and-push:
     if: github.event.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
