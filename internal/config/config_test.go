@@ -37,6 +37,7 @@ func TestLoadConfig(t *testing.T) {
 				"-event.pubsub-topic", "gcs-events",
 				"-event.object-prefix", "uploads/",
 				"-event.list", "finalize,delete,metadataUpdate,archive",
+				"-location", "US-EAST1",
 			},
 			expectedConfig: Config{
 				Seed:               "/var/gcs",
@@ -54,6 +55,7 @@ func TestLoadConfig(t *testing.T) {
 					prefix:          "uploads/",
 					list:            []string{"finalize", "delete", "metadataUpdate", "archive"},
 				},
+				bucketLocation: "US-EAST1",
 			},
 		},
 		{
@@ -71,6 +73,7 @@ func TestLoadConfig(t *testing.T) {
 				event: EventConfig{
 					list: []string{"finalize"},
 				},
+				bucketLocation: "US-CENTRAL1",
 			},
 		},
 		{
@@ -148,6 +151,7 @@ func TestToFakeGcsOptions(t *testing.T) {
 					prefix:          "uploads/",
 					list:            []string{"finalize", "delete"},
 				},
+				bucketLocation: "US-EAST1",
 			},
 			fakestorage.Options{
 				StorageRoot: "/tmp/something",
@@ -165,6 +169,7 @@ func TestToFakeGcsOptions(t *testing.T) {
 						MetadataUpdate: false,
 					},
 				},
+				BucketsLocation: "US-EAST1",
 			},
 		},
 		{

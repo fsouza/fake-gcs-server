@@ -99,6 +99,9 @@ type Options struct {
 	// EventOptions contains the events that should be published and the URL
 	// of the Google cloud function such events should be published to.
 	EventOptions notification.EventManagerOptions
+
+	// Location used for buckets in the server.
+	BucketsLocation string
 }
 
 // NewServerWithOptions creates a new server configured according to the

@@ -37,6 +37,7 @@ type Config struct {
 	backend            string
 	fsRoot             string
 	event              EventConfig
+	bucketLocation     string
 }
 
 type EventConfig struct {
@@ -67,6 +68,7 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", "", "pubsub topic name to publish events on")
 	fs.StringVar(&cfg.event.prefix, "event.object-prefix", "", "if not empty, only objects having this prefix will generate trigger events")
 	fs.StringVar(&eventList, "event.list", eventFinalize, "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
+	fs.StringVar(&cfg.bucketLocation, "location", "US-CENTRAL1", "location for buckets")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -162,5 +164,6 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 		AllowedCORSHeaders: c.allowedCORSHeaders,
 		Writer:             logrus.New().Writer(),
 		EventOptions:       eventOptions,
+		BucketsLocation:    c.bucketLocation,
 	}
 }

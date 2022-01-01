@@ -14,13 +14,13 @@ type listResponse struct {
 	Prefixes []string      `json:"prefixes,omitempty"`
 }
 
-func newListBucketsResponse(buckets []backend.Bucket) listResponse {
+func newListBucketsResponse(buckets []backend.Bucket, location string) listResponse {
 	resp := listResponse{
 		Kind:  "storage#buckets",
 		Items: make([]interface{}, len(buckets)),
 	}
 	for i, bucket := range buckets {
-		resp.Items[i] = newBucketResponse(bucket)
+		resp.Items[i] = newBucketResponse(bucket, location)
 	}
 	return resp
 }
@@ -31,19 +31,21 @@ type bucketResponse struct {
 	Name        string            `json:"name"`
 	Versioning  *bucketVersioning `json:"versioning,omitempty"`
 	TimeCreated string            `json:"timeCreated,omitempty"`
+	Location    string            `json:"location,omitempty"`
 }
 
 type bucketVersioning struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
-func newBucketResponse(bucket backend.Bucket) bucketResponse {
+func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 	return bucketResponse{
 		Kind:        "storage#bucket",
 		ID:          bucket.Name,
 		Name:        bucket.Name,
 		Versioning:  &bucketVersioning{bucket.VersioningEnabled},
 		TimeCreated: bucket.TimeCreated.Format(timestampFormat),
+		Location:    location,
 	}
 }
 

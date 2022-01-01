@@ -80,7 +80,7 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	return jsonResponse{data: newBucketResponse(bucket)}
+	return jsonResponse{data: newBucketResponse(bucket, s.options.BucketsLocation)}
 }
 
 func (s *Server) listBuckets(r *http.Request) jsonResponse {
@@ -88,7 +88,7 @@ func (s *Server) listBuckets(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	return jsonResponse{data: newListBucketsResponse(buckets)}
+	return jsonResponse{data: newListBucketsResponse(buckets, s.options.BucketsLocation)}
 }
 
 func (s *Server) getBucket(r *http.Request) jsonResponse {
@@ -97,7 +97,7 @@ func (s *Server) getBucket(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	return jsonResponse{data: newBucketResponse(bucket)}
+	return jsonResponse{data: newBucketResponse(bucket, s.options.BucketsLocation)}
 }
 
 func (s *Server) deleteBucket(r *http.Request) jsonResponse {
