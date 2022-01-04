@@ -14,5 +14,5 @@ jobs:
 
       - uses: fsouza/docker-publish-action@v1.0.1
         with:
-          docker-image: fsouza/fake-gcs-server
+          docker-image: sergseven/fake-gcs-server
           skip-push: true
