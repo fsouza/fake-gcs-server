@@ -350,9 +350,9 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	s.uploads.Store(uploadID, obj)
 	header := make(http.Header)
-	header.Set("Location", s.PublicURL()+"/upload/resumable/"+uploadID)
+	header.Set("Location", s.URL()+"/upload/resumable/"+uploadID)
 	if r.Header.Get("X-Goog-Upload-Command") == "start" {
-		header.Set("X-Goog-Upload-URL", s.PublicURL()+"/upload/resumable/"+uploadID)
+		header.Set("X-Goog-Upload-URL", s.URL()+"/upload/resumable/"+uploadID)
 		header.Set("X-Goog-Upload-Status", "active")
 	}
 	return jsonResponse{
