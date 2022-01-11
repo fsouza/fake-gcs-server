@@ -5,15 +5,13 @@ import (
 	"net/http"
 )
 
-func (s *Server) updateServerConfig(w http.ResponseWriter, r *http.Request) {
+func (s *Server) updateServerConfig(_ http.ResponseWriter, r *http.Request) {
 
 	body := r.Body
 	defer body.Close()
+	bodyBytes, _ := ioutil.ReadAll(body)
 
-	if body != nil {
-		bodyBytes, _ := ioutil.ReadAll(body)
-		s.externalURL = string(bodyBytes[:])
-	}
+	s.externalURL = string(bodyBytes[:])
 
 	return
 }
