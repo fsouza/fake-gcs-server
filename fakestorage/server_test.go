@@ -193,6 +193,13 @@ func testDownloadObject(t *testing.T, server *Server) {
 			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
 			"",
 		},
+		{
+			"GET: config update",
+			http.MethodGet,
+			"://storage.googleapis.com//internal/config/url/external/foobar",
+			map[string]string{},
+			"",
+		},
 	}
 	for _, test := range tests {
 		test := test
@@ -270,6 +277,30 @@ func testDownloadObjectRange(t *testing.T, server *Server) {
 	}
 }
 
+func TestUpdateServerConfig(t *testing.T) {
+	opts := Options{
+		PublicHost: "0.0.0.0:4443",
+	}
+	server, err := NewServerWithOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := server.HTTPClient()
+	req, err := http.NewRequest(http.MethodPut, "https://0.0.0.0:4443/internal/config/url/external", strings.NewReader("http://1.2.3.4:4321"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+	}
+}
+
 func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -304,6 +335,13 @@ func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 			http.MethodHead,
 			"https://other-bucket.storage.gcs.127.0.0.1.nip.io:4443/static/css/website.css",
 			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
+			"",
+		},
+		{
+			"GET: modify config",
+			http.MethodPut,
+			"https://storage.gcs.127.0.0.1.nip.io:4443/internal/config/url/external",
+			map[string]string{},
 			"",
 		},
 	}

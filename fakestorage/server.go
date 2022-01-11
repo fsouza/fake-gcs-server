@@ -220,6 +220,10 @@ func (s *Server) buildMuxer() {
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.updateObject))
 	}
 
+	// Internal / update server configuration
+	s.mux.Host(s.publicHost).Path("/internal/config/url/external").Methods(http.MethodPut).HandlerFunc(s.updateServerConfig)
+	// Internal - end
+
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet).HandlerFunc(s.downloadObject)

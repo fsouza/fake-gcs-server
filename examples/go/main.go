@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"strings"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
@@ -48,6 +50,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	err = updateConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func list(client *storage.Client, bucketName string) ([]string, error) {
@@ -77,4 +84,18 @@ func downloadFile(client *storage.Client, bucketName, fileKey string) ([]byte, e
 
 func deleteFile(client *storage.Client, bucketName, fileKey string) error {
 	return client.Bucket(bucketName).Object(fileKey).Delete(context.TODO())
+}
+
+func updateConfig() error {
+	changeExternalUrl := "http://localhost:8080/internal/config/url/external"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, changeExternalUrl, strings.NewReader("http://1.2.3.4:4321"))
+	req.Header.Add("Content-Type", "text/plain")
+	if err != nil {
+		return err
+	}
+	_, err = client.Do(req)
+
+	return err
 }
