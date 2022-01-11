@@ -330,13 +330,6 @@ func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
 			"",
 		},
-		{
-			"PUT: modify server config",
-			http.MethodPut,
-			"https://storage.gcs.127.0.0.1.nip.io:4443/internal/config/url/external",
-			map[string]string{},
-			"",
-		},
 	}
 	objs := []Object{
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-01.txt"}, Content: []byte("something")},
