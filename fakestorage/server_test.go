@@ -331,7 +331,7 @@ func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 			"",
 		},
 		{
-			"GET: modify config",
+			"PUT: modify server config",
 			http.MethodPut,
 			"https://storage.gcs.127.0.0.1.nip.io:4443/internal/config/url/external",
 			map[string]string{},
