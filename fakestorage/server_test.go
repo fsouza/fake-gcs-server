@@ -193,13 +193,6 @@ func testDownloadObject(t *testing.T, server *Server) {
 			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
 			"",
 		},
-		{
-			"GET: config update",
-			http.MethodGet,
-			"://storage.googleapis.com//internal/config/url/external/foobar",
-			map[string]string{},
-			"",
-		},
 	}
 	for _, test := range tests {
 		test := test
