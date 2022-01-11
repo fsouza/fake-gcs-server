@@ -90,7 +90,7 @@ func updateConfig() error {
 	changeExternalUrl := "http://localhost:8080/internal/config/url/external"
 
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPut, changeExternalUrl, strings.NewReader("http://localhsot:8080"))
+	req, err := http.NewRequest(http.MethodPut, changeExternalUrl, strings.NewReader("http://localhost:8080"))
 	req.Header.Add("Content-Type", "text/plain")
 	if err != nil {
 		return err

@@ -221,6 +221,7 @@ func (s *Server) buildMuxer() {
 	}
 
 	// Internal / update server configuration
+	s.mux.Path("/internal/config/url/external").Methods(http.MethodPut).HandlerFunc(s.updateServerConfig)
 	s.mux.Host(s.publicHost).Path("/internal/config/url/external").Methods(http.MethodPut).HandlerFunc(s.updateServerConfig)
 	// Internal - end
 
