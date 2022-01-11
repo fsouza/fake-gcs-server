@@ -12,6 +12,4 @@ func (s *Server) updateServerConfig(_ http.ResponseWriter, r *http.Request) {
 	bodyBytes, _ := ioutil.ReadAll(body)
 
 	s.externalURL = string(bodyBytes[:])
-
-	return
 }
