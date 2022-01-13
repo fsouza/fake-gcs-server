@@ -21,7 +21,7 @@ google-auth==2.2.1
     #   google-cloud-storage
 google-cloud-core==2.1.0
     # via google-cloud-storage
-google-cloud-storage==1.44.0
+google-cloud-storage==2.0.0
     # via -r requirements.in
 google-crc32c==1.3.0
     # via google-resumable-media
@@ -48,8 +48,6 @@ requests==2.26.0
     #   google-cloud-storage
 rsa==4.7.2
     # via google-auth
-six==1.16.0
-    # via google-cloud-storage
 urllib3==1.26.7
     # via requests
 
