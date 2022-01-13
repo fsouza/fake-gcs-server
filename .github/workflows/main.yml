@@ -88,8 +88,22 @@ jobs:
         run: |
           staticcheck ./...
 
-  build:
-    name: test-examples
+  test-examples:
+    strategy:
+      matrix:
+        include:
+          - lang: python
+            docker-image: python
+          - lang: node
+            docker-image: node:14-alpine
+          - lang: go
+            docker-image: golang:alpine
+          - lang: dotnet
+            docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
+          - lang: scala
+            docker-image: mozilla/sbt
+
+    name: test-examples (${{ matrix.lang }})
     runs-on: ubuntu-latest
     needs:
       - test
@@ -114,34 +128,15 @@ jobs:
           entrypoint: sh
           args: -c "./fake-gcs-server -h"
 
-      - name: test-python-example
-        uses: docker://python
-        with:
-          entrypoint: bash
-          args: ci/run-python-example.sh
-
-      - name: test-node-example
-        uses: docker://node:14-alpine
+      - name: test-${{ matrix.lang }}-example
+        uses: docker://${{ matrix.docker-image }}
         with:
           entrypoint: sh
-          args: ci/run-node-example.sh
+          args: ci/run-${{ matrix.lang }}-example.sh
 
-      - name: test-go-example
-        uses: docker://golang:alpine
-        env:
-          GOROOT: /usr/local/go
-        with:
-          entrypoint: sh
-          args: ci/run-go-example.sh
-
-      - name: test-dotnet-example
-        uses: docker://mcr.microsoft.com/dotnet/sdk:5.0-alpine
-        with:
-          entrypoint: sh
-          args: ci/run-dotnet-example.sh
-
-      - name: test-scala-example
-        uses: docker://mozilla/sbt
-        with:
-          entrypoint: sh
-          args: ci/run-scala-example.sh
+  unblock-pr:
+    name: unblock-pr
+    runs-on: ubuntu-latest
+    needs: test-examples
+    steps:
+      - run: "true"
