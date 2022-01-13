@@ -5,7 +5,7 @@ import java.io.ByteArrayOutputStream
 
 object FakeGCSClient extends App {
 
-  val opts = StorageOptions.newBuilder().setHost("http://0.0.0.0:8080").build()
+  val opts = StorageOptions.newBuilder().setProjectId("test").setHost("http://0.0.0.0:8080").build()
   val client = opts.getService
 
   println("Creating a bucket")
