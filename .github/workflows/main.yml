@@ -118,6 +118,7 @@ jobs:
         with:
           name: fake-gcs-server
           path: ./fake-gcs-server
+          retention-days: 1
 
   test-examples:
     strategy:
