@@ -94,14 +94,19 @@ jobs:
         include:
           - lang: python
             docker-image: python:latest
+            entrypoint: /bin/bash
           - lang: node
             docker-image: node:14-alpine
+            entrypoint: /bin/sh
           - lang: go
             docker-image: golang:alpine
+            entrypoint: /bin/sh
           - lang: dotnet
             docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
+            entrypoint: /bin/sh
           - lang: scala
             docker-image: mozilla/sbt:latest
+            entrypoint: /bin/sh
 
     name: test-${{ matrix.lang }}-example
     runs-on: ubuntu-latest
@@ -134,9 +139,10 @@ jobs:
 
       - name: test-${{ matrix.lang }}-example
         run: |
-          docker run --entrypoint /bin/sh -v ${PWD}:${PWD} -w ${PWD} ${DOCKER_IMAGE} ci/run-${LANG}-example.sh
+          docker run --entrypoint ${ENTRYPOINT} -v ${PWD}:${PWD} -w ${PWD} ${DOCKER_IMAGE} ci/run-${LANG}-example.sh
         env:
           DOCKER_IMAGE: ${{ matrix.docker-image }}
+          ENTRYPOINT: ${{ matrix.entrypoint }}
           LANG: ${{ matrix.lang }}
 
   unblock-pr:
