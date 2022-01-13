@@ -134,7 +134,7 @@ jobs:
 
       - name: test-${{ matrix.lang }}-example
         run: |
-          docker run --entrypoint /bin/sh ${DOCKER_IMAGE} ci/run-${LANG}-example.sh
+          docker run --entrypoint /bin/sh -v ${PWD}:${PWD} -w ${PWD} ${DOCKER_IMAGE} ci/run-${LANG}-example.sh
         env:
           DOCKER_IMAGE: ${{ matrix.docker-image }}
           LANG: ${{ matrix.lang }}
