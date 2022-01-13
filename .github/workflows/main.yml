@@ -88,27 +88,8 @@ jobs:
         run: |
           staticcheck ./...
 
-  test-examples:
-    strategy:
-      matrix:
-        include:
-          - lang: python
-            docker-image: python:latest
-            entrypoint: /bin/bash
-          - lang: node
-            docker-image: node:14-alpine
-            entrypoint: /bin/sh
-          - lang: go
-            docker-image: golang:alpine
-            entrypoint: /bin/sh
-          - lang: dotnet
-            docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
-            entrypoint: /bin/sh
-          - lang: scala
-            docker-image: mozilla/sbt:latest
-            entrypoint: /bin/sh
-
-    name: test-${{ matrix.lang }}-example
+  build-artifact:
+    name: build-linux-binary
     runs-on: ubuntu-latest
     needs:
       - lint
@@ -132,7 +113,45 @@ jobs:
           entrypoint: sh
           args: -c "./fake-gcs-server -h"
 
-      - name: docker pull image
+      - name: upload binary
+        uses: actions/upload-artifact@v2.3.1
+        with:
+          name: fake-gcs-server
+          path: ./fake-gcs-server
+
+  test-examples:
+    strategy:
+      matrix:
+        include:
+          - lang: python
+            docker-image: python:latest
+            entrypoint: /bin/bash
+          - lang: node
+            docker-image: node:14-alpine
+            entrypoint: /bin/sh
+          - lang: go
+            docker-image: golang:alpine
+            entrypoint: /bin/sh
+          - lang: dotnet
+            docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
+            entrypoint: /bin/sh
+          - lang: scala
+            docker-image: mozilla/sbt:latest
+            entrypoint: /bin/sh
+
+    name: test-${{ matrix.lang }}-example
+    runs-on: ubuntu-latest
+    needs:
+      - build-artifact
+    steps:
+      - uses: actions/checkout@v2.4.0
+
+      - name: download binary
+        uses: actions/download-artifact@v2.1.0
+        with:
+          name: fake-gcs-server
+
+      - name: docker pull ${{ matrix.docker-image }}
         run: docker pull ${DOCKER_IMAGE}
         env:
           DOCKER_IMAGE: ${{ matrix.docker-image }}
