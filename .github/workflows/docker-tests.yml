@@ -4,8 +4,8 @@ on:
     branches:
       - main
 jobs:
-  test-root-dockerfile:
-    name: test-root-dockerfile
+  test-dockerfile:
+    name: test-dockerfile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.4.0
