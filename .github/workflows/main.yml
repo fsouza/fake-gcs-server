@@ -128,11 +128,17 @@ jobs:
           entrypoint: sh
           args: -c "./fake-gcs-server -h"
 
+      - name: docker pull image
+        run: docker pull ${DOCKER_IMAGE}
+        env:
+          DOCKER_IMAGE: ${{ matrix.docker-image }}
+
       - name: test-${{ matrix.lang }}-example
-        uses: docker://${{ matrix.docker-image }}
-        with:
-          entrypoint: sh
-          args: ci/run-${{ matrix.lang }}-example.sh
+        run: |
+          docker run --entrypoint /bin/sh ${DOCKER_IMAGE} ci/run-${LANG}-example.sh
+        env:
+          DOCKER_IMAGE: ${{ matrix.docker-image }}
+          LANG: ${{ matrix.lang }}
 
   unblock-pr:
     name: unblock-pr
