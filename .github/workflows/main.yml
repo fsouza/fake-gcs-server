@@ -89,11 +89,8 @@ jobs:
           staticcheck ./...
 
   build-artifact:
-    name: build-linux-binary
+    name: build
     runs-on: ubuntu-latest
-    needs:
-      - lint
-      - staticcheck
     steps:
       - uses: actions/checkout@v2.4.0
 
@@ -144,6 +141,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-artifact
+      - lint
+      - staticcheck
     steps:
       - uses: actions/checkout@v2.4.0
 
