@@ -93,7 +93,7 @@ jobs:
       matrix:
         include:
           - lang: python
-            docker-image: python
+            docker-image: python:latest
           - lang: node
             docker-image: node:14-alpine
           - lang: go
@@ -101,7 +101,7 @@ jobs:
           - lang: dotnet
             docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
           - lang: scala
-            docker-image: mozilla/sbt
+            docker-image: mozilla/sbt:latest
 
     name: test-${{ matrix.lang }}-example
     runs-on: ubuntu-latest
