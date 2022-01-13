@@ -106,7 +106,6 @@ jobs:
     name: test-examples (${{ matrix.lang }})
     runs-on: ubuntu-latest
     needs:
-      - test
       - lint
       - staticcheck
     steps:
@@ -143,6 +142,8 @@ jobs:
   unblock-pr:
     name: unblock-pr
     runs-on: ubuntu-latest
-    needs: test-examples
+    needs:
+      - test-examples
+      - test
     steps:
       - run: "true"
