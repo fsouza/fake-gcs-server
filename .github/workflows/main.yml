@@ -151,6 +151,9 @@ jobs:
         with:
           name: fake-gcs-server
 
+      - name: fix permissions
+        run: chmod +x fake-gcs-server
+
       - name: docker pull ${{ matrix.docker-image }}
         run: docker pull ${DOCKER_IMAGE}
         env:
