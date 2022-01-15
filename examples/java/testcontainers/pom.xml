@@ -9,10 +9,14 @@
   <version>1.0-SNAPSHOT</version>
 
   <properties>
+    <encoding></encoding>
     <java.version>11</java.version>
+    <project.encoding>UTF-8</project.encoding>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
+    <project.build.sourceEncoding>${project.encoding}</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>${project.encoding}</project.reporting.outputEncoding>
 
     <junit-jupiter.version>5.8.2</junit-jupiter.version>
     <testcontainers.version>1.16.2</testcontainers.version>
