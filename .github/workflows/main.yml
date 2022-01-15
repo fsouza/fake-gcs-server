@@ -139,3 +139,9 @@ jobs:
         with:
           entrypoint: sh
           args: ci/run-dotnet-example.sh
+
+      - name: test-java-example
+        uses: docker://openjdk:11
+        with:
+          entrypoint: sh
+          args: ci/run-java-example.sh
