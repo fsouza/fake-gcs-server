@@ -46,6 +46,7 @@ class FakeGcsServerTest {
 
         storageService = StorageOptions.newBuilder()
             .setHost(fakeGcsHost)
+            .setProjectId("test-project")
             .setCredentials(NoCredentials.getInstance())
             .build()
             .getService();
