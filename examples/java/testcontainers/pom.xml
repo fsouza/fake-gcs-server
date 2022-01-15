@@ -9,7 +9,6 @@
   <version>1.0-SNAPSHOT</version>
 
   <properties>
-    <encoding></encoding>
     <java.version>11</java.version>
     <project.encoding>UTF-8</project.encoding>
     <maven.compiler.release>${java.version}</maven.compiler.release>
