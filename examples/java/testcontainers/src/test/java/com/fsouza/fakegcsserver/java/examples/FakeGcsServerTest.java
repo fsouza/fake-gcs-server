@@ -42,7 +42,7 @@ class FakeGcsServerTest {
     static void setUpFakeGcs() throws Exception {
         String fakeGcsHost = "http://" + fakeGcs.getContainerIpAddress() + ":" + fakeGcs.getFirstMappedPort();
 
-//        updateExternalUrlWithContainerHost(fakeGcsHost);
+        updateExternalUrlWithContainerHost(fakeGcsHost);
 
         storageService = StorageOptions.newBuilder()
             .setHost(fakeGcsHost)
