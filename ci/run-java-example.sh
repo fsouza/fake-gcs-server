@@ -6,5 +6,5 @@ set -e
 
 (
 	cd examples/java/testcontainers
-	./mvnw clean test
+	./mvnw clean test -B
 )
