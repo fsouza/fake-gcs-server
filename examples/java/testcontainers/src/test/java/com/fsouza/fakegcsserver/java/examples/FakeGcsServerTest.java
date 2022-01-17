@@ -54,11 +54,14 @@ class FakeGcsServerTest {
 
     private static void updateExternalUrlWithContainerUrl(String fakeGcsExternalUrl) throws Exception {
         String modifyExternalUrlRequestUri = fakeGcsExternalUrl + "/internal/config/url/external";
+        String updateExternalUrlJson = "{"
+            + "\"externalUrl\": \"" + fakeGcsExternalUrl + "\""
+            + "}";
 
         HttpRequest req = HttpRequest.newBuilder()
             .uri(URI.create(modifyExternalUrlRequestUri))
-            .header("Content-Type", "text/plain")
-            .PUT(BodyPublishers.ofString(fakeGcsExternalUrl))
+            .header("Content-Type", "application/json")
+            .PUT(BodyPublishers.ofString(updateExternalUrlJson))
             .build();
         HttpResponse<Void> response = HttpClient.newBuilder().build()
             .send(req, BodyHandlers.discarding());

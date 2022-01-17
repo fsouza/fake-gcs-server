@@ -221,8 +221,8 @@ func (s *Server) buildMuxer() {
 	}
 
 	// Internal / update server configuration
-	s.mux.Path("/internal/config/url/external").Methods(http.MethodPut).HandlerFunc(s.updateServerConfig)
-	s.mux.Host(s.publicHost).Path("/internal/config/url/external").Methods(http.MethodPut).HandlerFunc(s.updateServerConfig)
+	s.mux.Path("/internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
+	s.mux.Host(s.publicHost).Path("/internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
 	// Internal - end
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)

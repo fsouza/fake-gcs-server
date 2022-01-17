@@ -1,15 +1,26 @@
 package fakestorage
 
 import (
-	"io/ioutil"
+	"encoding/json"
 	"net/http"
 )
 
-func (s *Server) updateServerConfig(_ http.ResponseWriter, r *http.Request) {
+func (s *Server) updateServerConfig(r *http.Request) jsonResponse {
 
-	body := r.Body
-	defer body.Close()
-	bodyBytes, _ := ioutil.ReadAll(body)
+	var configOptions struct {
+		ExternalUrl string `json:"externalUrl,omitempty"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&configOptions)
+	if err != nil {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: "Update server config payload can not be parsed.",
+		}
+	}
 
-	s.externalURL = string(bodyBytes[:])
+	if configOptions.ExternalUrl != "" {
+		s.externalURL = configOptions.ExternalUrl
+	}
+
+	return jsonResponse{status: http.StatusOK}
 }
