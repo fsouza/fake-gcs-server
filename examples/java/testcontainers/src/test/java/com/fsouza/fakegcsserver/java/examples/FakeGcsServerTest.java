@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Testcontainers
 class FakeGcsServerTest {
 
+    // TODO: the image used to be changed to fsouza/fake-gcs-server after this PR is integrated to the mainstream
     @Container
     static final GenericContainer<?> fakeGcs = new FixedHostPortGenericContainer<>("sergseven/fake-gcs-server:v3")
         .withReuse(true)
