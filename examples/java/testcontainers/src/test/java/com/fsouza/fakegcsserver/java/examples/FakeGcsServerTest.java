@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class FakeGcsServerTest {
 
     @Container
-    static final GenericContainer<?> fakeGcs = new FixedHostPortGenericContainer<>("sergseven/fake-gcs-server:v2")
+    static final GenericContainer<?> fakeGcs = new FixedHostPortGenericContainer<>("sergseven/fake-gcs-server:v3")
         .withReuse(true)
         .withExposedPorts(4443)
         .withCreateContainerCmdModifier(cmd -> cmd.withEntrypoint(
