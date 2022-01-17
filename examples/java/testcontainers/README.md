@@ -24,7 +24,7 @@ with correct `content` HTTP header:
     }
 
     private static void updateExternalUrlWithContainerUrl(String fakeGcsExternalUrl) throws Exception {
-        String modifyExternalUrlRequestUri = fakeGcsExternalUrl + "/internal/config/url/external";
+        String modifyExternalUrlRequestUri = fakeGcsExternalUrl + "/internal/config";
         String updateExternalUrlJson = "{"
             + "\"externalUrl\": \"" + fakeGcsExternalUrl + "\""
             + "}";
