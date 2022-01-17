@@ -40,32 +40,32 @@ class FakeGcsServerTest {
 
     @BeforeAll
     static void setUpFakeGcs() throws Exception {
-        String fakeGcsHost = "http://" + fakeGcs.getContainerIpAddress() + ":" + fakeGcs.getFirstMappedPort();
+        String fakeGcsExternalUrl = "http://" + fakeGcs.getContainerIpAddress() + ":" + fakeGcs.getFirstMappedPort();
 
-        updateExternalUrlWithContainerHost(fakeGcsHost);
+        updateExternalUrlWithContainerUrl(fakeGcsExternalUrl);
 
         storageService = StorageOptions.newBuilder()
-            .setHost(fakeGcsHost)
+            .setHost(fakeGcsExternalUrl)
             .setProjectId("test-project")
             .setCredentials(NoCredentials.getInstance())
             .build()
             .getService();
     }
 
-    private static void updateExternalUrlWithContainerHost(String fakeGcsHost) throws Exception {
-        String modifyExternalUrlRequestUri = fakeGcsHost + "/internal/config/url/external";
+    private static void updateExternalUrlWithContainerUrl(String fakeGcsExternalUrl) throws Exception {
+        String modifyExternalUrlRequestUri = fakeGcsExternalUrl + "/internal/config/url/external";
 
         HttpRequest req = HttpRequest.newBuilder()
             .uri(URI.create(modifyExternalUrlRequestUri))
             .header("Content-Type", "text/plain")
-            .PUT(BodyPublishers.ofString(fakeGcsHost))
+            .PUT(BodyPublishers.ofString(fakeGcsExternalUrl))
             .build();
         HttpResponse<Void> response = HttpClient.newBuilder().build()
             .send(req, BodyHandlers.discarding());
 
         if (response.statusCode() != 200) {
             throw new RuntimeException(
-                "error updating fake-gcs-server with external host, response status code " + response.statusCode() + " != 200");
+                "error updating fake-gcs-server with external url, response status code " + response.statusCode() + " != 200");
         }
     }
 
