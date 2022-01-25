@@ -88,13 +88,9 @@ jobs:
         run: |
           staticcheck ./...
 
-  build:
-    name: test-examples
+  build-artifact:
+    name: build
     runs-on: ubuntu-latest
-    needs:
-      - test
-      - lint
-      - staticcheck
     steps:
       - uses: actions/checkout@v2.4.0
 
@@ -114,34 +110,68 @@ jobs:
           entrypoint: sh
           args: -c "./fake-gcs-server -h"
 
-      - name: test-python-example
-        uses: docker://python
+      - name: upload binary
+        uses: actions/upload-artifact@v2.3.1
         with:
-          entrypoint: bash
-          args: ci/run-python-example.sh
+          name: fake-gcs-server
+          path: ./fake-gcs-server
+          retention-days: 1
 
-      - name: test-node-example
-        uses: docker://node:14-alpine
+  test-examples:
+    strategy:
+      matrix:
+        include:
+          - lang: python
+            docker-image: python:latest
+            entrypoint: /bin/bash
+          - lang: node
+            docker-image: node:14-alpine
+            entrypoint: /bin/sh
+          - lang: go
+            docker-image: golang:alpine
+            entrypoint: /bin/sh
+          - lang: dotnet
+            docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
+            entrypoint: /bin/sh
+          - lang: scala
+            docker-image: mozilla/sbt:latest
+            entrypoint: /bin/sh
+
+    name: test-${{ matrix.lang }}-example
+    runs-on: ubuntu-latest
+    needs:
+      - build-artifact
+      - lint
+      - staticcheck
+    steps:
+      - uses: actions/checkout@v2.4.0
+
+      - name: download binary
+        uses: actions/download-artifact@v2.1.0
         with:
-          entrypoint: sh
-          args: ci/run-node-example.sh
+          name: fake-gcs-server
 
-      - name: test-go-example
-        uses: docker://golang:alpine
+      - name: fix permissions
+        run: chmod +x fake-gcs-server
+
+      - name: docker pull ${{ matrix.docker-image }}
+        run: docker pull ${DOCKER_IMAGE}
         env:
-          GOROOT: /usr/local/go
-        with:
-          entrypoint: sh
-          args: ci/run-go-example.sh
+          DOCKER_IMAGE: ${{ matrix.docker-image }}
 
-      - name: test-dotnet-example
-        uses: docker://mcr.microsoft.com/dotnet/sdk:5.0-alpine
-        with:
-          entrypoint: sh
-          args: ci/run-dotnet-example.sh
+      - name: test-${{ matrix.lang }}-example
+        run: |
+          docker run --entrypoint ${ENTRYPOINT} -v ${PWD}:${PWD} -w ${PWD} ${DOCKER_IMAGE} ci/run-${LANG}-example.sh
+        env:
+          DOCKER_IMAGE: ${{ matrix.docker-image }}
+          ENTRYPOINT: ${{ matrix.entrypoint }}
+          LANG: ${{ matrix.lang }}
 
-      - name: test-java-example
-        uses: docker://openjdk:11
-        with:
-          entrypoint: sh
-          args: ci/run-java-example.sh
+  unblock-pr:
+    name: unblock-pr
+    runs-on: ubuntu-latest
+    needs:
+      - test-examples
+      - test
+    steps:
+      - run: "true"
