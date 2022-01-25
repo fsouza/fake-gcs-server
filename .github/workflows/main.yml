@@ -136,6 +136,9 @@ jobs:
           - lang: scala
             docker-image: mozilla/sbt:latest
             entrypoint: /bin/sh
+          - lang: java
+            docker-image: openjdk:11
+            entrypoint: /bin/sh
 
     name: test-${{ matrix.lang }}-example
     runs-on: ubuntu-latest
