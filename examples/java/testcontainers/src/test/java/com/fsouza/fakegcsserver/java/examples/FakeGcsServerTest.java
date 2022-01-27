@@ -54,7 +54,7 @@ class FakeGcsServerTest {
     }
 
     private static void updateExternalUrlWithContainerUrl(String fakeGcsExternalUrl) throws Exception {
-        String modifyExternalUrlRequestUri = fakeGcsExternalUrl + "/internal/config";
+        String modifyExternalUrlRequestUri = fakeGcsExternalUrl + "/_internal/config";
         String updateExternalUrlJson = "{"
             + "\"externalUrl\": \"" + fakeGcsExternalUrl + "\""
             + "}";

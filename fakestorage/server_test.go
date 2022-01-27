@@ -302,7 +302,7 @@ func TestUpdateServerConfig(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			client := server.HTTPClient()
 			configJson := strings.NewReader(test.requestBody)
-			req, err := http.NewRequest(http.MethodPut, "https://0.0.0.0:4443/internal/config", configJson)
+			req, err := http.NewRequest(http.MethodPut, "https://0.0.0.0:4443/_internal/config", configJson)
 			if err != nil {
 				t.Fatal(err)
 			}

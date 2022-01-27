@@ -87,7 +87,7 @@ func deleteFile(client *storage.Client, bucketName, fileKey string) error {
 }
 
 func updateConfig() error {
-	changeExternalUrl := "http://localhost:8080/internal/config"
+	changeExternalUrl := "http://localhost:8080/_internal/config"
 
 	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodPut, changeExternalUrl, strings.NewReader("{\"externalUrl\": \"http://localhost:8080\"}"))
