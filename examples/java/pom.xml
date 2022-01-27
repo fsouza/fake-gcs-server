@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>fsouza</groupId>
-  <artifactId>fake-gcs-server-java-examples-testcontainers</artifactId>
+  <artifactId>fake-gcs-server-java-examples</artifactId>
   <version>1.0-SNAPSHOT</version>
 
   <properties>
@@ -18,7 +18,6 @@
     <project.reporting.outputEncoding>${project.encoding}</project.reporting.outputEncoding>
 
     <junit-jupiter.version>5.8.2</junit-jupiter.version>
-    <testcontainers.version>1.16.2</testcontainers.version>
     <java-libraries-bom.version>24.2.0</java-libraries-bom.version>
   </properties>
 
@@ -56,18 +55,6 @@
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
       <version>${junit-jupiter.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>testcontainers</artifactId>
-      <version>${testcontainers.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
