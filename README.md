@@ -76,7 +76,7 @@ curl http://0.0.0.0:4443/storage/v1/b/sample-bucket/o
 
 ## Client library examples
 
-For examples using the Python, Node.js, Java and Go clients, check out the
+For examples using SDK from multiple languages, check out the
 [``examples``](/examples/) directory.
 
 ### Building the image locally
