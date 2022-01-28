@@ -270,6 +270,56 @@ func testDownloadObjectRange(t *testing.T, server *Server) {
 	}
 }
 
+func TestUpdateServerConfig(t *testing.T) {
+	tests := []struct {
+		name                string
+		requestBody         string
+		expectedExternalUrl string
+	}{
+		{
+			"PUT: empty json",
+			"{}",
+			"https://0.0.0.0:4443",
+		},
+		{
+			"PUT: externalUrl provided",
+			"{\"externalUrl\": \"https://1.2.3.4:4321\"}",
+			"https://1.2.3.4:4321",
+		},
+	}
+
+	opts := Options{
+		PublicHost:  "0.0.0.0:4443",
+		ExternalURL: "https://0.0.0.0:4443",
+	}
+	server, err := NewServerWithOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			client := server.HTTPClient()
+			configJson := strings.NewReader(test.requestBody)
+			req, err := http.NewRequest(http.MethodPut, "https://0.0.0.0:4443/_internal/config", configJson)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+			}
+
+			assert.Equal(t, test.expectedExternalUrl, server.externalURL)
+		})
+	}
+}
+
 func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 	tests := []struct {
 		name            string
