@@ -196,7 +196,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		return jsonResponse{errorMessage: err.Error()}
+		return errToJsonResponse(err)
 	}
 	return jsonResponse{data: obj}
 }
@@ -239,7 +239,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		return jsonResponse{errorMessage: err.Error()}
+		return errToJsonResponse(err)
 	}
 	return jsonResponse{data: obj}
 }
@@ -319,7 +319,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	obj, err = s.createObject(obj)
 	if err != nil {
-		return jsonResponse{errorMessage: err.Error()}
+		return errToJsonResponse(err)
 	}
 	return jsonResponse{data: obj}
 }
@@ -433,7 +433,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 		s.uploads.Delete(uploadID)
 		obj, err = s.createObject(obj)
 		if err != nil {
-			return jsonResponse{errorMessage: err.Error()}
+			return errToJsonResponse(err)
 		}
 	} else {
 		if _, no308 := r.Header["X-Guploader-No-308"]; no308 {
