@@ -134,11 +134,13 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 	if err != nil {
 		return Object{}, err
 	}
-	encoded, err := json.Marshal(obj)
+	file, err := os.OpenFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return Object{}, err
 	}
-	return obj, ioutil.WriteFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), encoded, 0o600)
+	defer file.Close()
+	err = json.NewEncoder(file).Encode(obj)
+	return obj, err
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and
@@ -184,12 +186,13 @@ func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, gener
 }
 
 func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
-	encoded, err := ioutil.ReadFile(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
+	file, err := os.Open(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
 	if err != nil {
 		return Object{}, err
 	}
+	defer file.Close()
 	var obj Object
-	err = json.Unmarshal(encoded, &obj)
+	err = json.NewDecoder(file).Decode(&obj)
 	if err != nil {
 		return Object{}, err
 	}
