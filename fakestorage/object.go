@@ -556,7 +556,10 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 		Role:   role,
 	}}
 
-	s.CreateObject(obj)
+	_, err = s.createObject(obj)
+	if err != nil {
+		return errToJsonResponse(err)
+	}
 
 	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs)}
 }
@@ -607,7 +610,11 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 		Content: append([]byte(nil), obj.Content...),
 	}
 
-	s.CreateObject(newObject)
+	_, err = s.createObject(newObject)
+	if err != nil {
+		return errToJsonResponse(err)
+	}
+
 	return jsonResponse{data: newObjectRewriteResponse(newObject.ObjectAttrs)}
 }
 

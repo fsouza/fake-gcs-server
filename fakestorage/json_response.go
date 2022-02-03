@@ -2,7 +2,10 @@ package fakestorage
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"os"
+	"syscall"
 )
 
 type jsonResponse struct {
@@ -52,4 +55,13 @@ func (r *jsonResponse) getErrorMessage(status int) string {
 		return r.errorMessage
 	}
 	return http.StatusText(status)
+}
+
+func errToJsonResponse(err error) jsonResponse {
+	status := 0
+	var pathError *os.PathError
+	if errors.As(err, &pathError) && pathError.Err == syscall.ENAMETOOLONG {
+		status = http.StatusBadRequest
+	}
+	return jsonResponse{errorMessage: err.Error(), status: status}
 }
