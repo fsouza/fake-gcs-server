@@ -4,5 +4,5 @@ go 1.14
 
 require (
 	cloud.google.com/go/storage v1.19.0
-	google.golang.org/api v0.66.0
+	google.golang.org/api v0.67.0
 )
