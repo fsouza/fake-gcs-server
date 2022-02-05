@@ -266,11 +266,12 @@ func (s *Server) createObject(obj Object) (Object, error) {
 }
 
 type ListOptions struct {
-	Prefix      string
-	Delimiter   string
-	Versions    bool
-	StartOffset string
-	EndOffset   string
+	Prefix                   string
+	Delimiter                string
+	Versions                 bool
+	StartOffset              string
+	EndOffset                string
+	IncludeTrailingDelimiter bool
 }
 
 // ListObjects returns a sorted list of objects that match the given criteria,
@@ -305,6 +306,9 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 			prefix := obj.Name[:len(options.Prefix)+delimPos+1]
 			if isInOffset(prefix, options.StartOffset, options.EndOffset) {
 				prefixes[prefix] = true
+			}
+			if options.IncludeTrailingDelimiter && obj.Name == prefix {
+				respObjects = append(respObjects, obj)
 			}
 		} else {
 			if isInOffset(obj.Name, options.StartOffset, options.EndOffset) {
@@ -453,11 +457,12 @@ func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, g
 func (s *Server) listObjects(r *http.Request) jsonResponse {
 	bucketName := mux.Vars(r)["bucketName"]
 	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, ListOptions{
-		Prefix:      r.URL.Query().Get("prefix"),
-		Delimiter:   r.URL.Query().Get("delimiter"),
-		Versions:    r.URL.Query().Get("versions") == "true",
-		StartOffset: r.URL.Query().Get("startOffset"),
-		EndOffset:   r.URL.Query().Get("endOffset"),
+		Prefix:                   r.URL.Query().Get("prefix"),
+		Delimiter:                r.URL.Query().Get("delimiter"),
+		Versions:                 r.URL.Query().Get("versions") == "true",
+		StartOffset:              r.URL.Query().Get("startOffset"),
+		EndOffset:                r.URL.Query().Get("endOffset"),
+		IncludeTrailingDelimiter: r.URL.Query().Get("includeTrailingDelimiter") == "true",
 	})
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
