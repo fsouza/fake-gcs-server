@@ -40,5 +40,5 @@ func (o *ObjectAttrs) IDNoGen() string {
 // Object represents the object that is stored within the fake server.
 type Object struct {
 	ObjectAttrs
-	Content []byte
+	Content []byte `json:"-"`
 }
