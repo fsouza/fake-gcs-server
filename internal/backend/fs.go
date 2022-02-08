@@ -134,13 +134,24 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 	if err != nil {
 		return Object{}, err
 	}
-	file, err := os.OpenFile(filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)), os.O_CREATE|os.O_WRONLY, 0o600)
+
+	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name))
+
+	if err = ioutil.WriteFile(path, obj.Content, 0o600); err != nil {
+		return Object{}, err
+	}
+
+	// TODO: Handle if metadata is not present more gracefully?
+	encoded, err := json.Marshal(obj.ObjectAttrs)
 	if err != nil {
 		return Object{}, err
 	}
-	defer file.Close()
-	err = json.NewEncoder(file).Encode(obj)
-	return obj, err
+
+	if err = writeXattr(path, encoded); err != nil {
+		return Object{}, err
+	}
+
+	return obj, nil
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and
@@ -155,6 +166,9 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 	}
 	objects := []ObjectAttrs{}
 	for _, info := range infos {
+		if isXattrFile(info.Name()) {
+			continue
+		}
 		unescaped, err := url.PathUnescape(info.Name())
 		if err != nil {
 			return nil, fmt.Errorf("failed to unescape object name %s: %w", info.Name(), err)
@@ -186,16 +200,23 @@ func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, gener
 }
 
 func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
-	file, err := os.Open(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName))
+
+	encoded, err := readXattr(path)
 	if err != nil {
 		return Object{}, err
 	}
-	defer file.Close()
+
 	var obj Object
-	err = json.NewDecoder(file).Decode(&obj)
+	if err = json.Unmarshal(encoded, &obj.ObjectAttrs); err != nil {
+		return Object{}, err
+	}
+
+	obj.Content, err = ioutil.ReadFile(path)
 	if err != nil {
 		return Object{}, err
 	}
+
 	obj.Name = filepath.ToSlash(objectName)
 	obj.BucketName = bucketName
 	obj.Size = int64(len(obj.Content))
@@ -209,7 +230,11 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 	if objectName == "" {
 		return errors.New("can't delete object with empty name")
 	}
-	return os.Remove(filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName)))
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName))
+	if err := removeXattrFile(path); err != nil {
+		return err
+	}
+	return os.Remove(path)
 }
 
 // PatchObject patches the given object metadata.

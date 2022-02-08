@@ -8,12 +8,21 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
 )
+
+func tempDir() string {
+	if runtime.GOOS == "linux" {
+		return "/var/tmp"
+	} else {
+		return os.TempDir()
+	}
+}
 
 func TestServerClientBucketAttrs(t *testing.T) {
 	objs := []Object{
@@ -228,7 +237,7 @@ func TestServerClientListObjects(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"}},
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"}},
 	}
-	dir, err := ioutil.TempDir("", "fakestorage-test-root-")
+	dir, err := ioutil.TempDir(tempDir(), "fakestorage-test-root-")
 	if err != nil {
 		t.Fatal(err)
 	}
