@@ -309,7 +309,7 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mw := multipart.NewWriter(w)
-	w.Header().Set("Content-Type", "multipart/mixed; boundary=" + mw.Boundary())
+	w.Header().Set("Content-Type", "multipart/mixed; boundary="+mw.Boundary())
 
 	w.WriteHeader(http.StatusOK)
 	part, err := reader.NextPart()

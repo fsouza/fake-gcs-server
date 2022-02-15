@@ -7,12 +7,13 @@ package fakestorage
 import (
 	"bytes"
 	"context"
-	"google.golang.org/api/iterator"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
+
+	"google.golang.org/api/iterator"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -671,7 +672,7 @@ func TestServerEventNotification(t *testing.T) {
 }
 
 func TestServerBatchRequest(t *testing.T) {
-	objects := []Object {
+	objects := []Object{
 		{
 			ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-01.txt"},
 			Content:     []byte("something1"),
