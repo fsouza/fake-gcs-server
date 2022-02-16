@@ -20,6 +20,7 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
@@ -102,6 +103,8 @@ type Options struct {
 
 	// Location used for buckets in the server.
 	BucketsLocation string
+
+	Logger *logrus.Logger
 }
 
 // NewServerWithOptions creates a new server configured according to the
@@ -168,7 +171,7 @@ func newServer(options Options) (*Server, error) {
 	var backendStorage backend.Storage
 	var err error
 	if options.StorageRoot != "" {
-		backendStorage, err = backend.NewStorageFS(backendObjects, options.StorageRoot)
+		backendStorage, err = backend.NewStorageFS(backendObjects, options.StorageRoot, options.Logger)
 	} else {
 		backendStorage = backend.NewStorageMemory(backendObjects)
 	}
