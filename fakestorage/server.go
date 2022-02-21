@@ -5,14 +5,20 @@
 package fakestorage
 
 import (
+	"bufio"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
 	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/textproto"
+	"strings"
 	"sync"
 
 	"cloud.google.com/go/storage"
@@ -231,6 +237,10 @@ func (s *Server) buildMuxer() {
 	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
+	// Batch endpoint
+	s.mux.Host(s.publicHost).Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
+	s.mux.Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
+
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 
@@ -289,6 +299,70 @@ func (s *Server) Client() *storage.Client {
 		panic(err)
 	}
 	return client
+}
+
+func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
+	reader, err := r.MultipartReader()
+	if err != nil {
+		http.Error(w, "invalid Content-Type header", http.StatusBadRequest)
+		return
+	}
+
+	mw := multipart.NewWriter(w)
+	defer mw.Close()
+	w.Header().Set("Content-Type", "multipart/mixed; boundary="+mw.Boundary())
+
+	w.WriteHeader(http.StatusOK)
+	part, err := reader.NextPart()
+	for ; err == nil; part, err = reader.NextPart() {
+		contentID := part.Header.Get("Content-ID")
+		if contentID == "" {
+			// missing content ID, skip
+			continue
+		}
+
+		partHeaders := textproto.MIMEHeader{}
+		partHeaders.Set("Content-Type", "application/http")
+		partHeaders.Set("Content-ID", strings.Replace(contentID, "<", "<response-", 1))
+		partWriter, err := mw.CreatePart(partHeaders)
+
+		if err != nil {
+			continue
+		}
+
+		partResponseWriter := httptest.NewRecorder()
+		if part.Header.Get("Content-Type") != "application/http" {
+			http.Error(partResponseWriter, "invalid Content-Type header", http.StatusBadRequest)
+			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
+			continue
+		}
+
+		content, err := loadContent(part)
+		if err != nil {
+			http.Error(partResponseWriter, "unable to process request", http.StatusBadRequest)
+			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
+			continue
+		}
+
+		partRequest, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(content)))
+		if err != nil {
+			http.Error(partResponseWriter, "unable to process request", http.StatusBadRequest)
+			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
+			continue
+		}
+
+		s.mux.ServeHTTP(partResponseWriter, partRequest)
+		writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
+	}
+}
+
+func writeMultipartResponse(r *http.Response, w io.Writer, contentId string) {
+	dump, err := httputil.DumpResponse(r, true)
+	if err != nil {
+		fmt.Fprintf(w, "Content-Type: text/plain; charset=utf-8\r\nContent-ID: %s\r\nContent-Length: 0\r\n\r\nHTTP/1.1 500 Internal Server Error", contentId)
+		return
+	}
+	w.Write(dump)
 }
 
 func requestCompressHandler(h http.Handler) http.Handler {
