@@ -19,7 +19,6 @@ import (
 
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/pkg/xattr"
-	"github.com/sirupsen/logrus"
 )
 
 // storageFS is an implementation of the backend storage that stores data on disk
@@ -39,7 +38,7 @@ type storageFS struct {
 }
 
 // NewStorageFS creates an instance of the filesystem-backed storage backend.
-func NewStorageFS(objects []Object, rootDir string, logger *logrus.Logger) (Storage, error) {
+func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 	if !strings.HasSuffix(rootDir, "/") {
 		rootDir += "/"
 	}
@@ -51,17 +50,10 @@ func NewStorageFS(objects []Object, rootDir string, logger *logrus.Logger) (Stor
 	// Check if rootDir supports xattr.
 	if xattr.XATTR_SUPPORTED {
 		_, err = readXattr(rootDir)
-		if xerr, ok := err.(*xattr.Error); ok {
-			switch xerr.Err {
-			case xattr.ENOATTR:
-				// ignore
-			case syscall.ENOTSUP:
-				logger.Warnf("rootDir does not support user extended attributes: %s.  Consider using a different filesystem type, e.g., not tmpfs on Linux.\n", rootDir)
-			default:
-				return nil, err
+		if err != nil {
+			if xerr, ok := err.(*xattr.Error); !ok || xerr.Err != xattr.ENOATTR {
+				return nil, fmt.Errorf("failed to determine if %q supports xattr, consider using a different storage backend or a filesystem that supports it (e.g. not tmpfs on Linux): %w", rootDir, err)
 			}
-		} else if err != nil {
-			return nil, err
 		}
 	}
 
