@@ -309,20 +309,21 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mw := multipart.NewWriter(w)
+	defer mw.Close()
 	w.Header().Set("Content-Type", "multipart/mixed; boundary="+mw.Boundary())
 
 	w.WriteHeader(http.StatusOK)
 	part, err := reader.NextPart()
 	for ; err == nil; part, err = reader.NextPart() {
-		contentId := part.Header.Get("Content-ID")
-		if contentId == "" {
+		contentID := part.Header.Get("Content-ID")
+		if contentID == "" {
 			// missing content ID, skip
 			continue
 		}
 
 		partHeaders := textproto.MIMEHeader{}
 		partHeaders.Set("Content-Type", "application/http")
-		partHeaders.Set("Content-ID", strings.Replace(contentId, "<", "<response-", 1))
+		partHeaders.Set("Content-ID", strings.Replace(contentID, "<", "<response-", 1))
 		partWriter, err := mw.CreatePart(partHeaders)
 
 		if err != nil {
@@ -332,29 +333,27 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 		partResponseWriter := httptest.NewRecorder()
 		if part.Header.Get("Content-Type") != "application/http" {
 			http.Error(partResponseWriter, "invalid Content-Type header", http.StatusBadRequest)
-			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentId)
+			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
 			continue
 		}
 
 		content, err := loadContent(part)
 		if err != nil {
 			http.Error(partResponseWriter, "unable to process request", http.StatusBadRequest)
-			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentId)
+			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
 			continue
 		}
 
 		partRequest, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(content)))
 		if err != nil {
 			http.Error(partResponseWriter, "unable to process request", http.StatusBadRequest)
-			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentId)
+			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
 			continue
 		}
 
 		s.mux.ServeHTTP(partResponseWriter, partRequest)
-		writeMultipartResponse(partResponseWriter.Result(), partWriter, contentId)
+		writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
 	}
-
-	mw.Close()
 }
 
 func writeMultipartResponse(r *http.Response, w io.Writer, contentId string) {
