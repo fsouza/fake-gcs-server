@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
+	"github.com/pkg/xattr"
 )
 
 // storageFS is an implementation of the backend storage that stores data on disk
@@ -45,6 +46,17 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Check if rootDir supports xattr.
+	if xattr.XATTR_SUPPORTED {
+		_, err = readXattr(rootDir)
+		if err != nil {
+			if xerr, ok := err.(*xattr.Error); !ok || xerr.Err != xattr.ENOATTR {
+				return nil, fmt.Errorf("failed to determine if %q supports xattr, consider using a different storage backend or a filesystem that supports it (e.g. not tmpfs on Linux): %w", rootDir, err)
+			}
+		}
+	}
+
 	s := &storageFS{rootDir: rootDir}
 	for _, o := range objects {
 		_, err := s.CreateObject(o)
