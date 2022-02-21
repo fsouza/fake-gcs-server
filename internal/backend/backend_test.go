@@ -13,8 +13,6 @@ import (
 	"runtime"
 	"testing"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 func tempDir() string {
@@ -30,7 +28,7 @@ func makeStorageBackends(t *testing.T) (map[string]Storage, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	storageFS, err := NewStorageFS(nil, tempDir, logrus.New())
+	storageFS, err := NewStorageFS(nil, tempDir)
 	if err != nil {
 		t.Fatal(err)
 	}
