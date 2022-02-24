@@ -22,12 +22,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
