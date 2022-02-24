@@ -10,7 +10,9 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"io"
+	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net"
@@ -308,7 +310,8 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mw := multipart.NewWriter(w)
+	var b bytes.Buffer
+	mw := multipart.NewWriter(&b)
 	defer mw.Close()
 	w.Header().Set("Content-Type", "multipart/mixed; boundary="+mw.Boundary())
 
@@ -337,7 +340,8 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		content, err := loadContent(part)
+		content, err := ioutil.ReadAll(part)
+		part.Close()
 		if err != nil {
 			http.Error(partResponseWriter, "unable to process request", http.StatusBadRequest)
 			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
@@ -353,6 +357,13 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 
 		s.mux.ServeHTTP(partResponseWriter, partRequest)
 		writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
+	}
+	mw.Close()
+
+	_, err = b.WriteTo(w)
+	if err != nil {
+		logrus.New().Error(err)
+		http.Error(w, "unable to process request", http.StatusBadRequest)
 	}
 }
 
