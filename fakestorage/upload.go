@@ -328,9 +328,6 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	metadata, err := loadMetadata(r.Body)
-	if err != nil {
-		return jsonResponse{errorMessage: err.Error()}
-	}
 	objName := r.URL.Query().Get("name")
 	if objName == "" {
 		objName = metadata.Name
