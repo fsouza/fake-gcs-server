@@ -327,7 +327,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonResponse {
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
-	metadata, err := loadMetadata(r.Body)
+	metadata, _ := loadMetadata(r.Body)
 	objName := r.URL.Query().Get("name")
 	if objName == "" {
 		objName = metadata.Name
