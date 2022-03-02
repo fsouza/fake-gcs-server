@@ -20,10 +20,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(crc32c)
 add_library(Crc32c::crc32c ALIAS crc32c)
-#TODO replace b03448411402c83082c279b246548d578dee05c7 with the next release which contains it
 FetchContent_Declare(google-cloud-cpp
-        GIT_REPOSITORY      https://github.com/googleapis/google-cloud-cpp.git
-        GIT_TAG             b03448411402c83082c279b246548d578dee05c7)
+        URL                 https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/v1.37.0.tar.gz
+        URL_HASH            SHA256=a7269b21d5e95bebff7833ebb602bcd5bcc79e82a59449cc5d5b350ff2f50bbc)
 FetchContent_MakeAvailable(google-cloud-cpp)
 
 add_executable(cpp-example cpp-examples.cpp)
