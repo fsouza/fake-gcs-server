@@ -137,6 +137,9 @@ jobs:
           - lang: java
             docker-image: openjdk:11
             entrypoint: /bin/sh
+          - lang: cpp
+            docker-image: alpine
+            entrypoint: /bin/sh
 
     name: test-${{ matrix.lang }}-example
     runs-on: ubuntu-latest
