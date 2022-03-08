@@ -615,6 +615,7 @@ func getObjectsForListTests() []Object {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/brand.jpg"}},
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "video/hi-res/some_video_1080p.mp4"}},
 		{ObjectAttrs: ObjectAttrs{BucketName: "other-bucket", Name: "static/css/style.css"}},
+		{ObjectAttrs: ObjectAttrs{BucketName: "trailing-delimiter-bucket", Name: "foo/"}},
 	}
 }
 
@@ -730,6 +731,20 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 			&storage.Query{Prefix: "img/", Delimiter: "/", StartOffset: "", EndOffset: "img/low-res"},
 			[]string{"img/brand.jpg"},
 			[]string{"img/hi-res/"},
+		},
+		{
+			"delimiter without IncludeTrailingDelimiter",
+			"trailing-delimiter-bucket",
+			&storage.Query{Delimiter: "/", IncludeTrailingDelimiter: false},
+			[]string{},
+			[]string{"foo/"},
+		},
+		{
+			"delimiter with IncludeTrailingDelimiter",
+			"trailing-delimiter-bucket",
+			&storage.Query{Delimiter: "/", IncludeTrailingDelimiter: true},
+			[]string{"foo/"},
+			[]string{"foo/"},
 		},
 	}
 }
