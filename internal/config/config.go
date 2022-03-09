@@ -27,17 +27,19 @@ const (
 )
 
 type Config struct {
-	Seed               string
-	publicHost         string
-	externalURL        string
-	allowedCORSHeaders []string
-	scheme             string
-	host               string
-	port               uint
-	backend            string
-	fsRoot             string
-	event              EventConfig
-	bucketLocation     string
+	Seed                string
+	publicHost          string
+	externalURL         string
+	allowedCORSHeaders  []string
+	scheme              string
+	host                string
+	port                uint
+	backend             string
+	fsRoot              string
+	event               EventConfig
+	bucketLocation      string
+	certificateLocation string
+	privateKeyLocation  string
 }
 
 type EventConfig struct {
@@ -69,6 +71,8 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.event.prefix, "event.object-prefix", "", "if not empty, only objects having this prefix will generate trigger events")
 	fs.StringVar(&eventList, "event.list", eventFinalize, "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
 	fs.StringVar(&cfg.bucketLocation, "location", "US-CENTRAL1", "location for buckets")
+	fs.StringVar(&cfg.certificateLocation, "cert-location", "", "location for server certificate")
+	fs.StringVar(&cfg.privateKeyLocation, "private-key-location", "", "location for private key")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -155,15 +159,17 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 	}
 
 	return fakestorage.Options{
-		StorageRoot:        storageRoot,
-		Scheme:             c.scheme,
-		Host:               c.host,
-		Port:               uint16(c.port),
-		PublicHost:         c.publicHost,
-		ExternalURL:        c.externalURL,
-		AllowedCORSHeaders: c.allowedCORSHeaders,
-		Writer:             logrus.New().Writer(),
-		EventOptions:       eventOptions,
-		BucketsLocation:    c.bucketLocation,
+		StorageRoot:         storageRoot,
+		Scheme:              c.scheme,
+		Host:                c.host,
+		Port:                uint16(c.port),
+		PublicHost:          c.publicHost,
+		ExternalURL:         c.externalURL,
+		AllowedCORSHeaders:  c.allowedCORSHeaders,
+		Writer:              logrus.New().Writer(),
+		EventOptions:        eventOptions,
+		BucketsLocation:     c.bucketLocation,
+		CertificateLocation: c.certificateLocation,
+		PrivateKeyLocation:  c.privateKeyLocation,
 	}
 }
