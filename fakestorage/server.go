@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -110,6 +111,10 @@ type Options struct {
 
 	// Location used for buckets in the server.
 	BucketsLocation string
+
+	CertificateLocation string
+
+	PrivateKeyLocation string
 }
 
 // NewServerWithOptions creates a new server configured according to the
@@ -165,6 +170,13 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		}
 		s.ts.Listener.Close()
 		s.ts.Listener = l
+	}
+	if ( options.CertificateLocation != "" && options.PrivateKeyLocation != "") {
+		cert, err := tls.LoadX509KeyPair(options.CertificateLocation, options.PrivateKeyLocation)
+		if err != nil {
+			return nil, err
+		}
+		s.ts.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
 	}
 	startFunc()
 
