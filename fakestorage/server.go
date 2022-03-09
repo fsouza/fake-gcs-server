@@ -171,7 +171,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		s.ts.Listener.Close()
 		s.ts.Listener = l
 	}
-	if ( options.CertificateLocation != "" && options.PrivateKeyLocation != "") {
+	if options.CertificateLocation != "" && options.PrivateKeyLocation != "" {
 		cert, err := tls.LoadX509KeyPair(options.CertificateLocation, options.PrivateKeyLocation)
 		if err != nil {
 			return nil, err
