@@ -276,16 +276,25 @@ func TestUpdateServerConfig(t *testing.T) {
 		name                string
 		requestBody         string
 		expectedExternalUrl string
+		expectedPublicHost  string
 	}{
 		{
 			"PUT: empty json",
 			"{}",
 			"https://0.0.0.0:4443",
+			"0.0.0.0:4443",
 		},
 		{
 			"PUT: externalUrl provided",
 			"{\"externalUrl\": \"https://1.2.3.4:4321\"}",
 			"https://1.2.3.4:4321",
+			"0.0.0.0:4443",
+		},
+		{
+			"PUT: publicHost provided",
+			"{\"publicHost\": \"1.2.3.4:4321\"}",
+			"https://1.2.3.4:4321",
+			"1.2.3.4:4321",
 		},
 	}
 
@@ -317,6 +326,7 @@ func TestUpdateServerConfig(t *testing.T) {
 			}
 
 			assert.Equal(t, test.expectedExternalUrl, server.externalURL)
+			assert.Equal(t, test.expectedPublicHost, server.publicHost)
 		})
 	}
 }

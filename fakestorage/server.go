@@ -218,7 +218,7 @@ func (s *Server) buildMuxer() {
 
 	routers := []*mux.Router{
 		s.mux.PathPrefix(apiPrefix).Subrouter(),
-		s.mux.Host(s.publicHost).PathPrefix(apiPrefix).Subrouter(),
+		s.mux.MatcherFunc(s.publicHostMatcher).PathPrefix(apiPrefix).Subrouter(),
 	}
 
 	for _, r := range routers {
@@ -242,7 +242,7 @@ func (s *Server) buildMuxer() {
 
 	// Internal / update server configuration
 	s.mux.Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
-	s.mux.Host(s.publicHost).Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
+	s.mux.MatcherFunc(s.publicHostMatcher).Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
 	// Internal - end
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
@@ -252,10 +252,10 @@ func (s *Server) buildMuxer() {
 	s.mux.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
 	// Batch endpoint
-	s.mux.Host(s.publicHost).Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
+	s.mux.MatcherFunc(s.publicHostMatcher).Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
 	s.mux.Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
 
-	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+	s.mux.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 
 	// Form Uploads
@@ -266,6 +266,11 @@ func (s *Server) buildMuxer() {
 	s.mux.Host(s.publicHost).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+}
+
+// publicHostMatcher matches incoming requests against the currently specified server publicHost.
+func (s *Server) publicHostMatcher(r *http.Request, rm *mux.RouteMatch) bool {
+	return r.Host == s.publicHost
 }
 
 // Stop stops the server, closing all connections.
