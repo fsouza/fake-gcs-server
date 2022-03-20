@@ -59,7 +59,7 @@ func (o Object) MarshalJSON() ([]byte, error) {
 	temp := struct {
 		BucketName      string            `json:"bucket"`
 		Name            string            `json:"name"`
-		Size            int64             `json:"-"`
+		Size            int64             `json:"size,string"`
 		ContentType     string            `json:"contentType"`
 		ContentEncoding string            `json:"contentEncoding"`
 		Content         []byte            `json:"-"`
@@ -76,6 +76,7 @@ func (o Object) MarshalJSON() ([]byte, error) {
 		Name:            o.Name,
 		ContentType:     o.ContentType,
 		ContentEncoding: o.ContentEncoding,
+		Size:            o.Size,
 		Content:         o.Content,
 		Crc32c:          o.Crc32c,
 		Md5Hash:         o.Md5Hash,
@@ -97,7 +98,7 @@ func (o *Object) UnmarshalJSON(data []byte) error {
 	temp := struct {
 		BucketName      string            `json:"bucket"`
 		Name            string            `json:"name"`
-		Size            int64             `json:"-"`
+		Size            int64             `json:"size,string"`
 		ContentType     string            `json:"contentType"`
 		ContentEncoding string            `json:"contentEncoding"`
 		Content         []byte            `json:"-"`
@@ -117,6 +118,7 @@ func (o *Object) UnmarshalJSON(data []byte) error {
 	o.Name = temp.Name
 	o.ContentType = temp.ContentType
 	o.ContentEncoding = temp.ContentEncoding
+	o.Size = temp.Size
 	o.Content = temp.Content
 	o.Crc32c = temp.Crc32c
 	o.Md5Hash = temp.Md5Hash

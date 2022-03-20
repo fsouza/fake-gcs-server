@@ -82,6 +82,9 @@ func TestServerClientObjectWriter(t *testing.T) {
 						n, baseContent)
 				}
 
+				if returnedSize := w.Attrs().Size; returnedSize != int64(len(content)) {
+					t.Errorf("wrong writer.Attrs() size returned\nwant %d\ngot  %d", len(content), returnedSize)
+				}
 				if returnedChecksum := w.Attrs().CRC32C; returnedChecksum != u32Checksum {
 					t.Errorf("wrong writer.Attrs() checksum returned\nwant %d\ngot  %d", u32Checksum, returnedChecksum)
 				}
