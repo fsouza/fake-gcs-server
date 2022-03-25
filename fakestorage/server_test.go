@@ -89,7 +89,7 @@ func TestNewServerLogging(t *testing.T) {
 
 func TestPublicURL(t *testing.T) {
 	t.Parallel()
-	var tests = []struct {
+	tests := []struct {
 		name     string
 		options  Options
 		expected string
@@ -858,7 +858,7 @@ func (m *fakeEventManager) Trigger(o *backend.Object, eventType notification.Eve
 }
 
 func runServersTest(t *testing.T, objs []Object, fn func(*testing.T, *Server)) {
-	var testScenarios = []struct {
+	testScenarios := []struct {
 		name    string
 		options Options
 	}{

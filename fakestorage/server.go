@@ -345,7 +345,6 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 		partHeaders.Set("Content-Type", "application/http")
 		partHeaders.Set("Content-ID", strings.Replace(contentID, "<", "<response-", 1))
 		partWriter, err := mw.CreatePart(partHeaders)
-
 		if err != nil {
 			continue
 		}

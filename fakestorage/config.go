@@ -6,7 +6,6 @@ import (
 )
 
 func (s *Server) updateServerConfig(r *http.Request) jsonResponse {
-
 	var configOptions struct {
 		ExternalUrl string `json:"externalUrl,omitempty"`
 		PublicHost  string `json:"publicHost,omitempty"`

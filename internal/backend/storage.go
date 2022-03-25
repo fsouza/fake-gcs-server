@@ -26,5 +26,7 @@ type Error string
 
 func (e Error) Error() string { return string(e) }
 
-const BucketNotFound = Error("bucket not found")
-const BucketNotEmpty = Error("bucket must be empty prior to deletion")
+const (
+	BucketNotFound = Error("bucket not found")
+	BucketNotEmpty = Error("bucket must be empty prior to deletion")
+)
