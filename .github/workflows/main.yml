@@ -132,7 +132,7 @@ jobs:
             docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
             entrypoint: /bin/sh
           - lang: scala
-            docker-image: mozilla/sbt:latest
+            docker-image: mozilla/sbt:8u292_1.5.7
             entrypoint: /bin/sh
           - lang: java
             docker-image: openjdk:11
