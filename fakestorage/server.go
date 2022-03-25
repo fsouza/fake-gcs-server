@@ -20,6 +20,7 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/textproto"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -270,7 +271,11 @@ func (s *Server) buildMuxer() {
 
 // publicHostMatcher matches incoming requests against the currently specified server publicHost.
 func (s *Server) publicHostMatcher(r *http.Request, rm *mux.RouteMatch) bool {
-	return r.Host == s.publicHost
+	if strings.Contains(s.publicHost, ":") {
+		return r.Host == s.publicHost
+	}
+	matched, _ := regexp.MatchString("^"+regexp.QuoteMeta(s.publicHost), r.Host)
+	return matched
 }
 
 // Stop stops the server, closing all connections.
