@@ -1,9 +1,11 @@
 name: docker-push
-on: create
+on:
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build-and-push:
-    if: github.event.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.0.0
