@@ -222,6 +222,128 @@ func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
 	})
 }
 
+func TestServerClientObjectOperationsWithIfGenerationMatchPrecondition(t *testing.T) {
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		const (
+			originalContent     = "original content"
+			newContent          = "new content"
+			originalContentType = "text/plain"
+			bucketName          = "some-bucket"
+			objectName          = "some-object-2.txt"
+		)
+
+		bucket := server.Client().Bucket(bucketName)
+		if err := bucket.Create(context.Background(), "my-project", nil); err != nil {
+			t.Fatal(err)
+		}
+
+		objHandle := bucket.Object(objectName)
+
+		firstWriter := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+		firstWriter.ContentType = originalContentType
+		firstWriter.Write([]byte(originalContent))
+		if err := firstWriter.Close(); err != nil {
+			t.Fatal(err)
+		}
+		gen := firstWriter.Attrs().Generation
+
+		firstReader, err := objHandle.If(storage.Conditions{GenerationMatch: gen}).NewReader(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		objectContent, err := ioutil.ReadAll(firstReader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(objectContent) != originalContent {
+			t.Errorf("wrong content in the object after initial write with precondition\nwant %q\ngot  %q", originalContent, string(objectContent))
+		}
+
+		secondWriter := objHandle.If(storage.Conditions{GenerationMatch: gen}).NewWriter(context.Background())
+		secondWriter.ContentType = "application/json"
+		secondWriter.Write([]byte(newContent))
+		err = secondWriter.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		gen = secondWriter.Attrs().Generation
+
+		secondReader, err := objHandle.If(storage.Conditions{GenerationMatch: gen}).NewReader(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		objectContentAfterMatchedPrecondition, err := ioutil.ReadAll(secondReader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(objectContentAfterMatchedPrecondition) != newContent {
+			t.Errorf("wrong content in the object after matched precondition\nwant %q\ngot  %q", newContent, string(objectContentAfterMatchedPrecondition))
+		}
+	})
+}
+
+func TestServerClientObjectOperationsWithIfGenerationNotMatchPrecondition(t *testing.T) {
+	runServersTest(t, nil, func(t *testing.T, server *Server) {
+		const (
+			originalContent     = "original content"
+			newContent          = "new content"
+			originalContentType = "text/plain"
+			bucketName          = "some-bucket"
+			objectName          = "some-object-2.txt"
+		)
+
+		bucket := server.Client().Bucket(bucketName)
+		if err := bucket.Create(context.Background(), "my-project", nil); err != nil {
+			t.Fatal(err)
+		}
+
+		objHandle := bucket.Object(objectName)
+
+		firstWriter := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+		firstWriter.ContentType = originalContentType
+		firstWriter.Write([]byte(originalContent))
+		if err := firstWriter.Close(); err != nil {
+			t.Fatal(err)
+		}
+		gen := firstWriter.Attrs().Generation
+
+		firstReader, err := objHandle.If(storage.Conditions{GenerationMatch: gen}).NewReader(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		objectContent, err := ioutil.ReadAll(firstReader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(objectContent) != originalContent {
+			t.Errorf("wrong content in the object after initial write with precondition\nwant %q\ngot  %q", originalContent, string(objectContent))
+		}
+
+		secondWriter := objHandle.If(storage.Conditions{GenerationNotMatch: gen}).NewWriter(context.Background())
+		secondWriter.ContentType = "application/json"
+		secondWriter.Write([]byte(newContent))
+		err = secondWriter.Close()
+		if err == nil {
+			t.Fatal("expected overwriting existing object to fail, but received no error")
+		}
+		if err.Error() != "googleapi: Error 412: Precondition failed" {
+			t.Errorf("expected HTTP 412 precondition failed error, but got %v", err)
+		}
+
+		secondReader, err := objHandle.NewReader(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		objectContentAfterFailedPrecondition, err := ioutil.ReadAll(secondReader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(objectContentAfterFailedPrecondition) != originalContent {
+			t.Errorf("wrong content in the object after failed precondition\nwant %q\ngot  %q", originalContent, string(objectContentAfterFailedPrecondition))
+		}
+	})
+}
+
 func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
 	runServersTest(t, nil, func(t *testing.T, server *Server) {
 		client := server.Client()

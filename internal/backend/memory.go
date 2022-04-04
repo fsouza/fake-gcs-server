@@ -227,7 +227,7 @@ func (s *storageMemory) GetObject(bucketName, objectName string) (Object, error)
 	return s.GetObjectWithGeneration(bucketName, objectName, 0)
 }
 
-// GetObjectWithGeneration retrieves an specific version of the object.
+// GetObjectWithGeneration retrieves a specific version of the object.
 func (s *storageMemory) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
