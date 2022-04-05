@@ -74,6 +74,18 @@ curl http://0.0.0.0:4443/storage/v1/b/sample-bucket/o
 {"kind":"storage#objects","items":[{"kind":"storage#object","name":"some_file.txt","id":"sample-bucket/some_file.txt","bucket":"sample-bucket","size":"33"}],"prefixes":[]}
 ```
 
+### Using with signed URLs
+
+It is possible to use fake-gcs-server with signed URLs, although with a few caveats :
+* No validation is made on the query params (signature, expiration ...)
+* You need your client to modify the URL before passing it around (replacing `storage.googleapis.com` by something that will point to fake-gcs-server)
+* You need to configure fake-gcs-server to accept this local URL
+
+Here is an example of such a configuration :
+```shell
+docker run -d --name fake-gcs-server -p 4443:4443 fsouza/fake-gcs-server -public-host storage.googleapis.localhost:4443
+```
+
 ## Client library examples
 
 For examples using SDK from multiple languages, check out the
