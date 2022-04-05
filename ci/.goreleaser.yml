@@ -26,7 +26,4 @@ checksum:
 snapshot:
   name_template: "{{ .Tag }}-next"
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^Merge"
+  use: github-native
