@@ -150,17 +150,54 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, objectName string) *jsonResponse {
 	ifGenerationMatch := r.URL.Query().Get("ifGenerationMatch")
 
-	if ifGenerationMatch == "0" {
-		if _, err := s.backend.GetObject(bucketName, objectName); err == nil {
+	if ifGenerationMatch != "" {
+		gen, err := strconv.ParseInt(ifGenerationMatch, 10, 64)
+		if err != nil {
+			return &jsonResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: err.Error(),
+			}
+		}
+		_, err = s.backend.GetObjectWithGeneration(bucketName, objectName, gen)
+		if gen == 0 {
+			if err == nil {
+				return &jsonResponse{
+					status:       http.StatusPreconditionFailed,
+					errorMessage: "Precondition failed",
+				}
+			}
+		} else if err != nil {
 			return &jsonResponse{
 				status:       http.StatusPreconditionFailed,
 				errorMessage: "Precondition failed",
 			}
 		}
-	} else if ifGenerationMatch != "" || r.URL.Query().Get("ifGenerationNotMatch") != "" {
-		return &jsonResponse{
-			status:       http.StatusNotImplemented,
-			errorMessage: "Precondition support not implemented",
+		return nil
+	}
+
+	ifGenerationNotMatch := r.URL.Query().Get("ifGenerationNotMatch")
+
+	if ifGenerationNotMatch != "" {
+		gen, err := strconv.ParseInt(ifGenerationNotMatch, 10, 64)
+		if err != nil {
+			return &jsonResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: err.Error(),
+			}
+		}
+		_, err = s.backend.GetObjectWithGeneration(bucketName, objectName, gen)
+		if gen == 0 {
+			if err != nil {
+				return &jsonResponse{
+					status:       http.StatusPreconditionFailed,
+					errorMessage: "Precondition failed",
+				}
+			}
+		} else if err == nil {
+			return &jsonResponse{
+				status:       http.StatusPreconditionFailed,
+				errorMessage: "Precondition failed",
+			}
 		}
 	}
 
