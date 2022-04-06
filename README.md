@@ -76,7 +76,8 @@ curl http://0.0.0.0:4443/storage/v1/b/sample-bucket/o
 
 ### Using with signed URLs
 
-It is possible to use fake-gcs-server with signed URLs, although with a few caveats :
+It is possible to use fake-gcs-server with signed URLs, although with a few caveats:
+
 * No validation is made on the query params (signature, expiration ...)
 * You need your client to modify the URL before passing it around (replacing `storage.googleapis.com` by something that will point to fake-gcs-server)
 * You need to configure fake-gcs-server to accept this local URL
