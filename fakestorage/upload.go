@@ -127,6 +127,7 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	if err != nil {
 		return xmlResponse{errorMessage: err.Error()}
 	}
+	md5Hash := checksum.EncodedMd5Hash(data)
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
@@ -134,7 +135,8 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 			ContentType:     contentType,
 			ContentEncoding: contentEncoding,
 			Crc32c:          checksum.EncodedCrc32cChecksum(data),
-			Md5Hash:         checksum.EncodedMd5Hash(data),
+			Md5Hash:         md5Hash,
+			Etag:            fmt.Sprintf("%q", md5Hash),
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metaData,
 		},
@@ -219,6 +221,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
+	md5Hash := checksum.EncodedMd5Hash(data)
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
@@ -226,7 +229,8 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 			ContentType:     r.Header.Get(contentTypeHeader),
 			ContentEncoding: contentEncoding,
 			Crc32c:          checksum.EncodedCrc32cChecksum(data),
-			Md5Hash:         checksum.EncodedMd5Hash(data),
+			Md5Hash:         md5Hash,
+			Etag:            fmt.Sprintf("%q", md5Hash),
 			ACL:             getObjectACL(predefinedACL),
 		},
 		Content: data,
@@ -261,6 +265,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
+	md5Hash := checksum.EncodedMd5Hash(data)
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
@@ -268,7 +273,8 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 			ContentType:     r.Header.Get(contentTypeHeader),
 			ContentEncoding: contentEncoding,
 			Crc32c:          checksum.EncodedCrc32cChecksum(data),
-			Md5Hash:         checksum.EncodedMd5Hash(data),
+			Md5Hash:         md5Hash,
+			Etag:            fmt.Sprintf("%q", md5Hash),
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metaData,
 		},
@@ -341,6 +347,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		return *resp
 	}
 
+	md5Hash := checksum.EncodedMd5Hash(content)
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
@@ -348,7 +355,8 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 			ContentType:     contentType,
 			ContentEncoding: metadata.ContentEncoding,
 			Crc32c:          checksum.EncodedCrc32cChecksum(content),
-			Md5Hash:         checksum.EncodedMd5Hash(content),
+			Md5Hash:         md5Hash,
+			Etag:            fmt.Sprintf("%q", md5Hash),
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metadata.Metadata,
 		},
@@ -453,6 +461,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	obj.Content = append(obj.Content, content...)
 	obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
 	obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
+	obj.Etag = fmt.Sprintf("%q", obj.Md5Hash)
 	obj.ContentType = r.Header.Get(contentTypeHeader)
 	responseHeader := make(http.Header)
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {

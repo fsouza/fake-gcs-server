@@ -19,6 +19,7 @@ type ObjectAttrs struct {
 	ContentEncoding string
 	Crc32c          string
 	Md5Hash         string
+	Etag            string
 	ACL             []storage.ACLRule
 	Metadata        map[string]string
 	Created         string

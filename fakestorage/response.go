@@ -93,6 +93,7 @@ type objectResponse struct {
 	Crc32c          string                 `json:"crc32c,omitempty"`
 	ACL             []*objectAccessControl `json:"acl,omitempty"`
 	Md5Hash         string                 `json:"md5Hash,omitempty"`
+	Etag            string                 `json:"etag,omitempty"`
 	TimeCreated     string                 `json:"timeCreated,omitempty"`
 	TimeDeleted     string                 `json:"timeDeleted,omitempty"`
 	Updated         string                 `json:"updated,omitempty"`
@@ -113,6 +114,7 @@ func newObjectResponse(obj ObjectAttrs) objectResponse {
 		ContentEncoding: obj.ContentEncoding,
 		Crc32c:          obj.Crc32c,
 		Md5Hash:         obj.Md5Hash,
+		Etag:            obj.Etag,
 		ACL:             acl,
 		Metadata:        obj.Metadata,
 		TimeCreated:     obj.Created.Format(timestampFormat),

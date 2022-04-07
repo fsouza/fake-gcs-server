@@ -34,6 +34,7 @@ type ObjectAttrs struct {
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string
 	Md5Hash string
+	Etag    string
 	ACL     []storage.ACLRule
 	// Dates and generation can be manually injected, so you can do assertions on them,
 	// or let us fill these fields for you
@@ -65,6 +66,7 @@ func (o Object) MarshalJSON() ([]byte, error) {
 		Content         []byte            `json:"-"`
 		Crc32c          string            `json:"crc32c,omitempty"`
 		Md5Hash         string            `json:"md5Hash,omitempty"`
+		Etag            string            `json:"etag,omitempty"`
 		ACL             []aclRule         `json:"acl,omitempty"`
 		Created         time.Time         `json:"created,omitempty"`
 		Updated         time.Time         `json:"updated,omitempty"`
@@ -80,6 +82,7 @@ func (o Object) MarshalJSON() ([]byte, error) {
 		Content:         o.Content,
 		Crc32c:          o.Crc32c,
 		Md5Hash:         o.Md5Hash,
+		Etag:            o.Etag,
 		Created:         o.Created,
 		Updated:         o.Updated,
 		Deleted:         o.Deleted,
@@ -104,6 +107,7 @@ func (o *Object) UnmarshalJSON(data []byte) error {
 		Content         []byte            `json:"-"`
 		Crc32c          string            `json:"crc32c,omitempty"`
 		Md5Hash         string            `json:"md5Hash,omitempty"`
+		Etag            string            `json:"etag,omitempty"`
 		ACL             []aclRule         `json:"acl,omitempty"`
 		Created         time.Time         `json:"created,omitempty"`
 		Updated         time.Time         `json:"updated,omitempty"`
@@ -122,6 +126,7 @@ func (o *Object) UnmarshalJSON(data []byte) error {
 	o.Content = temp.Content
 	o.Crc32c = temp.Crc32c
 	o.Md5Hash = temp.Md5Hash
+	o.Etag = temp.Etag
 	o.Created = temp.Created
 	o.Updated = temp.Updated
 	o.Deleted = temp.Deleted
@@ -357,6 +362,7 @@ func toBackendObjects(objects []Object) []backend.Object {
 				ContentEncoding: o.ContentEncoding,
 				Crc32c:          o.Crc32c,
 				Md5Hash:         o.Md5Hash,
+				Etag:            o.Etag,
 				ACL:             o.ACL,
 				Created:         getCurrentIfZero(o.Created).Format(timestampFormat),
 				Deleted:         o.Deleted.Format(timestampFormat),
@@ -382,6 +388,7 @@ func fromBackendObjects(objects []backend.Object) []Object {
 				ContentEncoding: o.ContentEncoding,
 				Crc32c:          o.Crc32c,
 				Md5Hash:         o.Md5Hash,
+				Etag:            o.Etag,
 				ACL:             o.ACL,
 				Created:         convertTimeWithoutError(o.Created),
 				Deleted:         convertTimeWithoutError(o.Deleted),
@@ -406,6 +413,7 @@ func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 			ContentEncoding: o.ContentEncoding,
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
+			Etag:            o.Etag,
 			ACL:             o.ACL,
 			Created:         convertTimeWithoutError(o.Created),
 			Deleted:         convertTimeWithoutError(o.Deleted),
