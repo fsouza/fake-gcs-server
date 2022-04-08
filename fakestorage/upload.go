@@ -160,15 +160,15 @@ func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, ob
 				errorMessage: err.Error(),
 			}
 		}
-		_, err = s.backend.GetObjectWithGeneration(bucketName, objectName, gen)
 		if gen == 0 {
+			_, err := s.backend.GetObject(bucketName, objectName)
 			if err == nil {
 				return &jsonResponse{
 					status:       http.StatusPreconditionFailed,
 					errorMessage: "Precondition failed",
 				}
 			}
-		} else if err != nil {
+		} else if _, err := s.backend.GetObjectWithGeneration(bucketName, objectName, gen); err != nil {
 			return &jsonResponse{
 				status:       http.StatusPreconditionFailed,
 				errorMessage: "Precondition failed",

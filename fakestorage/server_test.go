@@ -11,6 +11,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -148,8 +150,8 @@ func TestDownloadObject(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-03.txt"}},
 		{ObjectAttrs: ObjectAttrs{BucketName: "other-bucket", Name: "static/css/website.css"}, Content: []byte("body {display: none;}")},
 	}
-	runServersTest(t, objs, testDownloadObject)
-	runServersTest(t, objs, testDownloadObjectRange)
+	runServersTest(t, runServersOptions{objs: objs}, testDownloadObject)
+	runServersTest(t, runServersOptions{objs: objs}, testDownloadObjectRange)
 }
 
 func TestDownloadAfterPublicHostChange(t *testing.T) {
@@ -915,23 +917,59 @@ func (m *fakeEventManager) Trigger(o *backend.Object, eventType notification.Eve
 	})
 }
 
-func runServersTest(t *testing.T, objs []Object, fn func(*testing.T, *Server)) {
-	testScenarios := []struct {
-		name    string
-		options Options
-	}{
+type runServersOptions struct {
+	objs            []Object
+	enableFSBackend bool
+}
+
+type serverTest struct {
+	name    string
+	options Options
+}
+
+func runServersTest(t *testing.T, runOpts runServersOptions, fn func(*testing.T, *Server)) {
+	testScenarios := []serverTest{
 		{
 			name:    "https listener",
-			options: Options{NoListener: false, InitialObjects: objs},
+			options: Options{NoListener: false, InitialObjects: runOpts.objs},
 		},
 		{
 			name:    "http listener",
-			options: Options{Scheme: "http", NoListener: false, InitialObjects: objs},
+			options: Options{Scheme: "http", NoListener: false, InitialObjects: runOpts.objs},
 		},
 		{
 			name:    "no listener",
-			options: Options{NoListener: true, InitialObjects: objs},
+			options: Options{NoListener: true, InitialObjects: runOpts.objs},
 		},
+	}
+	if runOpts.enableFSBackend {
+		dir, err := os.MkdirTemp("", "")
+		if err != nil {
+			t.Fatalf("cannot create temp dir for storage backend tests: %v", err)
+		}
+		t.Cleanup(func() {
+			os.RemoveAll(dir)
+		})
+		httpsDir := filepath.Join(dir, "https")
+		httpDir := filepath.Join(dir, "http")
+		err = os.MkdirAll(httpsDir, 0o755)
+		if err != nil {
+			t.Fatalf("cannot create temp dir for storage backend tests: %v", err)
+		}
+		err = os.MkdirAll(httpDir, 0o755)
+		if err != nil {
+			t.Fatalf("cannot create temp dir for storage backend tests: %v", err)
+		}
+		testScenarios = append(testScenarios,
+			serverTest{
+				name:    "https listener, fs backend",
+				options: Options{NoListener: false, InitialObjects: runOpts.objs, StorageRoot: httpsDir},
+			},
+			serverTest{
+				name:    "http listener, fs backend",
+				options: Options{Scheme: "http", NoListener: false, InitialObjects: runOpts.objs, StorageRoot: httpDir},
+			},
+		)
 	}
 	for _, test := range testScenarios {
 		test := test

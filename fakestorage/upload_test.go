@@ -30,7 +30,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 	u32Checksum := uint32Checksum([]byte(content))
 	hash := checksum.MD5Hash([]byte(content))
 
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		tests := []struct {
 			testCase   string
 			bucketName string
@@ -131,7 +131,7 @@ func checkChecksum(t *testing.T, content []byte, obj Object) {
 }
 
 func TestServerClientObjectWriterOverwrite(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const content = "other content"
 		const contentType = "text/plain"
 		server.CreateObject(Object{
@@ -165,7 +165,7 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 }
 
 func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const originalContent = "original content"
 		const originalContentType = "text/plain"
 		const bucketName = "some-bucket"
@@ -223,7 +223,7 @@ func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
 }
 
 func TestServerClientObjectOperationsWithIfGenerationMatchPrecondition(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const (
 			originalContent     = "original content"
 			newContent          = "new content"
@@ -283,7 +283,7 @@ func TestServerClientObjectOperationsWithIfGenerationMatchPrecondition(t *testin
 }
 
 func TestServerClientObjectOperationsWithIfGenerationNotMatchPrecondition(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const (
 			originalContent     = "original content"
 			newContent          = "new content"
@@ -344,8 +344,42 @@ func TestServerClientObjectOperationsWithIfGenerationNotMatchPrecondition(t *tes
 	})
 }
 
+func TestServerClientObjectOperationsFailureToWriteExistingObject(t *testing.T) {
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		const (
+			originalContent     = "original content"
+			newContent          = "new content"
+			originalContentType = "text/plain"
+			bucketName          = "some-bucket"
+			objectName          = "some-object.txt"
+		)
+
+		bucket := server.Client().Bucket(bucketName)
+		if err := bucket.Create(context.Background(), "my-project", nil); err != nil {
+			t.Fatal(err)
+		}
+
+		objHandle := bucket.Object(objectName)
+
+		firstWriter := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+		firstWriter.ContentType = originalContentType
+		firstWriter.Write([]byte(originalContent))
+		if err := firstWriter.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		secondWriter := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+		secondWriter.ContentType = "application/json"
+		secondWriter.Write([]byte(newContent))
+		err := secondWriter.Close()
+		if err == nil {
+			t.Fatal("expected overwriting existing object to fail, but received no error")
+		}
+	})
+}
+
 func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		client := server.Client()
 		objHandle := client.Bucket("some-bucket").Object("some/interesting/object.txt")
 		w := objHandle.NewWriter(context.Background())
@@ -728,7 +762,7 @@ func resumableUploadTest(t *testing.T, server *Server, bucketName string, upload
 func TestServerUndocumentedResumableUploadAPI(t *testing.T) {
 	bucketName := "testbucket"
 
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		t.Run("test headers", func(t *testing.T) {
 			resumableUploadTest(t, server, bucketName, strings.NewReader("{\"contentType\": \"application/json\"}"))
 		})
@@ -742,7 +776,7 @@ func TestServerUndocumentedResumableUploadAPI(t *testing.T) {
 func TestServerGzippedUpload(t *testing.T) {
 	const bucketName = "testbucket"
 
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		t.Run("test headers", func(t *testing.T) {
 			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
 

@@ -185,7 +185,7 @@ func TestServerClientObjectAttrs(t *testing.T) {
 	tests := getObjectTestCases()
 	for _, test := range tests {
 		test := test
-		runServersTest(t, []Object{test.obj}, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{objs: []Object{test.obj}}, func(t *testing.T, server *Server) {
 			t.Run(test.testCase, func(t *testing.T) {
 				client := server.Client()
 				objHandle := client.Bucket(test.obj.BucketName).Object(test.obj.Name)
@@ -203,7 +203,7 @@ func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 	tests := getObjectTestCases()
 	for _, test := range tests {
 		test := test
-		runServersTest(t, nil, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			server.CreateObject(test.obj)
 			client := server.Client()
 			objHandle := client.Bucket(test.obj.BucketName).Object(test.obj.Name)
@@ -217,7 +217,7 @@ func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 }
 
 func TestServerClientObjectAttrsAfterOverwriteWithVersioning(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const (
 			bucketName  = "some-bucket-with-ver"
 			content     = "some nice content"
@@ -289,7 +289,7 @@ func TestServerClientObjectAttrsErrors(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		tests := []struct {
 			testCase   string
 			bucketName string
@@ -340,7 +340,7 @@ func TestServerClientObjectReader(t *testing.T) {
 		},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(objectName)
 		reader, err := objHandle.NewReader(context.TODO())
@@ -379,7 +379,7 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 		},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		tests := []struct {
 			testCase string
 			offset   int64
@@ -439,7 +439,7 @@ func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 		contentType = "text/plain; charset=iso-8859"
 	)
 
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		server.CreateObject(Object{
 			ObjectAttrs: ObjectAttrs{
 				BucketName:  bucketName,
@@ -476,7 +476,7 @@ func TestServerClientObjectReaderAgainstSpecificGenerations(t *testing.T) {
 		contentType = "text/plain; charset=iso-8859"
 	)
 
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: true})
 		object1 := Object{
 			ObjectAttrs: ObjectAttrs{
@@ -531,7 +531,7 @@ func TestServerClientObjectReaderError(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		tests := []struct {
 			testCase   string
 			bucketName string
@@ -750,7 +750,7 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 }
 
 func TestServiceClientListObjects(t *testing.T) {
-	runServersTest(t, getObjectsForListTests(), func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: getObjectsForListTests()}, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
 		tests := getTestCasesForListTests(false, false)
 		client := server.Client()
@@ -788,7 +788,7 @@ func TestServerClientListAfterCreate(t *testing.T) {
 		for _, withOverwrites := range []bool{true, false} {
 			versioningEnabled := versioningEnabled
 			withOverwrites := withOverwrites
-			runServersTest(t, nil, func(t *testing.T, server *Server) {
+			runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 				for _, bucketName := range []string{"some-bucket", "other-bucket", "empty-bucket"} {
 					server.CreateBucketWithOpts(CreateBucketOpts{
 						Name:              bucketName,
@@ -965,7 +965,7 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 	}
 	for _, test := range tests {
 		test := test
-		runServersTest(t, nil, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			for _, bucketName := range []string{"some-bucket", "other-bucket", "empty-bucket"} {
 				server.CreateBucketWithOpts(CreateBucketOpts{
 					Name:              bucketName,
@@ -1008,7 +1008,7 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 }
 
 func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		iter := server.Client().Bucket("some-bucket").Objects(context.TODO(), nil)
 		obj, err := iter.Next()
 		if err == nil {
@@ -1042,7 +1042,7 @@ func TestServiceClientRewriteObject(t *testing.T) {
 		},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
 		tests := []struct {
 			testCase   string
@@ -1197,7 +1197,7 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.testCase, func(t *testing.T) {
-			runServersTest(t, []Object{}, func(t *testing.T, server *Server) {
+			runServersTest(t, runServersOptions{objs: []Object{}}, func(t *testing.T, server *Server) {
 				server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket", VersioningEnabled: false})
 				server.CreateBucketWithOpts(CreateBucketOpts{Name: "first-bucket", VersioningEnabled: test.versioning})
 				for _, obj := range objs {
@@ -1267,7 +1267,7 @@ func TestServerClientObjectDelete(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: objectName}, Content: []byte(content)},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(objectName)
 		err := objHandle.Delete(context.TODO())
@@ -1284,7 +1284,7 @@ func TestServerClientObjectDelete(t *testing.T) {
 func TestServerClientObjectDeleteWithVersioning(t *testing.T) {
 	obj := Object{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg", Generation: 123}, Content: []byte("some nice content")}
 
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: obj.BucketName, VersioningEnabled: true})
 		server.CreateObject(obj)
 
@@ -1313,7 +1313,7 @@ func TestServerClientObjectDeleteErrors(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		tests := []struct {
 			testCase   string
 			bucketName string
@@ -1348,7 +1348,7 @@ func TestServerClientObjectSetAclPrivate(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/public-to-private.jpg"}},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		t.Run("public to private", func(t *testing.T) {
 			ctx := context.Background()
 			objHandle := server.Client().Bucket("some-bucket").Object("img/public-to-private.jpg")
@@ -1399,7 +1399,7 @@ func TestServerClientObjectPatchMetadata(t *testing.T) {
 			Content: []byte(content),
 		},
 	}
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		client := server.Client()
 		objHandle := client.Bucket(bucketName).Object(objectName)
 
@@ -1561,7 +1561,7 @@ func TestServiceClientComposeObject(t *testing.T) {
 		},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
 		tests := []struct {
 			testCase          string

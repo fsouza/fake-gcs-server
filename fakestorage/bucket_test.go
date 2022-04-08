@@ -33,7 +33,7 @@ func TestServerClientBucketAttrs(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "dot.bucket", Name: "static/js/app.js"}},
 	}
 	startTime := time.Now()
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		client := server.Client()
 		attrs, err := client.Bucket("some-bucket").Attrs(context.Background())
 		if err != nil {
@@ -55,7 +55,7 @@ func TestServerClientBucketAttrs(t *testing.T) {
 func TestServerClientBucketAttrsAfterCreateBucket(t *testing.T) {
 	for _, versioningEnabled := range []bool{true, false} {
 		versioningEnabled := versioningEnabled
-		runServersTest(t, nil, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			const bucketName = "best-bucket-ever"
 			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: versioningEnabled})
 			client := server.Client()
@@ -76,7 +76,7 @@ func TestServerClientBucketAttrsAfterCreateBucket(t *testing.T) {
 func TestServerClientDeleteBucket(t *testing.T) {
 	t.Run("it deletes empty buckets", func(t *testing.T) {
 		const bucketName = "bucket-to-delete"
-		runServersTest(t, nil, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
 			client := server.Client()
 			err := client.Bucket(bucketName).Delete(context.Background())
@@ -96,7 +96,7 @@ func TestServerClientDeleteBucket(t *testing.T) {
 	t.Run("it returns an error for non-empty buckets", func(t *testing.T) {
 		const bucketName = "non-empty-bucket"
 		objs := []Object{{ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "static/js/app.js"}}}
-		runServersTest(t, objs, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 			client := server.Client()
 			err := client.Bucket(bucketName).Delete(context.Background())
 			if err == nil {
@@ -107,7 +107,7 @@ func TestServerClientDeleteBucket(t *testing.T) {
 
 	t.Run("it returns an error for unknown buckets", func(t *testing.T) {
 		const bucketName = "non-existent-bucket"
-		runServersTest(t, nil, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			client := server.Client()
 			err := client.Bucket(bucketName).Delete(context.Background())
 			if err == nil {
@@ -121,7 +121,7 @@ func TestServerClientBucketAttrsAfterCreateBucketByPost(t *testing.T) {
 	t.Parallel()
 	for _, versioningEnabled := range []bool{true, false} {
 		versioningEnabled := versioningEnabled
-		runServersTest(t, nil, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			const bucketName = "post-bucket"
 			client := server.Client()
 			bucket := client.Bucket(bucketName)
@@ -163,7 +163,7 @@ func TestServerClientBucketCreateValidation(t *testing.T) {
 
 	for _, bucketName := range bucketNames {
 		bucketName := bucketName
-		runServersTest(t, nil, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			client := server.Client()
 			err := client.Bucket(bucketName).Create(context.Background(), "whatever", nil)
 			if err == nil {
@@ -174,7 +174,7 @@ func TestServerClientBucketCreateValidation(t *testing.T) {
 }
 
 func TestServerClientBucketAttrsNotFound(t *testing.T) {
-	runServersTest(t, nil, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		client := server.Client()
 		attrs, err := client.Bucket("some-bucket").Attrs(context.Background())
 		if err == nil {
@@ -195,7 +195,7 @@ func TestServerClientListBuckets(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "dot.bucket", Name: "static/js/app.js"}},
 	}
 
-	runServersTest(t, objs, func(t *testing.T, server *Server) {
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		client := server.Client()
 		const versionedBucketName = "post-bucket-with-versioning"
 		versionedBucketAttrs := storage.BucketAttrs{
