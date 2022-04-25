@@ -84,6 +84,16 @@ It is possible to use fake-gcs-server with signed URLs, although with a few cave
 - You need to configure fake-gcs-server to accept this local URL (by setting
   `-public-host`)
 
+### Available server flags
+
+fake-gcs-server supports various features that can be configured through flags
+upon start. Use the `-help` flag to list all of them alongside their usage
+instructions
+
+```shell
+docker run --rm fsouza/fake-gcs-server -help
+```
+
 ## Client library examples
 
 For examples using SDK from multiple languages, check out the
