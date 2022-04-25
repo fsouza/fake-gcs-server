@@ -481,7 +481,7 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
-	if alt := r.URL.Query().Get("alt"); alt == "media" {
+	if alt := r.URL.Query().Get("alt"); alt == "media" || r.Method == http.MethodHead {
 		s.downloadObject(w, r)
 		return
 	}
