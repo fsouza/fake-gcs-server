@@ -142,7 +142,7 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 		},
 		Content: data,
 	}
-	obj, err = s.createObject(obj)
+	_, err = s.createObject(obj)
 	if err != nil {
 		return xmlResponse{errorMessage: err.Error()}
 	}
@@ -419,19 +419,19 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 // is exhausted. The Go client always sends streaming content. The sequence of
 // "Content-Range" headers for 2600-byte content sent in 1000-byte chunks are:
 //
-//   Content-Range: bytes 0-999/*
-//   Content-Range: bytes 1000-1999/*
-//   Content-Range: bytes 2000-2599/*
-//   Content-Range: bytes */2600
+//	Content-Range: bytes 0-999/*
+//	Content-Range: bytes 1000-1999/*
+//	Content-Range: bytes 2000-2599/*
+//	Content-Range: bytes */2600
 //
 // When sending chunked content of a known size, the total size is sent as
 // well. The Python client uses this method to upload files and in-memory
 // content. The sequence of "Content-Range" headers for the 2600-byte content
 // sent in 1000-byte chunks are:
 //
-//   Content-Range: bytes 0-999/2600
-//   Content-Range: bytes 1000-1999/2600
-//   Content-Range: bytes 2000-2599/2600
+//	Content-Range: bytes 0-999/2600
+//	Content-Range: bytes 1000-1999/2600
+//	Content-Range: bytes 2000-2599/2600
 //
 // The server collects the content, analyzes the "Content-Range", and returns a
 // "308 Permanent Redirect" response if more chunks are expected, and a
@@ -439,7 +439,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 // "201 Created" response). The "Range" header in the response should be set to
 // the size of the content received so far, such as:
 //
-//   Range: bytes 0-2000
+//	Range: bytes 0-2000
 //
 // The client (such as the Go client) can send a header "X-Guploader-No-308" if
 // it can't process a native "308 Permanent Redirect". The in-process response
@@ -507,10 +507,11 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 
 // Parse a Content-Range header
 // Some possible valid header values:
-//   bytes 0-1023/4096 (first 1024 bytes of a 4096-byte document)
-//   bytes 1024-2047/* (second 1024 bytes of a streaming document)
-//   bytes */4096      (The end of 4096 byte streaming document)
-//   bytes 0-*/*       (start and end of a streaming document as sent by nodeJS client lib)
+//
+//	bytes 0-1023/4096 (first 1024 bytes of a 4096-byte document)
+//	bytes 1024-2047/* (second 1024 bytes of a streaming document)
+//	bytes */4096      (The end of 4096 byte streaming document)
+//	bytes 0-*/*       (start and end of a streaming document as sent by nodeJS client lib)
 func parseContentRange(r string) (parsed contentRange, err error) {
 	invalidErr := fmt.Errorf("invalid Content-Range: %v", r)
 
