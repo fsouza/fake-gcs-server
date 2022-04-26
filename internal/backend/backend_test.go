@@ -7,7 +7,6 @@ package backend
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"runtime"
@@ -24,7 +23,7 @@ func tempDir() string {
 }
 
 func makeStorageBackends(t *testing.T) (map[string]Storage, func()) {
-	tempDir, err := ioutil.TempDir(tempDir(), "fakegcstest")
+	tempDir, err := os.MkdirTemp(tempDir(), "fakegcstest")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"testing"
@@ -348,7 +348,7 @@ func TestServerClientObjectReader(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer reader.Close()
-		data, err := ioutil.ReadAll(reader)
+		data, err := io.ReadAll(reader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -416,7 +416,7 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer reader.Close()
-				data, err := ioutil.ReadAll(reader)
+				data, err := io.ReadAll(reader)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -455,7 +455,7 @@ func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer reader.Close()
-		data, err := ioutil.ReadAll(reader)
+		data, err := io.ReadAll(reader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -511,7 +511,7 @@ func TestServerClientObjectReaderAgainstSpecificGenerations(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			data, err := ioutil.ReadAll(reader)
+			data, err := io.ReadAll(reader)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -595,7 +595,7 @@ func TestServerClientObjectReadBucketCNAME(t *testing.T) {
 			t.Errorf("wrong value for header %q:\nwant %q\ngot  %q", k, expectedV, v)
 		}
 	}
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1488,7 +1488,7 @@ func TestParseRangeRequest(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			out, _ := ioutil.ReadAll(rng)
+			out, _ := io.ReadAll(rng)
 			rng.Close()
 
 			if length < 0 {

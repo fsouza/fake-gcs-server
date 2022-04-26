@@ -8,7 +8,6 @@
 package backend
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -16,11 +15,11 @@ import (
 const xattrKey = ".metadata"
 
 func writeXattr(path string, encoded []byte) error {
-	return ioutil.WriteFile(path+xattrKey, encoded, 0o600)
+	return os.WriteFile(path+xattrKey, encoded, 0o600)
 }
 
 func readXattr(path string) ([]byte, error) {
-	return ioutil.ReadFile(path + xattrKey)
+	return os.ReadFile(path + xattrKey)
 }
 
 func isXattrFile(path string) bool {

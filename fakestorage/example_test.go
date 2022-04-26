@@ -7,7 +7,7 @@ package fakestorage_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 )
@@ -30,7 +30,7 @@ func ExampleServer_Client() {
 		panic(err)
 	}
 	defer reader.Close()
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +63,7 @@ func ExampleServer_with_host_port() {
 		panic(err)
 	}
 	defer reader.Close()
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		panic(err)
 	}

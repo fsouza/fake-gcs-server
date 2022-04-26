@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -83,7 +82,7 @@ func TestNewServerLogging(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
-	io.Copy(ioutil.Discard, res.Body)
+	io.Copy(io.Discard, res.Body)
 	if buf.Len() == 0 {
 		t.Error("Log was not written to buffer.")
 	}
@@ -329,7 +328,7 @@ func testDownloadObject(t *testing.T, server *Server) {
 					t.Errorf("wrong value for header %q:\nwant %q\ngot  %q", k, expectedV, v)
 				}
 			}
-			data, err := ioutil.ReadAll(resp.Body)
+			data, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -371,7 +370,7 @@ func testDownloadObjectRange(t *testing.T, server *Server) {
 			if resp.StatusCode != test.expectedStatus {
 				t.Errorf("wrong status returned\nwant %d\ngot  %d", test.expectedStatus, resp.StatusCode)
 			}
-			data, err := ioutil.ReadAll(resp.Body)
+			data, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -516,7 +515,7 @@ func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 					t.Errorf("wrong value for header %q:\nwant %q\ngot  %q", k, expectedV, v)
 				}
 			}
-			data, err := ioutil.ReadAll(resp.Body)
+			data, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Fatal(err)
 			}

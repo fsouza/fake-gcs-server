@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -123,7 +122,7 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	if err != nil {
 		return xmlResponse{errorMessage: err.Error()}
 	}
-	data, err := ioutil.ReadAll(infile)
+	data, err := io.ReadAll(infile)
 	if err != nil {
 		return xmlResponse{errorMessage: err.Error()}
 	}
@@ -217,7 +216,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 			errorMessage: "name is required for simple uploads",
 		}
 	}
-	data, err := ioutil.ReadAll(r.Body)
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
@@ -261,7 +260,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		}
 	}
 
-	data, err := ioutil.ReadAll(r.Body)
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
@@ -580,7 +579,7 @@ func loadMetadata(rc io.ReadCloser) (*multipartMetadata, error) {
 
 func loadContent(rc io.ReadCloser) ([]byte, error) {
 	defer rc.Close()
-	return ioutil.ReadAll(rc)
+	return io.ReadAll(rc)
 }
 
 func generateUploadID() (string, error) {

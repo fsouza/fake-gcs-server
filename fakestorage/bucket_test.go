@@ -6,7 +6,6 @@ package fakestorage
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"testing"
@@ -237,7 +236,7 @@ func TestServerClientListObjects(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"}},
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"}},
 	}
-	dir, err := ioutil.TempDir(tempDir(), "fakestorage-test-root-")
+	dir, err := os.MkdirTemp(tempDir(), "fakestorage-test-root-")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"os"
 	"testing"
@@ -180,7 +179,7 @@ func ensureEmptyDir(dirname string) error {
 
 func discardLogger() *logrus.Logger {
 	logger := logrus.New()
-	logger.Out = ioutil.Discard
+	logger.Out = io.Discard
 	logger.Level = logrus.PanicLevel
 	return logger
 }

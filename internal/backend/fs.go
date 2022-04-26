@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -26,10 +25,11 @@ import (
 // The layout is the following:
 //
 // - rootDir
-//   |- bucket1
-//   \- bucket2
-//     |- object1
-//     \- object2
+//
+//	|- bucket1
+//	\- bucket2
+//	  |- object1
+//	  \- object2
 //
 // Bucket and object names are url path escaped, so there's no special meaning of forward slashes.
 type storageFS struct {
@@ -87,7 +87,7 @@ func (s *storageFS) createBucket(name string) error {
 func (s *storageFS) ListBuckets() ([]Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
-	infos, err := ioutil.ReadDir(s.rootDir)
+	infos, err := os.ReadDir(s.rootDir)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 
 	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name))
 
-	if err = ioutil.WriteFile(path, obj.Content, 0o600); err != nil {
+	if err = os.WriteFile(path, obj.Content, 0o600); err != nil {
 		return Object{}, err
 	}
 
@@ -172,7 +172,7 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	infos, err := ioutil.ReadDir(filepath.Join(s.rootDir, url.PathEscape(bucketName)))
+	infos, err := os.ReadDir(filepath.Join(s.rootDir, url.PathEscape(bucketName)))
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
 		return Object{}, err
 	}
 
-	obj.Content, err = ioutil.ReadFile(path)
+	obj.Content, err = os.ReadFile(path)
 	if err != nil {
 		return Object{}, err
 	}

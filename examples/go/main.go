@@ -79,7 +79,7 @@ func downloadFile(client *storage.Client, bucketName, fileKey string) ([]byte, e
 		return nil, err
 	}
 	defer reader.Close()
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }
 
 func deleteFile(client *storage.Client, bucketName, fileKey string) error {

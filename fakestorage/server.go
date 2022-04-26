@@ -12,7 +12,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net"
@@ -360,7 +359,7 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		content, err := ioutil.ReadAll(part)
+		content, err := io.ReadAll(part)
 		part.Close()
 		if err != nil {
 			http.Error(partResponseWriter, "unable to process request", http.StatusBadRequest)

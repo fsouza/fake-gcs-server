@@ -7,7 +7,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"mime"
 	"os"
@@ -54,7 +53,7 @@ func main() {
 func generateObjectsFromFiles(logger *logrus.Logger, folder string) ([]fakestorage.Object, []string) {
 	var objects []fakestorage.Object
 	var emptyBuckets []string
-	if files, err := ioutil.ReadDir(folder); err == nil {
+	if files, err := os.ReadDir(folder); err == nil {
 		for _, f := range files {
 			if !f.IsDir() {
 				continue
@@ -87,7 +86,7 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object
 			// Rel() should never return error since path always descend from localBucketPath
 			relPath, _ := filepath.Rel(localBucketPath, path)
 			objectKey := filepath.ToSlash(relPath)
-			fileContent, err := ioutil.ReadFile(path)
+			fileContent, err := os.ReadFile(path)
 			if err != nil {
 				return fmt.Errorf("could not read file %q: %w", path, err)
 			}

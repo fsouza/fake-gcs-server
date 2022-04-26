@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"reflect"
@@ -108,7 +107,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				data, err := ioutil.ReadAll(reader)
+				data, err := io.ReadAll(reader)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -189,7 +188,7 @@ func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		objectContent, err := ioutil.ReadAll(firstReader)
+		objectContent, err := io.ReadAll(firstReader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -212,7 +211,7 @@ func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		objectContentAfterFailedPrecondition, err := ioutil.ReadAll(secondReader)
+		objectContentAfterFailedPrecondition, err := io.ReadAll(secondReader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -251,7 +250,7 @@ func TestServerClientObjectOperationsWithIfGenerationMatchPrecondition(t *testin
 		if err != nil {
 			t.Fatal(err)
 		}
-		objectContent, err := ioutil.ReadAll(firstReader)
+		objectContent, err := io.ReadAll(firstReader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -272,7 +271,7 @@ func TestServerClientObjectOperationsWithIfGenerationMatchPrecondition(t *testin
 		if err != nil {
 			t.Fatal(err)
 		}
-		objectContentAfterMatchedPrecondition, err := ioutil.ReadAll(secondReader)
+		objectContentAfterMatchedPrecondition, err := io.ReadAll(secondReader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -311,7 +310,7 @@ func TestServerClientObjectOperationsWithIfGenerationNotMatchPrecondition(t *tes
 		if err != nil {
 			t.Fatal(err)
 		}
-		objectContent, err := ioutil.ReadAll(firstReader)
+		objectContent, err := io.ReadAll(firstReader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -334,7 +333,7 @@ func TestServerClientObjectOperationsWithIfGenerationNotMatchPrecondition(t *tes
 		if err != nil {
 			t.Fatal(err)
 		}
-		objectContentAfterFailedPrecondition, err := ioutil.ReadAll(secondReader)
+		objectContentAfterFailedPrecondition, err := io.ReadAll(secondReader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -506,7 +505,7 @@ func TestServerClientSignedUploadBucketCNAME(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
 	}
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -714,7 +713,7 @@ func resumableUploadTest(t *testing.T, server *Server, bucketName string, upload
 	}
 
 	defer func() {
-		_, _ = io.Copy(ioutil.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 	}()
 
@@ -745,7 +744,7 @@ func resumableUploadTest(t *testing.T, server *Server, bucketName string, upload
 	}
 
 	defer func() {
-		_, _ = io.Copy(ioutil.Discard, resp2.Body)
+		_, _ = io.Copy(io.Discard, resp2.Body)
 		_ = resp2.Body.Close()
 	}()
 
