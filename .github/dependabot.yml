@@ -1,37 +1,38 @@
 version: 2
 updates:
-- package-ecosystem: github-actions
-  directory: "/"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 99
-- package-ecosystem: npm
-  directory: "/examples/node"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 99
-- package-ecosystem: gomod
-  directory: "/examples/go"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 99
-- package-ecosystem: gomod
-  directory: "/"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 99
-- package-ecosystem: pip
-  directory: "/examples/python"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 99
-- package-ecosystem: nuget
-  directory: "/examples/dotnet"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 99
-- package-ecosystem: docker
-  directory: "/"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 99
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 99
+  - package-ecosystem: npm
+    directory: "/examples/node"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 99
+    versioning-strategy: increase
+  - package-ecosystem: gomod
+    directory: "/examples/go"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 99
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 99
+  - package-ecosystem: pip
+    directory: "/examples/python"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 99
+  - package-ecosystem: nuget
+    directory: "/examples/dotnet"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 99
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 99
