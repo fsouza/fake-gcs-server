@@ -341,15 +341,16 @@ func testDownloadObject(t *testing.T, server *Server) {
 
 func testDownloadObjectRange(t *testing.T, server *Server) {
 	tests := []struct {
-		name           string
-		headers        map[string]string
-		expectedStatus int
-		expectedBody   string
+		name                 string
+		headers              map[string]string
+		expectedStatus       int
+		expectedContentRange string
+		expectedBody         string
 	}{
-		{"No range specified", map[string]string{}, http.StatusOK, "something"},
-		{"Partial range specified", map[string]string{"Range": "bytes=1-4"}, http.StatusPartialContent, "omet"},
-		{"Exact range specified", map[string]string{"Range": "bytes=0-8"}, http.StatusPartialContent, "something"},
-		{"Too-long range specified", map[string]string{"Range": "bytes=0-100"}, http.StatusPartialContent, "something"},
+		{"No range specified", map[string]string{}, http.StatusOK, "", "something"},
+		{"Partial range specified", map[string]string{"Range": "bytes=1-4"}, http.StatusPartialContent, "bytes 1-4/9", "omet"},
+		{"Exact range specified", map[string]string{"Range": "bytes=0-8"}, http.StatusPartialContent, "bytes 0-8/9", "something"},
+		{"Too-long range specified", map[string]string{"Range": "bytes=0-100"}, http.StatusPartialContent, "bytes 0-8/9", "something"},
 	}
 	for _, test := range tests {
 		test := test
@@ -370,6 +371,12 @@ func testDownloadObjectRange(t *testing.T, server *Server) {
 			if resp.StatusCode != test.expectedStatus {
 				t.Errorf("wrong status returned\nwant %d\ngot  %d", test.expectedStatus, resp.StatusCode)
 			}
+
+			contentRange := resp.Header.Get("Content-Range")
+			if contentRange != test.expectedContentRange {
+				t.Errorf("wrong Content-Range returned\nwant %s\ngot  %s", test.expectedContentRange, contentRange)
+			}
+
 			data, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Fatal(err)

@@ -648,10 +648,10 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := http.StatusOK
-	ranged, start, end, content := s.handleRange(obj, r)
+	ranged, start, lastByte, content := s.handleRange(obj, r)
 	if ranged {
 		status = http.StatusPartialContent
-		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(obj.Content)))
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, lastByte, len(obj.Content)))
 	}
 	if obj.ContentType != "" {
 		w.Header().Set(contentTypeHeader, obj.ContentType)
@@ -670,7 +670,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start int64, end int64, content []byte) {
+func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start int64, lastByte int64, content []byte) {
 	if reqRange := r.Header.Get("Range"); reqRange != "" {
 		parts := strings.SplitN(reqRange, "=", 2)
 		if len(parts) == 2 && parts[0] == "bytes" {
@@ -678,6 +678,7 @@ func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start in
 			if len(rangeParts) == 2 {
 				start, _ = strconv.ParseInt(rangeParts[0], 10, 64)
 				var err error
+				var end int64
 				if end, err = strconv.ParseInt(rangeParts[1], 10, 64); err != nil {
 					end = int64(len(obj.Content))
 				} else if end != math.MaxInt64 {
@@ -686,7 +687,7 @@ func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start in
 				if end > int64(len(obj.Content)) {
 					end = int64(len(obj.Content))
 				}
-				return true, start, end, obj.Content[start:end]
+				return true, start, end - 1, obj.Content[start:end]
 			}
 		}
 	}
