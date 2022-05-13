@@ -91,7 +91,7 @@ type Options struct {
 	// An example is "storage.gcs.127.0.0.1.nip.io:4443", which will configure
 	// the server to serve objects at:
 	// https://storage.gcs.127.0.0.1.nip.io:4443/<bucket>/<object>
-	// https://<bucket>.storage.gcs.127.0.0.1.nip.io:4443>/<bucket>/<object>
+	// https://<bucket>.storage.gcs.127.0.0.1.nip.io:4443>/<object>
 	// If unset, the default is "storage.googleapis.com", the XML API
 	PublicHost string
 
