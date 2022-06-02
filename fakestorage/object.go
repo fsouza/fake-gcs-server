@@ -720,10 +720,10 @@ func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start in
 }
 
 // parseRange parses the range header and returns the corresponding start and
-//  end indices in the content. The end index is inclusive. This function
-//  doesn't validate that the start and end indices fall within the content
-//  bounds. The content length is only used to handle "suffix length" and
-//  range-to-end ranges.
+// end indices in the content. The end index is inclusive. This function
+// doesn't validate that the start and end indices fall within the content
+// bounds. The content length is only used to handle "suffix length" and
+// range-to-end ranges.
 func parseRange(rangeHeaderValue string, contentLength int64) (start int64, end int64, err error) {
 	// For information about the range header, see:
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
