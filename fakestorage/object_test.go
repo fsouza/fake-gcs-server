@@ -423,6 +423,12 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 				"my object",
 			},
 			{
+				"length too long by exactly one",
+				44,
+				10,
+				"my object",
+			},
+			{
 				"zero range",
 				0,
 				0,

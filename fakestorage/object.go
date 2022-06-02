@@ -712,7 +712,7 @@ func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start in
 		if start < 0 {
 			start = 0
 		}
-		if end > contentLength {
+		if end >= contentLength {
 			end = contentLength - 1
 		}
 		return true, start, end, obj.Content[start : end+1], true
