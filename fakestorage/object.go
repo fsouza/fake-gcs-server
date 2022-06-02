@@ -683,7 +683,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start int64, lastByte int64, content []byte, satisfiable bool) {
 	contentLength := int64(len(obj.Content))
-	start, end, err := _parseRange(r.Header.Get("Range"), contentLength)
+	start, end, err := parseRange(r.Header.Get("Range"), contentLength)
 	if err != nil {
 		// If the range isn't valid, GCS returns all content.
 		return false, 0, 0, obj.Content, false
@@ -719,12 +719,12 @@ func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start in
 	}
 }
 
-// _parseRange parses the range header and returns the corresponding start and
+// parseRange parses the range header and returns the corresponding start and
 //  end indices in the content. The end index is inclusive. This function
 //  doesn't validate that the start and end indices fall within the content
 //  bounds. The content length is only used to handle "suffix length" and
 //  range-to-end ranges.
-func _parseRange(rangeHeaderValue string, contentLength int64) (start int64, end int64, err error) {
+func parseRange(rangeHeaderValue string, contentLength int64) (start int64, end int64, err error) {
 	// For information about the range header, see:
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
 	// https://httpwg.org/specs/rfc7233.html#header.range
