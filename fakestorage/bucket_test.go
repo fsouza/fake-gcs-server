@@ -6,12 +6,14 @@ package fakestorage
 
 import (
 	"context"
+	"errors"
 	"os"
 	"runtime"
 	"testing"
 	"time"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 )
 
@@ -21,6 +23,26 @@ func tempDir() string {
 	} else {
 		return os.TempDir()
 	}
+}
+
+func TestServerClientBucketAlreadyExists(t *testing.T) {
+	objs := []Object{
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-01.jpg"}},
+	}
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		err := client.Bucket("some-bucket").Create(context.Background(), "whatever", nil)
+		if err == nil {
+			t.Errorf("expected a 409 error")
+		}
+		apiErr := new(googleapi.Error)
+		if !errors.As(err, &apiErr) {
+			t.Errorf("expected a google API error, got %T", err)
+		}
+		if apiErr.Code != 409 {
+			t.Errorf("expected a google API error with code 409, got %v", apiErr.Code)
+		}
+	})
 }
 
 func TestServerClientBucketAttrs(t *testing.T) {

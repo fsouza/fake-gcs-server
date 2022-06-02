@@ -7,6 +7,7 @@ package fakestorage
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 
@@ -68,6 +69,18 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	}
 	if err := validateBucketName(name); err != nil {
 		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
+	}
+
+	_, err := s.backend.GetBucket(name)
+	if err == nil {
+		return jsonResponse{
+			errorMessage: fmt.Sprintf(
+				"A Cloud Storage bucket named '%s' already exists. "+
+					"Try another name. Bucket names must be globally unique "+
+					"across all Google Cloud projects, including those "+
+					"outside of your organization.", name),
+			status: http.StatusConflict,
+		}
 	}
 
 	// Create the named bucket
