@@ -381,34 +381,66 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 
 	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		tests := []struct {
-			testCase string
-			offset   int64
-			length   int64
+			testCase     string
+			offset       int64
+			length       int64
+			expectedData string
 		}{
 			{
 				"no length, just offset",
-				2,
+				44,
 				-1,
+				"my object",
 			},
 			{
 				"zero offset, length",
 				0,
-				10,
+				11,
+				"some really",
 			},
 			{
 				"offset and length",
-				4,
+				5,
+				11,
+				"really nice",
+			},
+			{
+				"negative offset",
+				-9,
+				-1,
+				"my object",
+			},
+			{
+				"negative offset before start",
+				-100,
+				-1,
+				content, // Returns all content
+			},
+			{
+				"length too long", // ok
+				44,
+				100,
+				"my object",
+			},
+			{
+				"length too long by exactly one",
+				44,
 				10,
+				"my object",
+			},
+			{
+				"zero range",
+				0,
+				0,
+				// Note: this case is handled by the GCS client, not the
+				// server; the client doesn't pass a range. It receives all the
+				// content, and then returns no content to the caller.
+				"",
 			},
 		}
 		for _, test := range tests {
 			test := test
 			t.Run(test.testCase, func(t *testing.T) {
-				length := test.length
-				if length == -1 {
-					length = int64(len(content)) - test.offset
-				}
-				expectedData := content[test.offset : test.offset+length]
 				client := server.Client()
 				objHandle := client.Bucket(bucketName).Object(objectName)
 				reader, err := objHandle.NewRangeReader(context.TODO(), test.offset, test.length)
@@ -420,8 +452,8 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if string(data) != expectedData {
-					t.Errorf("wrong data returned\nwant %q\ngot  %q", expectedData, string(data))
+				if string(data) != test.expectedData {
+					t.Errorf("wrong data returned\nwant %q\ngot  %q", test.expectedData, string(data))
 				}
 				if ct := reader.Attrs.ContentType; ct != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)

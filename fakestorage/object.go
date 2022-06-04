@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -648,50 +647,135 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := http.StatusOK
-	ranged, start, lastByte, content := s.handleRange(obj, r)
-	if ranged {
+	ranged, start, lastByte, content, satisfiable := s.handleRange(obj, r)
+
+	if ranged && satisfiable {
 		status = http.StatusPartialContent
 		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, lastByte, len(obj.Content)))
-	}
-	if obj.ContentType != "" {
-		w.Header().Set(contentTypeHeader, obj.ContentType)
 	}
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
 	w.Header().Set("X-Goog-Generation", strconv.FormatInt(obj.Generation, 10))
 	w.Header().Set("X-Goog-Hash", fmt.Sprintf("crc32c=%s,md5=%s", obj.Crc32c, obj.Md5Hash))
 	w.Header().Set("Last-Modified", obj.Updated.Format(http.TimeFormat))
-	if obj.ContentEncoding != "" {
-		w.Header().Set("Content-Encoding", obj.ContentEncoding)
+
+	if ranged && !satisfiable {
+		status = http.StatusRequestedRangeNotSatisfiable
+		content = []byte(fmt.Sprintf(`<?xml version='1.0' encoding='UTF-8'?>`+
+			`<Error><Code>InvalidRange</Code>`+
+			`<Message>The requested range cannot be satisfied.</Message>`+
+			`<Details>%s</Details></Error>`, r.Header.Get("Range")))
+		w.Header().Set(contentTypeHeader, "application/xml; charset=UTF-8")
+	} else {
+		if obj.ContentType != "" {
+			w.Header().Set(contentTypeHeader, obj.ContentType)
+		}
+		if obj.ContentEncoding != "" {
+			w.Header().Set("Content-Encoding", obj.ContentEncoding)
+		}
 	}
+
 	w.WriteHeader(status)
 	if r.Method == http.MethodGet {
 		w.Write(content)
 	}
 }
 
-func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start int64, lastByte int64, content []byte) {
-	if reqRange := r.Header.Get("Range"); reqRange != "" {
-		parts := strings.SplitN(reqRange, "=", 2)
-		if len(parts) == 2 && parts[0] == "bytes" {
-			rangeParts := strings.SplitN(parts[1], "-", 2)
-			if len(rangeParts) == 2 {
-				start, _ = strconv.ParseInt(rangeParts[0], 10, 64)
-				var err error
-				var end int64
-				if end, err = strconv.ParseInt(rangeParts[1], 10, 64); err != nil {
-					end = int64(len(obj.Content))
-				} else if end != math.MaxInt64 {
-					end++
-				}
-				if end > int64(len(obj.Content)) {
-					end = int64(len(obj.Content))
-				}
-				return true, start, end - 1, obj.Content[start:end]
+func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start int64, lastByte int64, content []byte, satisfiable bool) {
+	contentLength := int64(len(obj.Content))
+	start, end, err := parseRange(r.Header.Get("Range"), contentLength)
+	if err != nil {
+		// If the range isn't valid, GCS returns all content.
+		return false, 0, 0, obj.Content, false
+	}
+	// GCS is pretty flexible when it comes to invalid ranges. A 416 http
+	// response is only returned when the range start is beyond the length of
+	// the content. Otherwise, the range is ignored.
+	switch {
+	// Invalid start. Return 416 and NO content.
+	// Examples:
+	//   Length: 40, Range: bytes=50-60
+	//   Length: 40, Range: bytes=50-
+	case start >= contentLength:
+		// This IS a ranged request, but it ISN'T satisfiable.
+		return true, 0, 0, []byte{}, false
+	// Negative range, ignore range and return all content.
+	// Examples:
+	//   Length: 40, Range: bytes=30-20
+	case end < start:
+		return false, 0, 0, obj.Content, false
+	// Return range. Clamp start and end.
+	// Examples:
+	//   Length: 40, Range: bytes=-100
+	//   Length: 40, Range: bytes=0-100
+	default:
+		if start < 0 {
+			start = 0
+		}
+		if end >= contentLength {
+			end = contentLength - 1
+		}
+		return true, start, end, obj.Content[start : end+1], true
+	}
+}
+
+// parseRange parses the range header and returns the corresponding start and
+// end indices in the content. The end index is inclusive. This function
+// doesn't validate that the start and end indices fall within the content
+// bounds. The content length is only used to handle "suffix length" and
+// range-to-end ranges.
+func parseRange(rangeHeaderValue string, contentLength int64) (start int64, end int64, err error) {
+	// For information about the range header, see:
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
+	// https://httpwg.org/specs/rfc7233.html#header.range
+	// https://httpwg.org/specs/rfc7233.html#byte.ranges
+	// https://httpwg.org/specs/rfc7233.html#status.416
+	//
+	// <unit>=<range spec>
+	//
+	// The following ranges are parsed:
+	// "bytes=40-50" (range with given start and end)
+	// "bytes=40-"   (range to end of content)
+	// "bytes=-40"   (suffix length, offset from end of string)
+	//
+	// The unit MUST be "bytes".
+	parts := strings.SplitN(rangeHeaderValue, "=", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("expecting `=` in range header, got: %s", rangeHeaderValue)
+	}
+	if parts[0] != "bytes" {
+		return 0, 0, fmt.Errorf("invalid range unit, expecting `bytes`, got: %s", parts[0])
+	}
+	rangeSpec := parts[1]
+	if len(rangeSpec) == 0 {
+		return 0, 0, errors.New("empty range")
+	}
+	if rangeSpec[0] == '-' {
+		offsetFromEnd, err := strconv.ParseInt(rangeSpec, 10, 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid suffix length, got: %s", rangeSpec)
+		}
+		start = contentLength + offsetFromEnd
+		end = contentLength - 1
+	} else {
+		rangeParts := strings.SplitN(rangeSpec, "-", 2)
+		if len(rangeParts) != 2 {
+			return 0, 0, fmt.Errorf("only one range supported, got: %s", rangeSpec)
+		}
+		start, err = strconv.ParseInt(rangeParts[0], 10, 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid range start, got: %s", rangeParts[0])
+		}
+		if rangeParts[1] == "" {
+			end = contentLength - 1
+		} else {
+			end, err = strconv.ParseInt(rangeParts[1], 10, 64)
+			if err != nil {
+				return 0, 0, fmt.Errorf("invalid range end, got: %s", rangeParts[1])
 			}
 		}
 	}
-	return false, 0, 0, obj.Content
+	return start, end, nil
 }
 
 func (s *Server) patchObject(r *http.Request) jsonResponse {
