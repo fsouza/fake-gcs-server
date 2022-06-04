@@ -748,7 +748,7 @@ func parseRange(rangeHeaderValue string, contentLength int64) (start int64, end 
 	}
 	rangeSpec := parts[1]
 	if len(rangeSpec) == 0 {
-		return 0, 0, fmt.Errorf("empty range")
+		return 0, 0, errors.New("empty range")
 	}
 	if rangeSpec[0] == '-' {
 		offsetFromEnd, err := strconv.ParseInt(rangeSpec, 10, 64)
