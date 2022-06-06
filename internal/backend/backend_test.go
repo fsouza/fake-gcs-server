@@ -79,7 +79,10 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	noError(t, err)
 	activeObj, err := storage.GetObject(obj.BucketName, obj.Name)
 	noError(t, err)
-	if activeObj.Generation == 0 {
+	if isFSStorage && activeObj.Generation != 0 {
+		t.Errorf("FS should leave generation empty, as it does not persist it. Value: %d", activeObj.Generation)
+	}
+	if !isFSStorage && activeObj.Generation == 0 {
 		t.Errorf("generation is empty, but we expect a unique int")
 	}
 	if err := compareObjects(activeObj, obj); err != nil {
