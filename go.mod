@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/pkg/xattr v0.4.7
 	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.7.2
 	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401
 	google.golang.org/api v0.82.0
 )
@@ -35,7 +35,7 @@ require (
 	google.golang.org/genproto v0.0.0-20220527130721-00d5c0f3be58 // indirect
 	google.golang.org/grpc v1.46.2 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 go 1.17
