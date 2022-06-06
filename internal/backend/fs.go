@@ -140,12 +140,6 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 	if obj.Generation > 0 {
 		return Object{}, errors.New("not implemented: fs storage type does not support objects generation yet")
 	}
-
-	// Note: this was a quick fix for issue #701. Now that we have a way to
-	// persist object attributes, we should implement versioning in the
-	// filesystem backend and handle generations outside of the backends.
-	obj.Generation = time.Now().UnixNano() / 1000
-
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	err := s.createBucket(obj.BucketName)
@@ -281,7 +275,6 @@ func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[str
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	obj.Generation = 0
 	s.CreateObject(obj) // recreate object
 	return obj, nil
 }
