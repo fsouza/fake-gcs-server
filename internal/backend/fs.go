@@ -214,7 +214,14 @@ func (s *storageFS) GetObject(bucketName, objectName string) (Object, error) {
 // GetObjectWithGeneration retrieves an specific version of the object. Not
 // implemented for this backend.
 func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
-	return Object{}, errors.New("not implemented: fs storage type does not support versioning yet")
+	obj, err := s.GetObject(bucketName, objectName)
+	if err != nil {
+		return obj, err
+	}
+	if obj.Generation != generation {
+		return obj, fmt.Errorf("generation mismatch, object generation is %v, requested generation is %v (note: filesystem backend does not support versioning)", obj.Generation, generation)
+	}
+	return obj, nil
 }
 
 func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
