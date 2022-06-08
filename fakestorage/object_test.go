@@ -1247,7 +1247,6 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 				copier := dstObject.CopierFrom(sourceObject)
 				copier.ContentType = contentType
 				attrs, err := copier.Run(context.TODO())
-
 				if err != nil {
 					if test.expectErr {
 						t.Skip("we were expecting an error for this test")
