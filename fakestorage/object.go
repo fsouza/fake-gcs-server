@@ -624,12 +624,12 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 		Content: append([]byte(nil), obj.Content...),
 	}
 
-	_, err = s.createObject(newObject)
+	created, err := s.createObject(newObject)
 	if err != nil {
 		return errToJsonResponse(err)
 	}
 
-	return jsonResponse{data: newObjectRewriteResponse(newObject.ObjectAttrs)}
+	return jsonResponse{data: newObjectRewriteResponse(created.ObjectAttrs)}
 }
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {

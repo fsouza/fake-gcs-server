@@ -1136,6 +1136,9 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				if !bytes.Equal(attrs.MD5, hash) {
 					t.Errorf("wrong hash returned\nwant %d\ngot   %d", hash, attrs.MD5)
 				}
+				if attrs.Generation == 0 {
+					t.Errorf("Generation was zero, expected non-zero")
+				}
 				obj, err := server.GetObject(test.bucketName, test.objectName)
 				if err != nil {
 					t.Fatal(err)
@@ -1267,6 +1270,9 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 				}
 				if !bytes.Equal(attrs.MD5, expectedHash) {
 					t.Errorf("wrong hash returned\nwant %d\ngot   %d", expectedHash, attrs.MD5)
+				}
+				if attrs.Generation == 0 {
+					t.Errorf("Generation was zero, expected non-zero")
 				}
 				obj, err := server.GetObject(test.bucketName, test.objectName)
 				if err != nil {
