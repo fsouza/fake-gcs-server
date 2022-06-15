@@ -183,13 +183,13 @@ func NewServerWithOptions(options Options) (*Server, error) {
 }
 
 func newServer(options Options) (*Server, error) {
-	backendObjects := toBackendObjects(options.InitialObjects)
+	backendObjects := bufferedObjectsToBackendObjects(options.InitialObjects)
 	var backendStorage backend.Storage
 	var err error
 	if options.StorageRoot != "" {
 		backendStorage, err = backend.NewStorageFS(backendObjects, options.StorageRoot)
 	} else {
-		backendStorage = backend.NewStorageMemory(backendObjects)
+		backendStorage, err = backend.NewStorageMemory(backendObjects)
 	}
 	if err != nil {
 		return nil, err

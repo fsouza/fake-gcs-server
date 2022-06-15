@@ -7,11 +7,14 @@ package backend
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/fsouza/fake-gcs-server/internal/checksum"
 )
 
 func tempDir() string {
@@ -31,8 +34,12 @@ func makeStorageBackends(t *testing.T) (map[string]Storage, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	storageMemory, err := NewStorageMemory(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return map[string]Storage{
-			"memory":     NewStorageMemory(nil),
+			"memory":     storageMemory,
 			"filesystem": storageFS,
 		}, func() {
 			err := os.RemoveAll(tempDir)
@@ -69,12 +76,12 @@ func shouldError(t *testing.T, err error) {
 
 func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	isFSStorage := reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{})
-	_, err := storage.CreateObject(obj)
+	_, err := storage.CreateObject(obj.StreamingObject())
 	if isFSStorage && obj.Generation != 0 {
 		t.Log("FS should not support objects generation")
 		shouldError(t, err)
 		obj.Generation = 0
-		_, err = storage.CreateObject(obj)
+		_, err = storage.CreateObject(obj.StreamingObject())
 	}
 	noError(t, err)
 	activeObj, err := storage.GetObject(obj.BucketName, obj.Name)
@@ -82,12 +89,12 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	if activeObj.Generation == 0 {
 		t.Errorf("generation is empty, but we expect a unique int")
 	}
-	if err := compareObjects(activeObj, obj); err != nil {
+	if err := compareStreamingObjects(activeObj, obj.StreamingObject()); err != nil {
 		t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 	}
 	objFromGeneration, err := storage.GetObjectWithGeneration(obj.BucketName, obj.Name, activeObj.Generation)
 	noError(t, err)
-	if err := compareObjects(objFromGeneration, obj); err != nil {
+	if err := compareStreamingObjects(objFromGeneration, obj.StreamingObject()); err != nil {
 		t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 	}
 	return activeObj.Generation
@@ -97,9 +104,11 @@ func TestObjectCRUD(t *testing.T) {
 	const bucketName = "prod-bucket"
 	const objectName = "video/hi-res/best_video_1080p.mp4"
 	content1 := []byte("content1")
-	const crc1 = "crc1"
-	const md51 = "md51"
+	crc1 := checksum.EncodedCrc32cChecksum(content1)
+	md51 := checksum.EncodedMd5Hash(content1)
 	content2 := []byte("content2")
+	crc2 := checksum.EncodedCrc32cChecksum(content2)
+	md52 := checksum.EncodedMd5Hash(content2)
 	for _, versioningEnabled := range []bool{true, false} {
 		versioningEnabled := versioningEnabled
 		testForStorageBackends(t, func(t *testing.T, storage Storage) {
@@ -134,6 +143,8 @@ func TestObjectCRUD(t *testing.T) {
 					BucketName: bucketName,
 					Name:       objectName,
 					Generation: 1234,
+					Crc32c:     crc2,
+					Md5Hash:    md52,
 				},
 				Content: content2,
 			}
@@ -144,7 +155,7 @@ func TestObjectCRUD(t *testing.T) {
 				shouldError(t, err)
 			} else {
 				noError(t, err)
-				if err := compareObjects(initialObjectFromGeneration, initialObject); err != nil {
+				if err := compareStreamingObjects(initialObjectFromGeneration, initialObject.StreamingObject()); err != nil {
 					t.Errorf("get initial generation - object retrieved differs from the created one. Descr: %v", err)
 				}
 			}
@@ -181,7 +192,7 @@ func TestObjectCRUD(t *testing.T) {
 				return
 			}
 			noError(t, err)
-			if err := compareObjects(retrievedObject, secondVersionWithGeneration); err != nil {
+			if err := compareStreamingObjects(retrievedObject, secondVersionWithGeneration.StreamingObject()); err != nil {
 				t.Errorf("get object by generation after removal - object retrieved differs from the created one. Descr: %v", err)
 			}
 		})
@@ -206,7 +217,7 @@ func TestObjectQueryErrors(t *testing.T) {
 				},
 				Content: []byte("random-content"),
 			}
-			_, err = storage.CreateObject(validObject)
+			_, err = storage.CreateObject(validObject.StreamingObject())
 			noError(t, err)
 			_, err = storage.GetObjectWithGeneration(validObject.BucketName, validObject.Name, 33333)
 			shouldError(t, err)
@@ -315,6 +326,39 @@ func compareObjects(o1, o2 Object) error {
 	}
 	if !bytes.Equal(o1.Content, o2.Content) {
 		return fmt.Errorf("wrong object content:\nmain %q\narg  %q", o1.Content, o2.Content)
+	}
+	return nil
+}
+
+func compareStreamingObjects(o1, o2 StreamingObject) error {
+	if o1.BucketName != o2.BucketName {
+		return fmt.Errorf("bucket name differs:\nmain %q\narg  %q", o1.BucketName, o2.BucketName)
+	}
+	if o1.Name != o2.Name {
+		return fmt.Errorf("wrong object name:\nmain %q\narg  %q", o1.Name, o2.Name)
+	}
+	if o1.ContentType != o2.ContentType {
+		return fmt.Errorf("wrong object contenttype:\nmain %q\narg  %q", o1.ContentType, o2.ContentType)
+	}
+	if o1.Crc32c != o2.Crc32c {
+		return fmt.Errorf("wrong crc:\nmain %q\narg  %q", o1.Crc32c, o2.Crc32c)
+	}
+	if o1.Md5Hash != o2.Md5Hash {
+		return fmt.Errorf("wrong md5:\nmain %q\narg  %q", o1.Md5Hash, o2.Md5Hash)
+	}
+	if o1.Generation != 0 && o2.Generation != 0 && o1.Generation != o2.Generation {
+		return fmt.Errorf("generations different from 0, but not equal:\nmain %q\narg  %q", o1.Generation, o2.Generation)
+	}
+	content1, err := io.ReadAll(o1.Content)
+	if err != nil {
+		return fmt.Errorf("count not read content from o1: %w", err)
+	}
+	content2, err := io.ReadAll(o2.Content)
+	if err != nil {
+		return fmt.Errorf("count not read content from o2: %w", err)
+	}
+	if !bytes.Equal(content1, content2) {
+		return fmt.Errorf("wrong object content:\nmain %q\narg  %q", content1, content2)
 	}
 	return nil
 }
