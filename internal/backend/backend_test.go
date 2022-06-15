@@ -305,31 +305,6 @@ func TestBucketDuplication(t *testing.T) {
 	})
 }
 
-func compareObjects(o1, o2 Object) error {
-	if o1.BucketName != o2.BucketName {
-		return fmt.Errorf("bucket name differs:\nmain %q\narg  %q", o1.BucketName, o2.BucketName)
-	}
-	if o1.Name != o2.Name {
-		return fmt.Errorf("wrong object name:\nmain %q\narg  %q", o1.Name, o2.Name)
-	}
-	if o1.ContentType != o2.ContentType {
-		return fmt.Errorf("wrong object contenttype:\nmain %q\narg  %q", o1.ContentType, o2.ContentType)
-	}
-	if o1.Crc32c != o2.Crc32c {
-		return fmt.Errorf("wrong crc:\nmain %q\narg  %q", o1.Crc32c, o2.Crc32c)
-	}
-	if o1.Md5Hash != o2.Md5Hash {
-		return fmt.Errorf("wrong md5:\nmain %q\narg  %q", o1.Md5Hash, o2.Md5Hash)
-	}
-	if o1.Generation != 0 && o2.Generation != 0 && o1.Generation != o2.Generation {
-		return fmt.Errorf("generations different from 0, but not equal:\nmain %q\narg  %q", o1.Generation, o2.Generation)
-	}
-	if !bytes.Equal(o1.Content, o2.Content) {
-		return fmt.Errorf("wrong object content:\nmain %q\narg  %q", o1.Content, o2.Content)
-	}
-	return nil
-}
-
 func compareStreamingObjects(o1, o2 StreamingObject) error {
 	if o1.BucketName != o2.BucketName {
 		return fmt.Errorf("bucket name differs:\nmain %q\narg  %q", o1.BucketName, o2.BucketName)

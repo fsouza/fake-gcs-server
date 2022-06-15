@@ -211,7 +211,7 @@ func (s *storageFS) CreateObject(obj StreamingObject) (StreamingObject, error) {
 
 	err = openObjectAndSetSize(&obj, path)
 
-	return obj, nil
+	return obj, err
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and
@@ -321,10 +321,10 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 // PatchObject patches the given object metadata.
 func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
-	defer obj.Close()
 	if err != nil {
 		return StreamingObject{}, err
 	}
+	defer obj.Close()
 	if obj.Metadata == nil {
 		obj.Metadata = map[string]string{}
 	}
@@ -337,10 +337,10 @@ func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[stri
 // UpdateObject replaces the given object metadata.
 func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
-	defer obj.Close()
 	if err != nil {
 		return StreamingObject{}, err
 	}
+	defer obj.Close()
 	obj.Metadata = map[string]string{}
 	for k, v := range metadata {
 		obj.Metadata[k] = v
@@ -373,10 +373,10 @@ func (s *storageFS) ComposeObject(bucketName string, objectNames []string, desti
 	var sourceObjects []StreamingObject
 	for _, n := range objectNames {
 		obj, err := s.GetObject(bucketName, n)
-		defer obj.Close()
 		if err != nil {
 			return StreamingObject{}, err
 		}
+		defer obj.Close()
 		sourceObjects = append(sourceObjects, obj)
 	}
 

@@ -136,10 +136,10 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 		Content: infile,
 	}
 	obj, err = s.createObject(obj)
-	defer obj.Close()
 	if err != nil {
 		return xmlResponse{errorMessage: err.Error()}
 	}
+	defer obj.Close()
 	return xmlResponse{status: http.StatusNoContent}
 }
 
@@ -182,7 +182,9 @@ func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, ob
 			}
 		}
 		obj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, gen)
-		defer obj.Close()
+		// Calling Close before checking err is okay on objects, and the return
+		// path below is complicated.
+		defer obj.Close() //lint:ignore SA5001 // see above
 		if gen == 0 {
 			if err != nil {
 				return &jsonResponse{
@@ -223,10 +225,10 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		Content: notImplementedSeeker{r.Body},
 	}
 	obj, err := s.createObject(obj)
-	defer obj.Close()
 	if err != nil {
 		return errToJsonResponse(err)
 	}
+	obj.Close()
 	return jsonResponse{data: obj}
 }
 
@@ -269,10 +271,10 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		Content: notImplementedSeeker{r.Body},
 	}
 	obj, err := s.createObject(obj)
-	defer obj.Close()
 	if err != nil {
 		return errToJsonResponse(err)
 	}
+	obj.Close()
 	return jsonResponse{data: obj}
 }
 
@@ -352,10 +354,10 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		Content: notImplementedSeeker{io.NopCloser(io.MultiReader(partReaders...))},
 	}
 	obj, err = s.createObject(obj)
-	defer obj.Close()
 	if err != nil {
 		return errToJsonResponse(err)
 	}
+	defer obj.Close()
 	return jsonResponse{data: obj}
 }
 
@@ -474,10 +476,10 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	if commit {
 		s.uploads.Delete(uploadID)
 		streamingObject, err := s.createObject(obj.StreamingObject())
-		defer streamingObject.Close()
 		if err != nil {
 			return errToJsonResponse(err)
 		}
+		defer streamingObject.Close()
 		obj, err = streamingObject.BufferedObject()
 		if err != nil {
 			return errToJsonResponse(err)

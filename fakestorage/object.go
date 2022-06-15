@@ -286,7 +286,9 @@ func (s *Server) CreateObjectForTests(obj StreamingObject) {
 
 func (s *Server) createObject(obj StreamingObject) (StreamingObject, error) {
 	oldBackendObj, err := s.backend.GetObject(obj.BucketName, obj.Name)
-	defer oldBackendObj.Close()
+	// Calling Close before checking err is okay on objects, and the object
+	// may need to be closed whether or not there's an error.
+	defer oldBackendObj.Close() //lint:ignore SA5001 // see above
 
 	prevVersionExisted := err == nil
 
@@ -556,7 +558,9 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 
 		obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
-		defer obj.Close()
+		// Calling Close before checking err is okay on objects, and the object
+		// may need to be closed whether or not there's an error.
+		defer obj.Close() //lint:ignore SA5001 // see above
 		if err != nil {
 			statusCode := http.StatusNotFound
 			var errMessage string
@@ -583,7 +587,9 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
-	defer obj.Close()
+	// Calling Close before checking err is okay on objects, and the object
+	// may need to be closed whether or not there's an error.
+	defer obj.Close() //lint:ignore SA5001 // see above
 	if err == nil {
 		err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
 	}
@@ -604,10 +610,10 @@ func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
-	defer obj.Close()
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
+	defer obj.Close()
 
 	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs)}
 }
@@ -616,10 +622,10 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 
 	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
-	defer obj.Close()
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
+	defer obj.Close()
 
 	var data struct {
 		Entity string
@@ -642,10 +648,10 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 	}}
 
 	obj, err = s.createObject(obj)
-	defer obj.Close()
 	if err != nil {
 		return errToJsonResponse(err)
 	}
+	defer obj.Close()
 
 	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs)}
 }
@@ -653,7 +659,9 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 	obj, err := s.objectWithGenerationOnValidGeneration(vars["sourceBucket"], vars["sourceObject"], r.FormValue("sourceGeneration"))
-	defer obj.Close()
+	// Calling Close before checking err is okay on objects, and the object
+	// may need to be closed whether or not there's an error.
+	defer obj.Close() //lint:ignore SA5001 // see above
 	if err != nil {
 		statusCode := http.StatusNotFound
 		var errMessage string
@@ -695,10 +703,10 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	}
 
 	created, err := s.createObject(newObject)
-	defer created.Close()
 	if err != nil {
 		return errToJsonResponse(err)
 	}
+	defer created.Close()
 
 	return jsonResponse{data: newObjectRewriteResponse(created.ObjectAttrs)}
 }
@@ -706,7 +714,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
-	defer obj.Close()
+	// Calling Close before checking err is okay on objects, and the object
+	// may need to be closed whether or not there's an error.
+	defer obj.Close() //lint:ignore SA5001 // see above
 	if err != nil {
 		statusCode := http.StatusNotFound
 		message := http.StatusText(statusCode)
@@ -873,13 +883,13 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		}
 	}
 	backendObj, err := s.backend.PatchObject(bucketName, objectName, metadata.Metadata)
-	defer backendObj.Close()
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusNotFound,
 			errorMessage: "Object not found to be PATCHed",
 		}
 	}
+	defer backendObj.Close()
 
 	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
@@ -900,13 +910,13 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 		}
 	}
 	backendObj, err := s.backend.UpdateObject(bucketName, objectName, metadata.Metadata)
-	defer backendObj.Close()
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusNotFound,
 			errorMessage: "Object not found to be updated",
 		}
 	}
+	defer backendObj.Close()
 
 	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
@@ -943,13 +953,13 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 	}
 
 	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType)
-	defer backendObj.Close()
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusInternalServerError,
 			errorMessage: "Error running compose",
 		}
 	}
+	defer backendObj.Close()
 
 	obj := fromBackendObjects([]backend.StreamingObject{backendObj})[0]
 
