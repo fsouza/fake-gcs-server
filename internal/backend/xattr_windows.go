@@ -31,5 +31,5 @@ func removeXattrFile(path string) error {
 }
 
 func renameXAttrFile(pathSrc, pathDst string) error {
-	return os.Rename(pathSrc+xattrKey, pathDst+xattrkey)
+	return os.Rename(pathSrc+xattrKey, pathDst+xattrKey)
 }
