@@ -2,16 +2,23 @@ package backend
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestRenamingOnWindows(t *testing.T) {
-	testFile := filepath.Join(os.TempDir(), "test.txt")
-	testTwoFile := filepath.Join(os.TempDir(), "test-two.txt")
+	dir, err := ioutil.TempDir("", "rename-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
 
-	err := os.WriteFile(testFile, []byte("hello there"), 0o644)
+	testFile := filepath.Join(dir, "test.txt")
+	testTwoFile := filepath.Join(dir, "test-two.txt")
+
+	err = os.WriteFile(testFile, []byte("hello there"), 0o644)
 	if err != nil {
 		t.Fatalf("could not write original file, %v", err)
 	}
