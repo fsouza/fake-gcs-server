@@ -52,7 +52,7 @@ type EventManagerOptions struct {
 }
 
 type EventManager interface {
-	Trigger(o *backend.Object, eventType EventType, extraEventAttr map[string]string)
+	Trigger(o *backend.StreamingObject, eventType EventType, extraEventAttr map[string]string)
 }
 
 // PubsubEventManager checks if an event should be published.
@@ -96,7 +96,7 @@ type eventPublisher interface {
 
 // Trigger checks if an event should be triggered. If so, it publishes the
 // event to a pubsub queue.
-func (m *PubsubEventManager) Trigger(o *backend.Object, eventType EventType, extraEventAttr map[string]string) {
+func (m *PubsubEventManager) Trigger(o *backend.StreamingObject, eventType EventType, extraEventAttr map[string]string) {
 	if m.publisher == nil {
 		return
 	}
@@ -139,7 +139,7 @@ func (m *PubsubEventManager) Trigger(o *backend.Object, eventType EventType, ext
 	}
 }
 
-func (m *PubsubEventManager) publish(o *backend.Object, eventType EventType, eventTime string, extraEventAttr map[string]string) error {
+func (m *PubsubEventManager) publish(o *backend.StreamingObject, eventType EventType, eventTime string, extraEventAttr map[string]string) error {
 	ctx := context.Background()
 	data, attributes, err := generateEvent(o, eventType, eventTime, extraEventAttr)
 	if err != nil {
@@ -175,7 +175,7 @@ type gcsEvent struct {
 	MetaData        map[string]string `json:"metadata,omitempty"`
 }
 
-func generateEvent(o *backend.Object, eventType EventType, eventTime string, extraEventAttr map[string]string) ([]byte, map[string]string, error) {
+func generateEvent(o *backend.StreamingObject, eventType EventType, eventTime string, extraEventAttr map[string]string) ([]byte, map[string]string, error) {
 	payload := gcsEvent{
 		Kind:            "storage#object",
 		ID:              o.ID(),
@@ -187,7 +187,7 @@ func generateEvent(o *backend.Object, eventType EventType, eventTime string, ext
 		Created:         o.Created,
 		Updated:         o.Updated,
 		StorageClass:    "STANDARD",
-		Size:            strconv.Itoa(len(o.Content)),
+		Size:            strconv.FormatInt(o.Size, 10),
 		MD5Hash:         o.Md5Hash,
 		CRC32c:          o.Crc32c,
 		MetaData:        o.Metadata,

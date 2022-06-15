@@ -28,3 +28,7 @@ func isXattrFile(path string) bool {
 func removeXattrFile(path string) error {
 	return nil
 }
+
+func renameXAttrFile(pathSrc, pathDst string) error {
+	return nil
+}

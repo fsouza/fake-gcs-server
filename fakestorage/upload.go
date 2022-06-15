@@ -5,8 +5,10 @@
 package fakestorage
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -122,26 +124,19 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	if err != nil {
 		return xmlResponse{errorMessage: err.Error()}
 	}
-	data, err := io.ReadAll(infile)
-	if err != nil {
-		return xmlResponse{errorMessage: err.Error()}
-	}
-	md5Hash := checksum.EncodedMd5Hash(data)
-	obj := Object{
+	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
 			Name:            name,
 			ContentType:     contentType,
 			ContentEncoding: contentEncoding,
-			Crc32c:          checksum.EncodedCrc32cChecksum(data),
-			Md5Hash:         md5Hash,
-			Etag:            fmt.Sprintf("%q", md5Hash),
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metaData,
 		},
-		Content: data,
+		Content: infile,
 	}
-	_, err = s.createObject(obj)
+	obj, err = s.createObject(obj)
+	defer obj.Close()
 	if err != nil {
 		return xmlResponse{errorMessage: err.Error()}
 	}
@@ -186,7 +181,8 @@ func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, ob
 				errorMessage: err.Error(),
 			}
 		}
-		_, err = s.backend.GetObjectWithGeneration(bucketName, objectName, gen)
+		obj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, gen)
+		defer obj.Close()
 		if gen == 0 {
 			if err != nil {
 				return &jsonResponse{
@@ -216,29 +212,30 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 			errorMessage: "name is required for simple uploads",
 		}
 	}
-	data, err := io.ReadAll(r.Body)
-	if err != nil {
-		return jsonResponse{errorMessage: err.Error()}
-	}
-	md5Hash := checksum.EncodedMd5Hash(data)
-	obj := Object{
+	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
 			Name:            name,
 			ContentType:     r.Header.Get(contentTypeHeader),
 			ContentEncoding: contentEncoding,
-			Crc32c:          checksum.EncodedCrc32cChecksum(data),
-			Md5Hash:         md5Hash,
-			Etag:            fmt.Sprintf("%q", md5Hash),
 			ACL:             getObjectACL(predefinedACL),
 		},
-		Content: data,
+		Content: notImplementedSeeker{r.Body},
 	}
-	obj, err = s.createObject(obj)
+	obj, err := s.createObject(obj)
+	defer obj.Close()
 	if err != nil {
 		return errToJsonResponse(err)
 	}
 	return jsonResponse{data: obj}
+}
+
+type notImplementedSeeker struct {
+	io.ReadCloser
+}
+
+func (s notImplementedSeeker) Seek(offset int64, whence int) (int64, error) {
+	return 0, errors.New("not implemented")
 }
 
 func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
@@ -260,26 +257,19 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		}
 	}
 
-	data, err := io.ReadAll(r.Body)
-	if err != nil {
-		return jsonResponse{errorMessage: err.Error()}
-	}
-	md5Hash := checksum.EncodedMd5Hash(data)
-	obj := Object{
+	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
 			Name:            name,
 			ContentType:     r.Header.Get(contentTypeHeader),
 			ContentEncoding: contentEncoding,
-			Crc32c:          checksum.EncodedCrc32cChecksum(data),
-			Md5Hash:         md5Hash,
-			Etag:            fmt.Sprintf("%q", md5Hash),
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metaData,
 		},
-		Content: data,
+		Content: notImplementedSeeker{r.Body},
 	}
-	obj, err = s.createObject(obj)
+	obj, err := s.createObject(obj)
+	defer obj.Close()
 	if err != nil {
 		return errToJsonResponse(err)
 	}
@@ -319,6 +309,9 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 	)
 	var contentType string
 	reader := multipart.NewReader(r.Body, params["boundary"])
+
+	var partReaders []io.Reader
+
 	part, err := reader.NextPart()
 	for ; err == nil; part, err = reader.NextPart() {
 		if metadata == nil {
@@ -327,6 +320,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		} else {
 			contentType = part.Header.Get(contentTypeHeader)
 			content, err = loadContent(part)
+			partReaders = append(partReaders, bytes.NewReader(content))
 		}
 		if err != nil {
 			break
@@ -346,22 +340,19 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		return *resp
 	}
 
-	md5Hash := checksum.EncodedMd5Hash(content)
-	obj := Object{
+	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
 			Name:            objName,
 			ContentType:     contentType,
 			ContentEncoding: metadata.ContentEncoding,
-			Crc32c:          checksum.EncodedCrc32cChecksum(content),
-			Md5Hash:         md5Hash,
-			Etag:            fmt.Sprintf("%q", md5Hash),
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metadata.Metadata,
 		},
-		Content: content,
+		Content: notImplementedSeeker{io.NopCloser(io.MultiReader(partReaders...))},
 	}
 	obj, err = s.createObject(obj)
+	defer obj.Close()
 	if err != nil {
 		return errToJsonResponse(err)
 	}
@@ -411,7 +402,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 
 // uploadFileContent accepts a chunk of a resumable upload
 //
-// A resumable upload is sent in one or more chunks. The request's
+// A resumeable upload is sent in one or more chunks. The request's
 // "Content-Range" header is used to determine if more data is expected.
 //
 // When sending streaming content, the total size is unknown until the stream
@@ -451,6 +442,8 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 		return jsonResponse{status: http.StatusNotFound}
 	}
 	obj := rawObj.(Object)
+	// TODO: stream upload file content to and from disk (when using the FS
+	// backend, at least) instead of loading the entire content into memory.
 	content, err := loadContent(r.Body)
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
@@ -480,7 +473,12 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	}
 	if commit {
 		s.uploads.Delete(uploadID)
-		obj, err = s.createObject(obj)
+		streamingObject, err := s.createObject(obj.StreamingObject())
+		defer streamingObject.Close()
+		if err != nil {
+			return errToJsonResponse(err)
+		}
+		obj, err = streamingObject.BufferedObject()
 		if err != nil {
 			return errToJsonResponse(err)
 		}

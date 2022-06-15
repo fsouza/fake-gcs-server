@@ -5,7 +5,9 @@
 package backend
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 
 	"cloud.google.com/go/storage"
 )
@@ -42,4 +44,40 @@ func (o *ObjectAttrs) IDNoGen() string {
 type Object struct {
 	ObjectAttrs
 	Content []byte
+}
+
+type noopSeekCloser struct {
+	io.ReadSeeker
+}
+
+func (n noopSeekCloser) Close() error {
+	return nil
+}
+
+func (o Object) StreamingObject() StreamingObject {
+	return StreamingObject{
+		ObjectAttrs: o.ObjectAttrs,
+		Content:     noopSeekCloser{bytes.NewReader(o.Content)},
+	}
+}
+
+type StreamingObject struct {
+	ObjectAttrs
+	Content io.ReadSeekCloser
+}
+
+func (o *StreamingObject) Close() error {
+	if o != nil && o.Content != nil {
+		return o.Content.Close()
+	}
+	return nil
+}
+
+// Convert this StreamingObject to a (buffered) Object.
+func (o *StreamingObject) BufferedObject() (Object, error) {
+	data, err := io.ReadAll(o.Content)
+	return Object{
+		ObjectAttrs: o.ObjectAttrs,
+		Content:     data,
+	}, err
 }

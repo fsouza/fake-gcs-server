@@ -29,3 +29,7 @@ func isXattrFile(path string) bool {
 func removeXattrFile(path string) error {
 	return os.Remove(path + xattrKey)
 }
+
+func renameXAttrFile(pathSrc, pathDst string) error {
+	return os.Rename(pathSrc+xattrKey, pathDst+xattrkey)
+}

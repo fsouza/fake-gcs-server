@@ -95,7 +95,16 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			obj := backend.Object{ObjectAttrs: backend.ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-01.txt"}, Content: []byte("something")}
+			content := []byte("something")
+			bufferedObj := backend.Object{
+				ObjectAttrs: backend.ObjectAttrs{
+					BucketName: "some-bucket",
+					Name:       "files/txt/text-01.txt",
+					Size:       int64(len(content)),
+				},
+				Content: content,
+			}
+			obj := bufferedObj.StreamingObject()
 			eventManager := PubsubEventManager{
 				notifyOn:     test.notifyOn,
 				objectPrefix: test.prefix,
@@ -133,10 +142,10 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 						t.Errorf("wrong bucket on object\nwant %q\ngot %q", obj.BucketName, receivedEvent.Bucket)
 					}
 					if obj.Name != receivedEvent.Name {
-						t.Errorf("wrong objectc name\nwant %q\ngot %q", obj.Name, receivedEvent.Name)
+						t.Errorf("wrong object name\nwant %q\ngot %q", obj.Name, receivedEvent.Name)
 					}
-					if strconv.Itoa(len(obj.Content)) != receivedEvent.Size {
-						t.Errorf("wrong object size\nwant %q\ngot %q", strconv.Itoa(len(obj.Content)), receivedEvent.Size)
+					if strconv.Itoa(len(bufferedObj.Content)) != receivedEvent.Size {
+						t.Errorf("wrong object size\nwant %q\ngot %q", strconv.Itoa(len(bufferedObj.Content)), receivedEvent.Size)
 					}
 					if !reflect.DeepEqual(test.metadata, receivedEvent.MetaData) {
 						t.Errorf("wrong object metadata\nwant %q\ngot %q", test.metadata, receivedEvent.MetaData)
