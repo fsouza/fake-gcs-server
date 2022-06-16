@@ -60,7 +60,7 @@ fake-gcs-server defaults to HTTPS, but it can also be used with HTTP. The flag
 example could be changed to pass `-scheme http`:
 
 ```shell
-docker run -d --name fake-gcs-server -p 4443:4443 -v ${PWD}/examples/data:/data fsouza/fake-gcs-server -scheme http
+docker run -d --name fake-gcs-server -p 4443:4443 -v ${PWD}/examples/data:/data fsouza/fake-gcs-server --scheme http
 ```
 
 And now we can curl it without the `--insecure` flag and using `http://`
