@@ -3,6 +3,7 @@ package backend
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/alexbrainman/goissue34681"
@@ -30,7 +31,9 @@ func compatOpenForWritingAllowingRename(path string) (*os.File, error) {
 func compatRename(oldpath, newpath string) error {
 	_, err := os.Stat(newpath)
 	if os.IsExist(err) {
-		tempDeletePath := fmt.Sprintf("%s-overwritten-%d", newpath, time.Now().UnixMilli())
+		tempDeletePath := filepath.Join(
+			os.TempDir(),
+			fmt.Sprintf("%s-overwritten-%d", newpath, time.Now().UnixMilli()))
 		// Move the destination to a "temporary delete path" so newpath is
 		// freed up before we perform the rename below.
 		err = os.Rename(newpath, tempDeletePath)
