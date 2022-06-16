@@ -60,10 +60,11 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 
 	s := &storageFS{rootDir: rootDir}
 	for _, o := range objects {
-		_, err := s.CreateObject(o)
+		obj, err := s.CreateObject(o)
 		if err != nil {
 			return nil, err
 		}
+		obj.Close()
 	}
 	return s, nil
 }
