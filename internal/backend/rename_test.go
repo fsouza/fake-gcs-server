@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/alexbrainman/goissue34681"
 )
 
 func TestRenamingOnWindows(t *testing.T) {
@@ -16,13 +18,14 @@ func TestRenamingOnWindows(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	testFile := filepath.Join(dir, "test.txt")
+	testFileToRemove := filepath.Join(dir, "test-to-remove.txt")
 	testTwoFile := filepath.Join(dir, "test-two.txt")
 
 	err = os.WriteFile(testFile, []byte("hello there"), 0o644)
 	if err != nil {
 		t.Fatalf("could not write original file, %v", err)
 	}
-	original, err := os.Open(testFile)
+	original, err := goissue34681.Open(testFile)
 	if err != nil {
 		t.Fatalf("could not open original file, %v", err)
 	}
@@ -31,11 +34,19 @@ func TestRenamingOnWindows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not write updated file, %v", err)
 	}
+	err = os.Rename(testFile, testFileToRemove)
+	if err != nil {
+		t.Fatalf("could not move original file to temp (remove) file, %v", err)
+	}
+	err = os.Remove(testFileToRemove)
+	if err != nil {
+		t.Fatalf("could not remove original (remove) file, %v", err)
+	}
 	err = os.Rename(testTwoFile, testFile)
 	if err != nil {
 		t.Fatalf("could not move updated over original file, %v", err)
 	}
-	updated, err := os.Open(testFile)
+	updated, err := goissue34681.Open(testFile)
 	if err != nil {
 		t.Fatalf("could not open updated file, %v", err)
 	}
