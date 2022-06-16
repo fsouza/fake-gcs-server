@@ -240,6 +240,7 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 		if err != nil {
 			return nil, err
 		}
+		object.Close()
 		objects = append(objects, object.ObjectAttrs)
 	}
 	return objects, nil

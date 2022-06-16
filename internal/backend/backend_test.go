@@ -76,14 +76,15 @@ func shouldError(t *testing.T, err error) {
 
 func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	isFSStorage := reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{})
-	_, err := storage.CreateObject(obj.StreamingObject())
+	newObject, err := storage.CreateObject(obj.StreamingObject())
 	if isFSStorage && obj.Generation != 0 {
 		t.Log("FS should not support objects generation")
 		shouldError(t, err)
 		obj.Generation = 0
-		_, err = storage.CreateObject(obj.StreamingObject())
+		newObject, err = storage.CreateObject(obj.StreamingObject())
 	}
 	noError(t, err)
+	newObject.Close()
 	activeObj, err := storage.GetObject(obj.BucketName, obj.Name)
 	noError(t, err)
 	if activeObj.Generation == 0 {
@@ -92,11 +93,13 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 	if err := compareStreamingObjects(activeObj, obj.StreamingObject()); err != nil {
 		t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 	}
+	activeObj.Close()
 	objFromGeneration, err := storage.GetObjectWithGeneration(obj.BucketName, obj.Name, activeObj.Generation)
 	noError(t, err)
 	if err := compareStreamingObjects(objFromGeneration, obj.StreamingObject()); err != nil {
 		t.Errorf("object retrieved differs from the created one. Descr: %v", err)
 	}
+	objFromGeneration.Close()
 	return activeObj.Generation
 }
 
@@ -217,8 +220,9 @@ func TestObjectQueryErrors(t *testing.T) {
 				},
 				Content: []byte("random-content"),
 			}
-			_, err = storage.CreateObject(validObject.StreamingObject())
+			obj, err := storage.CreateObject(validObject.StreamingObject())
 			noError(t, err)
+			obj.Close()
 			_, err = storage.GetObjectWithGeneration(validObject.BucketName, validObject.Name, 33333)
 			shouldError(t, err)
 		})
