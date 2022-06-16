@@ -168,7 +168,13 @@ func (s *storageFS) CreateObject(obj StreamingObject) (StreamingObject, error) {
 	if err != nil {
 		return StreamingObject{}, err
 	}
-	defer tempFile.Close()
+	tempFile.Close()
+
+	tempFile, err = compatOpenForWritingAllowingRename(tempFile.Name())
+	if err != nil {
+		return StreamingObject{}, err
+	}
+
 	// The file is renamed below, which causes this to be a no-op. If the
 	// function returns before the rename, though, the temp file will be
 	// removed.

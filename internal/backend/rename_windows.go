@@ -15,6 +15,10 @@ func compatOpenAllowingRename(path string) (*os.File, error) {
 	return goissue34681.Open(path)
 }
 
+func compatOpenForWritingAllowingRename(path string) (*os.File, error) {
+	return goissue34681.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
+}
+
 // compatRename renames a file and handles the case where the rename
 // destination already exists and might be open (open files must have been
 // opened using compatOpenAllowingRename).
