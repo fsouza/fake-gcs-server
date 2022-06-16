@@ -200,7 +200,7 @@ func (s *storageFS) CreateObject(obj StreamingObject) (StreamingObject, error) {
 		return StreamingObject{}, err
 	}
 
-	err = os.Rename(tempFile.Name(), path)
+	err = compatRename(tempFile.Name(), path)
 	if err != nil {
 		return StreamingObject{}, err
 	}
@@ -288,7 +288,7 @@ func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, e
 
 func openObjectAndSetSize(obj *StreamingObject, path string) error {
 	// file is expected to be closed by the caller by calling obj.Close()
-	file, err := os.Open(path)
+	file, err := compatOpenAllowingRename(path)
 	if err != nil {
 		return err
 	}
