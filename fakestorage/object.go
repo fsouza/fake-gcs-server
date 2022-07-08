@@ -5,6 +5,8 @@
 package fakestorage
 
 import (
+	"compress/gzip"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -647,7 +649,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := http.StatusOK
-	ranged, start, lastByte, content, satisfiable := s.handleRange(obj, r)
+	ranged, start, lastByte, content, satisfiable, transcoded := s.handleRange(obj, r)
 
 	if ranged && satisfiable {
 		status = http.StatusPartialContent
@@ -670,7 +672,8 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		if obj.ContentType != "" {
 			w.Header().Set(contentTypeHeader, obj.ContentType)
 		}
-		if obj.ContentEncoding != "" {
+		// If content was transcoded, the underlying encoding was removed so we shouldn't report it.
+		if obj.ContentEncoding != "" && !transcoded {
 			w.Header().Set("Content-Encoding", obj.ContentEncoding)
 		}
 	}
@@ -681,12 +684,31 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start int64, lastByte int64, content []byte, satisfiable bool) {
+func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start int64, lastByte int64, content []byte, satisfiable bool, transcoded bool) {
+	// This should also be false if the Cache-Control metadata field == "no-transform",
+	// but we don't currently support that field.
+	// See https://cloud.google.com/storage/docs/transcoding
+	if obj.ContentEncoding == "gzip" && r.Header.Get("accept-encoding") != "gzip" {
+		// GCS will transparently decompress gzipped content, see
+		// https://cloud.google.com/storage/docs/transcoding
+		// In this case, any Range header is ignored and the full content is returned.
+
+		// If the content is not a valid gzip file, ignore errors and continue
+		// without transcoding. Otherwise, return decompressed content.
+		gzipReader, err := gzip.NewReader(bytes.NewReader(obj.Content))
+		if err == nil {
+			content, err := io.ReadAll(gzipReader)
+			if err == nil {
+				return false, 0, 0, content, false, true
+			}
+		}
+	}
+
 	contentLength := int64(len(obj.Content))
 	start, end, err := parseRange(r.Header.Get("Range"), contentLength)
 	if err != nil {
 		// If the range isn't valid, GCS returns all content.
-		return false, 0, 0, obj.Content, false
+		return false, 0, 0, obj.Content, false, false
 	}
 	// GCS is pretty flexible when it comes to invalid ranges. A 416 http
 	// response is only returned when the range start is beyond the length of
@@ -698,12 +720,12 @@ func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start in
 	//   Length: 40, Range: bytes=50-
 	case start >= contentLength:
 		// This IS a ranged request, but it ISN'T satisfiable.
-		return true, 0, 0, []byte{}, false
+		return true, 0, 0, []byte{}, false, false
 	// Negative range, ignore range and return all content.
 	// Examples:
 	//   Length: 40, Range: bytes=30-20
 	case end < start:
-		return false, 0, 0, obj.Content, false
+		return false, 0, 0, obj.Content, false, false
 	// Return range. Clamp start and end.
 	// Examples:
 	//   Length: 40, Range: bytes=-100
@@ -715,7 +737,7 @@ func (s *Server) handleRange(obj Object, r *http.Request) (ranged bool, start in
 		if end >= contentLength {
 			end = contentLength - 1
 		}
-		return true, start, end, obj.Content[start : end+1], true
+		return true, start, end, obj.Content[start : end+1], true, false
 	}
 }
 
