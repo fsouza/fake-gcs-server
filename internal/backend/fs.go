@@ -137,9 +137,9 @@ func (s *storageFS) DeleteBucket(name string) error {
 
 // CreateObject stores an object as a regular file in the disk.
 func (s *storageFS) CreateObject(obj Object) (Object, error) {
-	if obj.Generation > 0 {
-		return Object{}, errors.New("not implemented: fs storage type does not support objects generation yet")
-	}
+	// if obj.Generation > 0 {
+	// 	return Object{}, errors.New("not implemented: fs storage type does not support objects generation yet")
+	// }
 
 	// Note: this was a quick fix for issue #701. Now that we have a way to
 	// persist object attributes, we should implement versioning in the
