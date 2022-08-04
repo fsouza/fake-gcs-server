@@ -145,7 +145,7 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 			},
 			Content: []byte("some content"),
 		}
-		server.CreateObjectForTests(obj.StreamingObject())
+		server.CreateObject(obj.StreamingObject())
 		objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
 		w := objHandle.NewWriter(context.Background())
 		w.ContentType = contentType

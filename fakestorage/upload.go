@@ -404,7 +404,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 
 // uploadFileContent accepts a chunk of a resumable upload
 //
-// A resumeable upload is sent in one or more chunks. The request's
+// A resumable upload is sent in one or more chunks. The request's
 // "Content-Range" header is used to determine if more data is expected.
 //
 // When sending streaming content, the total size is unknown until the stream

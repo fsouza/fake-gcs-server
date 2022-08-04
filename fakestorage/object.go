@@ -272,11 +272,11 @@ func (o *objectAttrsList) Swap(i int, j int) {
 	d[i], d[j] = d[j], d[i]
 }
 
-// CreateObjectForTests stores the given object internally.
+// CreateObject stores the given object internally.
 //
 // If the bucket within the object doesn't exist, it also creates it. If the
 // object already exists, it overrides the object.
-func (s *Server) CreateObjectForTests(obj StreamingObject) {
+func (s *Server) CreateObject(obj StreamingObject) {
 	obj, err := s.createObject(obj)
 	if err != nil {
 		panic(err)
