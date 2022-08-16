@@ -6,7 +6,7 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
-	github.com/pkg/xattr v0.4.7
+	github.com/pkg/xattr v0.4.8
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
