@@ -63,7 +63,7 @@ func noError(t *testing.T, err error) {
 func shouldError(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {
-		t.Fatalf("should error, but error is nil")
+		t.Fatal("should error, but error is nil")
 	}
 }
 
@@ -94,6 +94,10 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 }
 
 func TestObjectCRUD(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("time resolution on Windows makes this test flaky on that platform")
+	}
+
 	const bucketName = "prod-bucket"
 	const objectName = "video/hi-res/best_video_1080p.mp4"
 	content1 := []byte("content1")
