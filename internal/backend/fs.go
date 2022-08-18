@@ -35,6 +35,7 @@ import (
 type storageFS struct {
 	rootDir string
 	mtx     sync.RWMutex
+	mh      metadataHandler
 }
 
 // NewStorageFS creates an instance of the filesystem-backed storage backend.
@@ -47,17 +48,18 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 		return nil, err
 	}
 
-	// Check if rootDir supports xattr.
+	var mh metadataHandler = metadataFile{}
+	// Use xattr for metadata if rootDir supports it.
 	if xattr.XATTR_SUPPORTED {
-		_, err = readXattr(rootDir)
-		if err != nil {
-			if xerr, ok := err.(*xattr.Error); !ok || xerr.Err != xattr.ENOATTR {
-				return nil, fmt.Errorf("failed to determine if %q supports xattr, consider using a different storage backend or a filesystem that supports it (e.g. not tmpfs on Linux): %w", rootDir, err)
-			}
+		xattrHandler := metadataXattr{}
+		var xerr *xattr.Error
+		_, err = xattrHandler.read(rootDir)
+		if err == nil || (errors.As(err, &xerr) && xerr.Err == xattr.ENOATTR) {
+			mh = xattrHandler
 		}
 	}
 
-	s := &storageFS{rootDir: rootDir}
+	s := &storageFS{rootDir: rootDir, mh: mh}
 	for _, o := range objects {
 		_, err := s.CreateObject(o)
 		if err != nil {
@@ -165,7 +167,7 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 		return Object{}, err
 	}
 
-	if err = writeXattr(path, encoded); err != nil {
+	if err = s.mh.write(path, encoded); err != nil {
 		return Object{}, err
 	}
 
@@ -184,7 +186,7 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 	}
 	objects := []ObjectAttrs{}
 	for _, info := range infos {
-		if isXattrFile(info.Name()) {
+		if s.mh.isSpecialFile(info.Name()) {
 			continue
 		}
 		unescaped, err := url.PathUnescape(info.Name())
@@ -227,7 +229,7 @@ func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, gener
 func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName))
 
-	encoded, err := readXattr(path)
+	encoded, err := s.mh.read(path)
 	if err != nil {
 		return Object{}, err
 	}
@@ -256,7 +258,7 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 		return errors.New("can't delete object with empty name")
 	}
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName))
-	if err := removeXattrFile(path); err != nil {
+	if err := s.mh.remove(path); err != nil {
 		return err
 	}
 	return os.Remove(path)
