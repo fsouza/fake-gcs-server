@@ -215,6 +215,9 @@ func (s *Server) buildMuxer() {
 	const apiPrefix = "/storage/v1"
 	s.mux = mux.NewRouter()
 
+	// healthcheck
+	s.mux.Path("/_internal/healthcheck").Methods(http.MethodGet).HandlerFunc(s.healthcheck)
+
 	routers := []*mux.Router{
 		s.mux.PathPrefix(apiPrefix).Subrouter(),
 		s.mux.MatcherFunc(s.publicHostMatcher).PathPrefix(apiPrefix).Subrouter(),
@@ -266,6 +269,10 @@ func (s *Server) buildMuxer() {
 	s.mux.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.getObject)
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+}
+
+func (s *Server) healthcheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }
 
 // publicHostMatcher matches incoming requests against the currently specified server publicHost.
