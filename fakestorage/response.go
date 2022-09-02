@@ -4,9 +4,20 @@
 
 package fakestorage
 
-import "github.com/fsouza/fake-gcs-server/internal/backend"
+import (
+	"time"
+
+	"github.com/fsouza/fake-gcs-server/internal/backend"
+)
 
 const timestampFormat = "2006-01-02T15:04:05.999999Z07:00"
+
+func formatTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format(timestampFormat)
+}
 
 type listResponse struct {
 	Kind     string        `json:"kind"`
@@ -117,9 +128,9 @@ func newObjectResponse(obj ObjectAttrs) objectResponse {
 		Etag:            obj.Etag,
 		ACL:             acl,
 		Metadata:        obj.Metadata,
-		TimeCreated:     obj.Created.Format(timestampFormat),
-		TimeDeleted:     obj.Deleted.Format(timestampFormat),
-		Updated:         obj.Updated.Format(timestampFormat),
+		TimeCreated:     formatTime(obj.Created),
+		TimeDeleted:     formatTime(obj.Deleted),
+		Updated:         formatTime(obj.Updated),
 		Generation:      obj.Generation,
 	}
 }
