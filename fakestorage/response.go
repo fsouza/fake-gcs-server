@@ -55,7 +55,7 @@ func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 		ID:          bucket.Name,
 		Name:        bucket.Name,
 		Versioning:  &bucketVersioning{bucket.VersioningEnabled},
-		TimeCreated: bucket.TimeCreated.Format(timestampFormat),
+		TimeCreated: formatTime(bucket.TimeCreated),
 		Location:    location,
 	}
 }
