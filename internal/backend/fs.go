@@ -182,7 +182,7 @@ func (s *storageFS) CreateObject(obj StreamingObject) (StreamingObject, error) {
 	// The file is renamed below, which causes this to be a no-op. If the
 	// function returns before the rename, though, the temp file will be
 	// removed.
-	defer os.RemoveAll(tempFile.Name())
+	defer os.Remove(tempFile.Name())
 
 	err = os.Chmod(tempFile.Name(), 0o600)
 	if err != nil {
