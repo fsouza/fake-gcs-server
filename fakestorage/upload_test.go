@@ -70,11 +70,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				streamingObject, err := server.GetObject(test.bucketName, test.objectName)
-				if err != nil {
-					t.Fatal(err)
-				}
-				obj, err := streamingObject.BufferedObject()
+				obj, err := server.GetObject(test.bucketName, test.objectName)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -137,15 +133,14 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const content = "other content"
 		const contentType = "text/plain"
-		obj := Object{
+		server.CreateObject(Object{
 			ObjectAttrs: ObjectAttrs{
 				BucketName:  "some-bucket",
 				Name:        "some-object.txt",
 				ContentType: "some-stff",
 			},
 			Content: []byte("some content"),
-		}
-		server.CreateObjectForTests(obj.StreamingObject())
+		})
 		objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
 		w := objHandle.NewWriter(context.Background())
 		w.ContentType = contentType
@@ -154,11 +149,7 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		streamingObject, err := server.GetObject("some-bucket", "some-object.txt")
-		if err != nil {
-			t.Fatal(err)
-		}
-		obj, err = streamingObject.BufferedObject()
+		obj, err := server.GetObject("some-bucket", "some-object.txt")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -426,11 +417,7 @@ func TestServerClientSimpleUpload(t *testing.T) {
 		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
 	}
 
-	streamingObject, err := server.GetObject("other-bucket", "some/nice/object.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	obj, err := streamingObject.BufferedObject()
+	obj, err := server.GetObject("other-bucket", "some/nice/object.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -474,11 +461,7 @@ func TestServerClientSignedUpload(t *testing.T) {
 		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
 	}
 
-	streamingObject, err := server.GetObject("other-bucket", "some/nice/object.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	obj, err := streamingObject.BufferedObject()
+	obj, err := server.GetObject("other-bucket", "some/nice/object.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -569,11 +552,7 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
 	}
 
-	streamingObject, err := server.GetObject("other-bucket", "some/nice/object.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	obj, err := streamingObject.BufferedObject()
+	obj, err := server.GetObject("other-bucket", "some/nice/object.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -830,11 +809,7 @@ func TestServerGzippedUpload(t *testing.T) {
 				t.Errorf("expected a 200 response, got: %d", resp.StatusCode)
 			}
 
-			streamingObject, err := server.GetObject(bucketName, "testobj")
-			if err != nil {
-				t.Fatal(err)
-			}
-			obj, err := streamingObject.BufferedObject()
+			obj, err := server.GetObject(bucketName, "testobj")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -914,11 +889,7 @@ func TestFormDataUpload(t *testing.T) {
 		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
 	}
 
-	streamingObject, err := server.GetObject("other-bucket", "object.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	obj, err := streamingObject.BufferedObject()
+	obj, err := server.GetObject("other-bucket", "object.txt")
 	if err != nil {
 		t.Fatal(err)
 	}

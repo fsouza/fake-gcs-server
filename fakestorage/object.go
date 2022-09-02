@@ -272,16 +272,28 @@ func (o *objectAttrsList) Swap(i int, j int) {
 	d[i], d[j] = d[j], d[i]
 }
 
-// CreateObjectForTests stores the given object internally.
+// CreateObject is the non-streaming version of CreateObjectStreaming.
 //
-// If the bucket within the object doesn't exist, it also creates it. If the
-// object already exists, it overrides the object.
-func (s *Server) CreateObjectForTests(obj StreamingObject) {
-	obj, err := s.createObject(obj)
+// In addition to streaming, CreateObjectStreaming returns an error instead of
+// panicking when an error occurs.
+func (s *Server) CreateObject(obj Object) {
+	err := s.CreateObjectStreaming(obj.StreamingObject())
 	if err != nil {
 		panic(err)
 	}
+}
+
+// CreateObjectStreaming stores the given object internally.
+//
+// If the bucket within the object doesn't exist, it also creates it. If the
+// object already exists, it overwrites the object.
+func (s *Server) CreateObjectStreaming(obj StreamingObject) error {
+	obj, err := s.createObject(obj)
+	if err != nil {
+		return err
+	}
 	obj.Close()
+	return nil
 }
 
 func (s *Server) createObject(obj StreamingObject) (StreamingObject, error) {
@@ -498,9 +510,18 @@ func convertTimeWithoutError(t string) time.Time {
 	return r
 }
 
-// GetObject returns the object with the given name in the given bucket, or an
-// error if the object doesn't exist.
-func (s *Server) GetObject(bucketName, objectName string) (StreamingObject, error) {
+// GetObject is the non-streaming version of GetObjectStreaming.
+func (s *Server) GetObject(bucketName, objectName string) (Object, error) {
+	streamingObject, err := s.GetObjectStreaming(bucketName, objectName)
+	if err != nil {
+		return Object{}, err
+	}
+	return streamingObject.BufferedObject()
+}
+
+// GetObjectStreaming returns the object with the given name in the given
+// bucket, or an error if the object doesn't exist.
+func (s *Server) GetObjectStreaming(bucketName, objectName string) (StreamingObject, error) {
 	backendObj, err := s.backend.GetObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
@@ -509,11 +530,22 @@ func (s *Server) GetObject(bucketName, objectName string) (StreamingObject, erro
 	return obj, nil
 }
 
-// GetObjectWithGeneration returns the object with the given name and given
-// generation ID in the given bucket, or an error if the object doesn't exist.
+// GetObjectWithGeneration is the non-streaming version of
+// GetObjectWithGenerationStreaming.
+func (s *Server) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
+	streamingObject, err := s.GetObjectWithGenerationStreaming(bucketName, objectName, generation)
+	if err != nil {
+		return Object{}, err
+	}
+	return streamingObject.BufferedObject()
+}
+
+// GetObjectWithGenerationStreaming returns the object with the given name and
+// given generation ID in the given bucket, or an error if the object doesn't
+// exist.
 //
 // If versioning is enabled, archived versions are considered.
-func (s *Server) GetObjectWithGeneration(bucketName, objectName string, generation int64) (StreamingObject, error) {
+func (s *Server) GetObjectWithGenerationStreaming(bucketName, objectName string, generation int64) (StreamingObject, error) {
 	backendObj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, generation)
 	if err != nil {
 		return StreamingObject{}, err
@@ -527,9 +559,9 @@ func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, g
 	if err != nil && generationStr != "" {
 		return StreamingObject{}, errInvalidGeneration
 	} else if generation > 0 {
-		return s.GetObjectWithGeneration(bucketName, objectName, generation)
+		return s.GetObjectWithGenerationStreaming(bucketName, objectName, generation)
 	}
-	return s.GetObject(bucketName, objectName)
+	return s.GetObjectStreaming(bucketName, objectName)
 }
 
 func (s *Server) listObjects(r *http.Request) jsonResponse {
@@ -586,7 +618,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
-	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
 	// Calling Close before checking err is okay on objects, and the object
 	// may need to be closed whether or not there's an error.
 	defer obj.Close() //lint:ignore SA5001 // see above
@@ -609,7 +641,7 @@ func (s *Server) deleteObject(r *http.Request) jsonResponse {
 func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 
-	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
@@ -621,7 +653,7 @@ func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 	vars := mux.Vars(r)
 
-	obj, err := s.GetObject(vars["bucketName"], vars["objectName"])
+	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
