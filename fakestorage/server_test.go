@@ -895,7 +895,6 @@ func TestServerBatchRequest(t *testing.T) {
 type fakeEventFields struct {
 	BucketName string
 	Name       string
-	Content    []byte
 	Metadata   map[string]string
 }
 
@@ -903,7 +902,6 @@ func fakeEventFieldsFromObject(obj Object) fakeEventFields {
 	return fakeEventFields{
 		BucketName: obj.BucketName,
 		Name:       obj.Name,
-		Content:    obj.Content,
 		Metadata:   obj.Metadata,
 	}
 }
@@ -923,9 +921,14 @@ type fakeEventManager struct {
 	events []fakeEvent
 }
 
-func (m *fakeEventManager) Trigger(o *backend.Object, eventType notification.EventType, extraEventAttr map[string]string) {
+func (m *fakeEventManager) Trigger(o *backend.StreamingObject, eventType notification.EventType, extraEventAttr map[string]string) {
+	streamingObject := fromBackendObjects([]backend.StreamingObject{*o})[0]
+	bufferedObject, err := streamingObject.BufferedObject()
+	if err != nil {
+		panic(err)
+	}
 	m.events = append(m.events, fakeEvent{
-		obj:       fakeEventFieldsFromObject(fromBackendObjects([]backend.Object{*o})[0]),
+		obj:       fakeEventFieldsFromObject(bufferedObject),
 		eventType: eventType,
 	})
 }

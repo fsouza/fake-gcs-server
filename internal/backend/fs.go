@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -39,7 +40,7 @@ type storageFS struct {
 }
 
 // NewStorageFS creates an instance of the filesystem-backed storage backend.
-func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
+func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 	if !strings.HasSuffix(rootDir, "/") {
 		rootDir += "/"
 	}
@@ -61,10 +62,11 @@ func NewStorageFS(objects []Object, rootDir string) (Storage, error) {
 
 	s := &storageFS{rootDir: rootDir, mh: mh}
 	for _, o := range objects {
-		_, err := s.CreateObject(o)
+		obj, err := s.CreateObject(o)
 		if err != nil {
 			return nil, err
 		}
+		obj.Close()
 	}
 	return s, nil
 }
@@ -137,10 +139,18 @@ func (s *storageFS) DeleteBucket(name string) error {
 	return os.RemoveAll(filepath.Join(s.rootDir, url.PathEscape(name)))
 }
 
-// CreateObject stores an object as a regular file in the disk.
-func (s *storageFS) CreateObject(obj Object) (Object, error) {
+// CreateObject stores an object as a regular file on disk. The backing content
+// for the object may be in the same file that's being updated, so a temporary
+// file is first created and then moved into place. This also makes it so any
+// object content readers currently open continue reading from the original
+// file instead of the newly created file.
+//
+// The crc32c checksum and md5 hash of the object content is calculated when
+// reading the object content. Any checksum or hash in the passed-in object
+// metadata is overwritten.
+func (s *storageFS) CreateObject(obj StreamingObject) (StreamingObject, error) {
 	if obj.Generation > 0 {
-		return Object{}, errors.New("not implemented: fs storage type does not support objects generation yet")
+		return StreamingObject{}, errors.New("not implemented: fs storage type does not support objects generation yet")
 	}
 
 	// Note: this was a quick fix for issue #701. Now that we have a way to
@@ -152,26 +162,66 @@ func (s *storageFS) CreateObject(obj Object) (Object, error) {
 	defer s.mtx.Unlock()
 	err := s.createBucket(obj.BucketName)
 	if err != nil {
-		return Object{}, err
+		return StreamingObject{}, err
 	}
 
 	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name))
 
-	if err = os.WriteFile(path, obj.Content, 0o600); err != nil {
-		return Object{}, err
+	tempFile, err := os.CreateTemp("", "fake-gcs-object")
+	if err != nil {
+		return StreamingObject{}, err
 	}
+	tempFile.Close()
+
+	tempFile, err = compatOpenForWritingAllowingRename(tempFile.Name())
+	if err != nil {
+		return StreamingObject{}, err
+	}
+	defer tempFile.Close()
+
+	// The file is renamed below, which causes this to be a no-op. If the
+	// function returns before the rename, though, the temp file will be
+	// removed.
+	defer os.Remove(tempFile.Name())
+
+	err = os.Chmod(tempFile.Name(), 0o600)
+	if err != nil {
+		return StreamingObject{}, err
+	}
+
+	hasher := checksum.NewStreamingHasher()
+	objectContent := io.TeeReader(obj.Content, hasher)
+
+	if _, err = io.Copy(tempFile, objectContent); err != nil {
+		return StreamingObject{}, err
+	}
+
+	obj.Crc32c = hasher.EncodedCrc32cChecksum()
+	obj.Md5Hash = hasher.EncodedMd5Hash()
+	obj.Etag = fmt.Sprintf("%q", obj.Md5Hash)
 
 	// TODO: Handle if metadata is not present more gracefully?
 	encoded, err := json.Marshal(obj.ObjectAttrs)
 	if err != nil {
-		return Object{}, err
+		return StreamingObject{}, err
 	}
 
-	if err = s.mh.write(path, encoded); err != nil {
-		return Object{}, err
+	if err = s.mh.write(tempFile.Name(), encoded); err != nil {
+		return StreamingObject{}, err
 	}
 
-	return obj, nil
+	err = compatRename(tempFile.Name(), path)
+	if err != nil {
+		return StreamingObject{}, err
+	}
+
+	if err = s.mh.rename(tempFile.Name(), path); err != nil {
+		return StreamingObject{}, err
+	}
+
+	err = openObjectAndSetSize(&obj, path)
+
+	return obj, err
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and
@@ -200,14 +250,14 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 		if err != nil {
 			return nil, err
 		}
-		object.Size = int64(len(object.Content))
+		object.Close()
 		objects = append(objects, object.ObjectAttrs)
 	}
 	return objects, nil
 }
 
 // GetObject get an object by bucket and name.
-func (s *storageFS) GetObject(bucketName, objectName string) (Object, error) {
+func (s *storageFS) GetObject(bucketName, objectName string) (StreamingObject, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	return s.getObject(bucketName, objectName)
@@ -215,7 +265,7 @@ func (s *storageFS) GetObject(bucketName, objectName string) (Object, error) {
 
 // GetObjectWithGeneration retrieves an specific version of the object. Not
 // implemented for this backend.
-func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error) {
+func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, generation int64) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
 		return obj, err
@@ -226,28 +276,43 @@ func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, gener
 	return obj, nil
 }
 
-func (s *storageFS) getObject(bucketName, objectName string) (Object, error) {
+func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, error) {
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName))
 
 	encoded, err := s.mh.read(path)
 	if err != nil {
-		return Object{}, err
+		return StreamingObject{}, err
 	}
 
-	var obj Object
+	var obj StreamingObject
 	if err = json.Unmarshal(encoded, &obj.ObjectAttrs); err != nil {
-		return Object{}, err
-	}
-
-	obj.Content, err = os.ReadFile(path)
-	if err != nil {
-		return Object{}, err
+		return StreamingObject{}, err
 	}
 
 	obj.Name = filepath.ToSlash(objectName)
 	obj.BucketName = bucketName
-	obj.Size = int64(len(obj.Content))
-	return obj, nil
+
+	err = openObjectAndSetSize(&obj, path)
+
+	return obj, err
+}
+
+func openObjectAndSetSize(obj *StreamingObject, path string) error {
+	// file is expected to be closed by the caller by calling obj.Close()
+	file, err := compatOpenAllowingRename(path)
+	if err != nil {
+		return err
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	obj.Content = file
+	obj.Size = info.Size()
+
+	return nil
 }
 
 // DeleteObject deletes an object by bucket and name.
@@ -265,62 +330,77 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 }
 
 // PatchObject patches the given object metadata.
-func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
+func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
-		return Object{}, err
+		return StreamingObject{}, err
 	}
+	defer obj.Close()
 	if obj.Metadata == nil {
 		obj.Metadata = map[string]string{}
 	}
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	s.CreateObject(obj) // recreate object
-	return obj, nil
+	return s.CreateObject(obj) // recreate object
 }
 
 // UpdateObject replaces the given object metadata.
-func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[string]string) (Object, error) {
+func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
-		return Object{}, err
+		return StreamingObject{}, err
 	}
+	defer obj.Close()
 	obj.Metadata = map[string]string{}
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
 	obj.Generation = 0
-	s.CreateObject(obj) // recreate object
-	return obj, nil
+	return s.CreateObject(obj) // recreate object
 }
 
-func (s *storageFS) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string) (Object, error) {
-	var data []byte
+type concatenatedContent struct {
+	io.Reader
+}
+
+func (c concatenatedContent) Close() error {
+	return errors.New("not implemented")
+}
+
+func (c concatenatedContent) Seek(offset int64, whence int) (int64, error) {
+	return 0, errors.New("not implemented")
+}
+
+func concatObjectReaders(objects []StreamingObject) io.ReadSeekCloser {
+	readers := make([]io.Reader, len(objects))
+	for i := range objects {
+		readers[i] = objects[i].Content
+	}
+	return concatenatedContent{io.MultiReader(readers...)}
+}
+
+func (s *storageFS) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string) (StreamingObject, error) {
+	var sourceObjects []StreamingObject
 	for _, n := range objectNames {
 		obj, err := s.GetObject(bucketName, n)
 		if err != nil {
-			return Object{}, err
+			return StreamingObject{}, err
 		}
-		data = append(data, obj.Content...)
+		defer obj.Close()
+		sourceObjects = append(sourceObjects, obj)
 	}
 
-	dest, err := s.GetObject(bucketName, destinationName)
-	if err != nil {
-		oattrs := ObjectAttrs{
+	dest := StreamingObject{
+		ObjectAttrs: ObjectAttrs{
 			BucketName:  bucketName,
 			Name:        destinationName,
 			ContentType: contentType,
 			Created:     time.Now().String(),
-		}
-		dest = Object{
-			ObjectAttrs: oattrs,
-		}
+		},
 	}
 
-	dest.Content = data
-	dest.Crc32c = checksum.EncodedCrc32cChecksum(data)
-	dest.Md5Hash = checksum.EncodedMd5Hash(data)
+	dest.Content = concatObjectReaders(sourceObjects)
 	dest.Metadata = metadata
 
 	result, err := s.CreateObject(dest)

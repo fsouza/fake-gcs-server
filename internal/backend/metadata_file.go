@@ -28,3 +28,7 @@ func (m metadataFile) isSpecialFile(path string) bool {
 func (m metadataFile) remove(path string) error {
 	return os.Remove(path + metadataSuffix)
 }
+
+func (m metadataFile) rename(pathSrc, pathDst string) error {
+	return compatRename(pathSrc+metadataSuffix, pathDst+metadataSuffix)
+}

@@ -12,14 +12,14 @@ type Storage interface {
 	ListBuckets() ([]Bucket, error)
 	GetBucket(name string) (Bucket, error)
 	DeleteBucket(name string) error
-	CreateObject(obj Object) (Object, error)
+	CreateObject(obj StreamingObject) (StreamingObject, error)
 	ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error)
-	GetObject(bucketName, objectName string) (Object, error)
-	GetObjectWithGeneration(bucketName, objectName string, generation int64) (Object, error)
+	GetObject(bucketName, objectName string) (StreamingObject, error)
+	GetObjectWithGeneration(bucketName, objectName string, generation int64) (StreamingObject, error)
 	DeleteObject(bucketName, objectName string) error
-	PatchObject(bucketName, objectName string, metadata map[string]string) (Object, error)
-	UpdateObject(bucketName, objectName string, metadata map[string]string) (Object, error)
-	ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string) (Object, error)
+	PatchObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error)
+	UpdateObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error)
+	ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string) (StreamingObject, error)
 }
 
 type Error string
