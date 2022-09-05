@@ -167,7 +167,7 @@ func (s *storageFS) CreateObject(obj StreamingObject) (StreamingObject, error) {
 
 	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name))
 
-	tempFile, err := os.CreateTemp("", "fake-gcs-object")
+	tempFile, err := os.CreateTemp(filepath.Dir(path), "fake-gcs-object")
 	if err != nil {
 		return StreamingObject{}, err
 	}
