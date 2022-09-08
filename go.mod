@@ -4,7 +4,7 @@ require (
 	cloud.google.com/go/pubsub v1.25.1
 	cloud.google.com/go/storage v1.26.0
 	github.com/alexbrainman/goissue34681 v0.0.0-20191006012335-3fc7a47baff5
-	github.com/google/go-cmp v0.5.8
+	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/pkg/xattr v0.4.8
