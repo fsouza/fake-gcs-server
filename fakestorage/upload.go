@@ -203,9 +203,19 @@ func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, ob
 	return nil
 }
 
+func normalizeFileName(name string) string {
+	for {
+		name = strings.Replace(name, "/", "", 1)
+		if !strings.HasPrefix(name, "/") {
+			break
+		}
+	}
+	return name
+}
+
 func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
-	name := r.URL.Query().Get("name")
+	name := normalizeFileName(r.URL.Query().Get("name"))
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if name == "" {
@@ -332,7 +342,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		return jsonResponse{errorMessage: err.Error()}
 	}
 
-	objName := r.URL.Query().Get("name")
+	objName := normalizeFileName(r.URL.Query().Get("name"))
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	if objName == "" {
 		objName = metadata.Name
@@ -372,7 +382,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 			return jsonResponse{errorMessage: err.Error()}
 		}
 	}
-	objName := r.URL.Query().Get("name")
+	objName := normalizeFileName(r.URL.Query().Get("name"))
 	if objName == "" {
 		objName = metadata.Name
 	}
@@ -391,9 +401,10 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	s.uploads.Store(uploadID, obj)
 	header := make(http.Header)
-	header.Set("Location", s.URL()+"/upload/resumable/"+uploadID)
+	location := s.URL() + "/upload/storage/v1/b/" + bucketName + "/o?uploadType=resumable&name=" + objName + "&upload_id=" + uploadID
+	header.Set("Location", location)
 	if r.Header.Get("X-Goog-Upload-Command") == "start" {
-		header.Set("X-Goog-Upload-URL", s.URL()+"/upload/resumable/"+uploadID)
+		header.Set("X-Goog-Upload-URL", location)
 		header.Set("X-Goog-Upload-Status", "active")
 	}
 	return jsonResponse{
@@ -438,7 +449,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 // then has a status of "200 OK", with a header "X-Http-Status-Code-Override"
 // set to "308".
 func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
-	uploadID := mux.Vars(r)["uploadId"]
+	uploadID := r.URL.Query().Get("upload_id")
 	rawObj, ok := s.uploads.Load(uploadID)
 	if !ok {
 		return jsonResponse{status: http.StatusNotFound}
