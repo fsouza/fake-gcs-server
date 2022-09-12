@@ -376,6 +376,10 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	metadata := new(multipartMetadata)
 	if r.Body != http.NoBody {
+		if r.URL.Query().Has("upload_id") {
+			return s.uploadFileContent(r)
+		}
+
 		var err error
 		metadata, err = loadMetadata(r.Body)
 		if err != nil {
