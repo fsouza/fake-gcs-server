@@ -204,13 +204,7 @@ func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, ob
 }
 
 func normalizeFileName(name string) string {
-	for {
-		name = strings.Replace(name, "/", "", 1)
-		if !strings.HasPrefix(name, "/") {
-			break
-		}
-	}
-	return name
+	return strings.TrimLeft(name, "/")
 }
 
 func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
