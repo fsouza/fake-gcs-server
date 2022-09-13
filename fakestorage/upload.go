@@ -363,14 +363,13 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 }
 
 func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonResponse {
+	if r.URL.Query().Has("upload_id") {
+		return s.uploadFileContent(r)
+	}
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	metadata := new(multipartMetadata)
 	if r.Body != http.NoBody {
-		if r.URL.Query().Has("upload_id") {
-			return s.uploadFileContent(r)
-		}
-
 		var err error
 		metadata, err = loadMetadata(r.Body)
 		if err != nil {
