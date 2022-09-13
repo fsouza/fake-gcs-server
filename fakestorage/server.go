@@ -213,7 +213,7 @@ func newServer(options Options) (*Server, error) {
 
 func (s *Server) buildMuxer() {
 	const apiPrefix = "/storage/v1"
-	s.mux = mux.NewRouter()
+	s.mux = mux.NewRouter().SkipClean(true).UseEncodedPath()
 
 	// healthcheck
 	s.mux.Path("/_internal/healthcheck").Methods(http.MethodGet).HandlerFunc(s.healthcheck)

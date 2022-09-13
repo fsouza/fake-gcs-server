@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -564,8 +565,21 @@ func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, g
 	return s.GetObjectStreaming(bucketName, objectName)
 }
 
+func unescapeMuxVars(vars map[string]string) map[string]string {
+	m := make(map[string]string)
+	for k, v := range vars {
+		r, err := url.PathUnescape(v)
+		if err == nil {
+			m[k] = r
+		} else {
+			m[k] = v
+		}
+	}
+	return m
+}
+
 func (s *Server) listObjects(r *http.Request) jsonResponse {
-	bucketName := mux.Vars(r)["bucketName"]
+	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
 	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, ListOptions{
 		Prefix:                   r.URL.Query().Get("prefix"),
 		Delimiter:                r.URL.Query().Get("delimiter"),
@@ -587,7 +601,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handler := jsonToHTTPHandler(func(r *http.Request) jsonResponse {
-		vars := mux.Vars(r)
+		vars := unescapeMuxVars(mux.Vars(r))
 
 		obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
 		// Calling Close before checking err is okay on objects, and the object
@@ -617,7 +631,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteObject(r *http.Request) jsonResponse {
-	vars := mux.Vars(r)
+	vars := unescapeMuxVars(mux.Vars(r))
 	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
 	// Calling Close before checking err is okay on objects, and the object
 	// may need to be closed whether or not there's an error.
@@ -639,7 +653,7 @@ func (s *Server) deleteObject(r *http.Request) jsonResponse {
 }
 
 func (s *Server) listObjectACL(r *http.Request) jsonResponse {
-	vars := mux.Vars(r)
+	vars := unescapeMuxVars(mux.Vars(r))
 
 	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
 	if err != nil {
@@ -651,7 +665,7 @@ func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 }
 
 func (s *Server) setObjectACL(r *http.Request) jsonResponse {
-	vars := mux.Vars(r)
+	vars := unescapeMuxVars(mux.Vars(r))
 
 	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
 	if err != nil {
@@ -689,7 +703,7 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 }
 
 func (s *Server) rewriteObject(r *http.Request) jsonResponse {
-	vars := mux.Vars(r)
+	vars := unescapeMuxVars(mux.Vars(r))
 	obj, err := s.objectWithGenerationOnValidGeneration(vars["sourceBucket"], vars["sourceObject"], r.FormValue("sourceGeneration"))
 	// Calling Close before checking err is okay on objects, and the object
 	// may need to be closed whether or not there's an error.
@@ -744,7 +758,7 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 }
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
+	vars := unescapeMuxVars(mux.Vars(r))
 	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
 	// Calling Close before checking err is okay on objects, and the object
 	// may need to be closed whether or not there's an error.
@@ -901,7 +915,7 @@ func parseRange(rangeHeaderValue string, contentLength int64) (start int64, end 
 }
 
 func (s *Server) patchObject(r *http.Request) jsonResponse {
-	vars := mux.Vars(r)
+	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
 	objectName := vars["objectName"]
 	var metadata struct {
@@ -928,7 +942,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 }
 
 func (s *Server) updateObject(r *http.Request) jsonResponse {
-	vars := mux.Vars(r)
+	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
 	objectName := vars["objectName"]
 	var metadata struct {
@@ -955,7 +969,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 }
 
 func (s *Server) composeObject(r *http.Request) jsonResponse {
-	vars := mux.Vars(r)
+	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
 	destinationObject := vars["destinationObject"]
 
