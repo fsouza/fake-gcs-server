@@ -243,7 +243,7 @@ func (s notImplementedSeeker) Seek(offset int64, whence int) (int64, error) {
 
 func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
-	name := r.URL.Query().Get("name")
+	name := unescapeMuxVars(mux.Vars(r))["objectName"]
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 
