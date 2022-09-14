@@ -19,6 +19,7 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/textproto"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -209,6 +210,19 @@ func newServer(options Options) (*Server, error) {
 	}
 	s.buildMuxer()
 	return &s, nil
+}
+
+func unescapeMuxVars(vars map[string]string) map[string]string {
+	m := make(map[string]string)
+	for k, v := range vars {
+		r, err := url.PathUnescape(v)
+		if err == nil {
+			m[k] = r
+		} else {
+			m[k] = v
+		}
+	}
+	return m
 }
 
 func (s *Server) buildMuxer() {

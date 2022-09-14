@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -563,19 +562,6 @@ func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, g
 		return s.GetObjectWithGenerationStreaming(bucketName, objectName, generation)
 	}
 	return s.GetObjectStreaming(bucketName, objectName)
-}
-
-func unescapeMuxVars(vars map[string]string) map[string]string {
-	m := make(map[string]string)
-	for k, v := range vars {
-		r, err := url.PathUnescape(v)
-		if err == nil {
-			m[k] = r
-		} else {
-			m[k] = v
-		}
-	}
-	return m
 }
 
 func (s *Server) listObjects(r *http.Request) jsonResponse {
