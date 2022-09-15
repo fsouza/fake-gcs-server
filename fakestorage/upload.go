@@ -391,9 +391,10 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	s.uploads.Store(uploadID, obj)
 	header := make(http.Header)
-	header.Set("Location", s.URL()+"/upload/resumable/"+uploadID)
+	location := s.URL() + "/upload/storage/v1/b/" + bucketName + "/o?uploadType=resumable&name=" + objName + "&upload_id=" + uploadID
+	header.Set("Location", location)
 	if r.Header.Get("X-Goog-Upload-Command") == "start" {
-		header.Set("X-Goog-Upload-URL", s.URL()+"/upload/resumable/"+uploadID)
+		header.Set("X-Goog-Upload-URL", location)
 		header.Set("X-Goog-Upload-Status", "active")
 	}
 	return jsonResponse{
@@ -438,7 +439,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 // then has a status of "200 OK", with a header "X-Http-Status-Code-Override"
 // set to "308".
 func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
-	uploadID := mux.Vars(r)["uploadId"]
+	uploadID := r.URL.Query().Get("upload_id")
 	rawObj, ok := s.uploads.Load(uploadID)
 	if !ok {
 		return jsonResponse{status: http.StatusNotFound}
