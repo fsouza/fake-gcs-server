@@ -14,6 +14,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -46,7 +47,7 @@ type contentRange struct {
 }
 
 func (s *Server) insertObject(r *http.Request) jsonResponse {
-	bucketName := mux.Vars(r)["bucketName"]
+	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
 
 	if _, err := s.backend.GetBucket(bucketName); err != nil {
 		return jsonResponse{status: http.StatusNotFound}
@@ -78,7 +79,7 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 }
 
 func (s *Server) insertFormObject(r *http.Request) xmlResponse {
-	bucketName := mux.Vars(r)["bucketName"]
+	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
 
 	if err := r.ParseMultipartForm(32 << 20); nil != err {
 		return xmlResponse{errorMessage: "invalid form", status: http.StatusBadRequest}
@@ -242,7 +243,7 @@ func (s notImplementedSeeker) Seek(offset int64, whence int) (int64, error) {
 
 func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
-	name := mux.Vars(r)["objectName"]
+	name := unescapeMuxVars(mux.Vars(r))["objectName"]
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 
@@ -362,6 +363,9 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 }
 
 func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonResponse {
+	if r.URL.Query().Has("upload_id") {
+		return s.uploadFileContent(r)
+	}
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
 	metadata := new(multipartMetadata)
@@ -391,9 +395,16 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	s.uploads.Store(uploadID, obj)
 	header := make(http.Header)
-	header.Set("Location", s.URL()+"/upload/resumable/"+uploadID)
+	location := fmt.Sprintf(
+		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
+		s.URL(),
+		bucketName,
+		url.PathEscape(objName),
+		uploadID,
+	)
+	header.Set("Location", location)
 	if r.Header.Get("X-Goog-Upload-Command") == "start" {
-		header.Set("X-Goog-Upload-URL", s.URL()+"/upload/resumable/"+uploadID)
+		header.Set("X-Goog-Upload-URL", location)
 		header.Set("X-Goog-Upload-Status", "active")
 	}
 	return jsonResponse{
@@ -438,7 +449,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 // then has a status of "200 OK", with a header "X-Http-Status-Code-Override"
 // set to "308".
 func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
-	uploadID := mux.Vars(r)["uploadId"]
+	uploadID := r.URL.Query().Get("upload_id")
 	rawObj, ok := s.uploads.Load(uploadID)
 	if !ok {
 		return jsonResponse{status: http.StatusNotFound}

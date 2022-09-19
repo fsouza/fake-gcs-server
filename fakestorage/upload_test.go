@@ -48,6 +48,18 @@ func TestServerClientObjectWriter(t *testing.T) {
 				"other/interesting/object.txt",
 				googleapi.MinUploadChunkSize,
 			},
+			{
+				"file with backslash at beginning",
+				"other-bucket",
+				"/some/other/object.txt",
+				googleapi.DefaultUploadChunkSize,
+			},
+			{
+				"file with backslashes at name",
+				"other-bucket",
+				"//some//other//file.txt",
+				googleapi.MinUploadChunkSize,
+			},
 		}
 
 		for _, test := range tests {
@@ -793,8 +805,8 @@ func TestServerGzippedUpload(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			url := server.URL()
-			req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/upload/storage/v1/b/%s/o?name=testobj&uploadType=media", url, bucketName), &buf)
+			serverUrl := server.URL()
+			req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/upload/storage/v1/b/%s/o?name=testobj&uploadType=media", serverUrl, bucketName), &buf)
 			if err != nil {
 				t.Fatal(err)
 			}

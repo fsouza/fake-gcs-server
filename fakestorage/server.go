@@ -19,6 +19,7 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/textproto"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -211,9 +212,22 @@ func newServer(options Options) (*Server, error) {
 	return &s, nil
 }
 
+func unescapeMuxVars(vars map[string]string) map[string]string {
+	m := make(map[string]string)
+	for k, v := range vars {
+		r, err := url.PathUnescape(v)
+		if err == nil {
+			m[k] = r
+		} else {
+			m[k] = v
+		}
+	}
+	return m
+}
+
 func (s *Server) buildMuxer() {
 	const apiPrefix = "/storage/v1"
-	s.mux = mux.NewRouter()
+	s.mux = mux.NewRouter().SkipClean(true).UseEncodedPath()
 
 	// healthcheck
 	s.mux.Path("/_internal/healthcheck").Methods(http.MethodGet).HandlerFunc(s.healthcheck)
@@ -251,6 +265,7 @@ func (s *Server) buildMuxer() {
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet).HandlerFunc(s.downloadObject)
 	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 	s.mux.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
 	// Batch endpoint
