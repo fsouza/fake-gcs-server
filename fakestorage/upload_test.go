@@ -48,6 +48,18 @@ func TestServerClientObjectWriter(t *testing.T) {
 				"other/interesting/object.txt",
 				googleapi.MinUploadChunkSize,
 			},
+			{
+				"file with backslash at beginning",
+				"other-bucket",
+				"/some/other/object.txt",
+				googleapi.DefaultUploadChunkSize,
+			},
+			{
+				"file with backslashes at name",
+				"other-bucket",
+				"//some//other//file.txt",
+				googleapi.MinUploadChunkSize,
+			},
 		}
 
 		for _, test := range tests {
