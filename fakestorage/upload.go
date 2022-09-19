@@ -398,7 +398,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	location := fmt.Sprintf(
 		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
 		s.URL(),
-		url.PathEscape(bucketName),
+		bucketName,
 		url.PathEscape(objName),
 		uploadID,
 	)
