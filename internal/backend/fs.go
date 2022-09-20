@@ -342,6 +342,7 @@ func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[stri
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
+	obj.Generation = 0         // reset generation id
 	return s.CreateObject(obj) // recreate object
 }
 
@@ -356,7 +357,7 @@ func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[str
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	obj.Generation = 0
+	obj.Generation = 0         // reset generation id
 	return s.CreateObject(obj) // recreate object
 }
 
