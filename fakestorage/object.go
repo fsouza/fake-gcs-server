@@ -6,6 +6,7 @@ package fakestorage
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -765,6 +766,22 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusOK
 	ranged, start, lastByte, satisfiable := s.handleRange(obj, r)
 	contentLength := lastByte - start + 1
+	transcoded := false
+
+	if obj.ContentEncoding == "gzip" && r.Header.Get("accept-encoding") != "gzip" {
+		gzipReader, err := gzip.NewReader(content)
+		if err == nil {
+			rawContent, err := io.ReadAll(gzipReader)
+			if err == nil {
+				transcoded = true
+				ranged = false
+				start = 0
+				lastByte = 0
+				contentLength = int64(len(rawContent))
+				obj.Size = contentLength
+			}
+		}
+	}
 
 	if ranged && satisfiable {
 		_, err = obj.Content.Seek(start, io.SeekStart)
@@ -793,7 +810,8 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		if obj.ContentType != "" {
 			w.Header().Set(contentTypeHeader, obj.ContentType)
 		}
-		if obj.ContentEncoding != "" {
+		// If content was transcoded, the underlying encoding was removed so we shouldn't report it.
+		if obj.ContentEncoding != "" && !transcoded {
 			w.Header().Set("Content-Encoding", obj.ContentEncoding)
 		}
 	}

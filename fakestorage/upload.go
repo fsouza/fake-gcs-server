@@ -380,6 +380,9 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if objName == "" {
 		objName = metadata.Name
 	}
+	if contentEncoding == "" {
+		contentEncoding = metadata.ContentEncoding
+	}
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
