@@ -777,7 +777,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		// but we don't currently support that field.
 		// See https://cloud.google.com/storage/docs/transcoding
 
-		if obj.ContentEncoding == "gzip" && r.Header.Get("accept-encoding") != "gzip" {
+		if obj.ContentEncoding == "gzip" && !strings.Contains(r.Header.Get("accept-encoding"), "gzip") {
 			// GCS will transparently decompress gzipped content, see
 			// https://cloud.google.com/storage/docs/transcoding
 			// In this case, any Range header is ignored and the full content is returned.
