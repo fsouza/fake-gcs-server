@@ -413,9 +413,6 @@ func TestServerClientObjectTranscoding(t *testing.T) {
 		if ct := reader.Attrs.ContentType; ct != contentType {
 			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
 		}
-		if ct := reader.Attrs.ContentType; ct != contentType {
-			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
-		}
 	})
 }
 
@@ -481,8 +478,8 @@ func TestServerClientObjectSkipTranscoding(t *testing.T) {
 		if ct := reader.Attrs.ContentType; ct != contentType {
 			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
 		}
-		if ct := reader.Attrs.ContentType; ct != contentType {
-			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
+		if ct := reader.Attrs.ContentEncoding; ct != contentEncoding {
+			t.Errorf("wrong content encoding\nwant %q\ngot  %q", contentEncoding, ct)
 		}
 	})
 }
