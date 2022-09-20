@@ -454,13 +454,13 @@ func TestServerClientObjectTranscodingSkip(t *testing.T) {
 
 	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
 		client := server.Client()
-		objHandle := client.Bucket(bucketName).Object(objectName).ReadCompressed(true)
+		objHandle := client.Bucket(bucketName).Object(objectName).ReadCompressed(true) // we skip transcoding by `Accept-Encoding: gzip`
 		reader, err := objHandle.NewReader(context.TODO())
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer reader.Close()
-
+		// need to unzip manually
 		gzr, err := gzip.NewReader(reader)
 		if err != nil {
 			t.Fatal(err)
