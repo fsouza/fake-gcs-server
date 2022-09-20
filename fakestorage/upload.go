@@ -387,6 +387,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
 			Name:            objName,
+			ContentType:     metadata.ContentType,
 			ContentEncoding: contentEncoding,
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metadata.Metadata,

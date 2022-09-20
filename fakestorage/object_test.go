@@ -6,6 +6,7 @@ package fakestorage
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -354,6 +355,131 @@ func TestServerClientObjectReader(t *testing.T) {
 		}
 		if string(data) != content {
 			t.Errorf("wrong data returned\nwant %q\ngot  %q", content, string(data))
+		}
+		if ct := reader.Attrs.ContentType; ct != contentType {
+			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
+		}
+	})
+}
+
+func TestServerClientObjectTranscoding(t *testing.T) {
+	const (
+		bucketName      = "some-bucket"
+		objectName      = "items/data.txt"
+		content         = "some nice content, which will be gziped"
+		contentType     = "text/plain; charset=utf-8"
+		contentEncoding = "gzip"
+	)
+
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	if _, err := gz.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:      bucketName,
+				Name:            objectName,
+				ContentType:     contentType,
+				ContentEncoding: contentEncoding,
+			},
+			Content: b.Bytes(),
+		},
+	}
+
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		objHandle := client.Bucket(bucketName).Object(objectName)
+		reader, err := objHandle.NewReader(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reader.Close()
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != content {
+			t.Errorf("wrong data returned\nwant %q\ngot  %q", content, string(data))
+		}
+		if ct := reader.Attrs.ContentType; ct != contentType {
+			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
+		}
+		if ct := reader.Attrs.ContentType; ct != contentType {
+			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
+		}
+	})
+}
+
+func TestServerClientObjectTranscodingSkip(t *testing.T) {
+	const (
+		bucketName      = "some-bucket"
+		objectName      = "items/data.txt"
+		content         = "some nice content, which will be gziped"
+		contentType     = "text/plain; charset=utf-8"
+		contentEncoding = "gzip"
+	)
+
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	if _, err := gz.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:      bucketName,
+				Name:            objectName,
+				ContentType:     contentType,
+				ContentEncoding: contentEncoding,
+			},
+			Content: b.Bytes(),
+		},
+	}
+
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		objHandle := client.Bucket(bucketName).Object(objectName).ReadCompressed(true)
+		reader, err := objHandle.NewReader(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reader.Close()
+
+		gzr, err := gzip.NewReader(reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer gzr.Close()
+
+		var rawBytes bytes.Buffer
+		_, err = rawBytes.ReadFrom(gzr)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		data := rawBytes.Bytes()
+
+		if string(data) != content {
+			t.Errorf("wrong data returned\nwant %q\ngot  %q", content, string(data))
+		}
+		if ct := reader.Attrs.ContentType; ct != contentType {
+			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
 		}
 		if ct := reader.Attrs.ContentType; ct != contentType {
 			t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, ct)
