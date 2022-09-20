@@ -419,7 +419,7 @@ func TestServerClientObjectTranscoding(t *testing.T) {
 	})
 }
 
-func TestServerClientObjectTranscodingSkip(t *testing.T) {
+func TestServerClientObjectSkipTranscoding(t *testing.T) {
 	const (
 		bucketName      = "some-bucket"
 		objectName      = "items/data.txt"
