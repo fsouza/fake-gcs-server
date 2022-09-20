@@ -774,16 +774,16 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 
 	isHandledTranscoding := func() bool {
 		// This should also be false if the Cache-Control metadata field == "no-transform",
-		// but we don't currently support that field.
+		// but we don't currently support that field
 		// See https://cloud.google.com/storage/docs/transcoding
 
 		if obj.ContentEncoding == "gzip" && r.Header.Get("accept-encoding") != "gzip" {
 			// GCS will transparently decompress gzipped content, see
 			// https://cloud.google.com/storage/docs/transcoding
-			// In this case, any Range header is ignored and the full content is returned.
+			// In this case, any Range header is ignored and the full content is returned
 
 			// If the content is not a valid gzip file, ignore errors and continue
-			// without transcoding. Otherwise, return decompressed content.
+			// without transcoding. Otherwise, return decompressed content
 			gzipReader, err := gzip.NewReader(content)
 			if err == nil {
 				rawContent, err := io.ReadAll(gzipReader)
