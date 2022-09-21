@@ -772,7 +772,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	satisfiable := true
 	contentLength := int64(0)
 
-	isHandledTranscoding := func() bool {
+	handledTranscoding := func() bool {
 		// This should also be false if the Cache-Control metadata field == "no-transform",
 		// but we don't currently support that field.
 		// See https://cloud.google.com/storage/docs/transcoding
@@ -799,7 +799,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		return false
 	}
 
-	if !isHandledTranscoding() {
+	if !handledTranscoding() {
 		ranged, start, lastByte, satisfiable = s.handleRange(obj, r)
 		contentLength = lastByte - start + 1
 	}
