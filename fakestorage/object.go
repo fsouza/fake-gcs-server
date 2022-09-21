@@ -6,6 +6,7 @@ package fakestorage
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -763,8 +764,45 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	var content io.Reader
 	content = obj.Content
 	status := http.StatusOK
-	ranged, start, lastByte, satisfiable := s.handleRange(obj, r)
-	contentLength := lastByte - start + 1
+
+	transcoded := false
+	ranged := false
+	start := int64(0)
+	lastByte := int64(0)
+	satisfiable := true
+	contentLength := int64(0)
+
+	handledTranscoding := func() bool {
+		// This should also be false if the Cache-Control metadata field == "no-transform",
+		// but we don't currently support that field.
+		// See https://cloud.google.com/storage/docs/transcoding
+
+		if obj.ContentEncoding == "gzip" && !strings.Contains(r.Header.Get("accept-encoding"), "gzip") {
+			// GCS will transparently decompress gzipped content, see
+			// https://cloud.google.com/storage/docs/transcoding
+			// In this case, any Range header is ignored and the full content is returned.
+
+			// If the content is not a valid gzip file, ignore errors and continue
+			// without transcoding. Otherwise, return decompressed content.
+			gzipReader, err := gzip.NewReader(content)
+			if err == nil {
+				rawContent, err := io.ReadAll(gzipReader)
+				if err == nil {
+					transcoded = true
+					content = bytes.NewReader(rawContent)
+					contentLength = int64(len(rawContent))
+					obj.Size = contentLength
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	if !handledTranscoding() {
+		ranged, start, lastByte, satisfiable = s.handleRange(obj, r)
+		contentLength = lastByte - start + 1
+	}
 
 	if ranged && satisfiable {
 		_, err = obj.Content.Seek(start, io.SeekStart)
@@ -793,7 +831,8 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		if obj.ContentType != "" {
 			w.Header().Set(contentTypeHeader, obj.ContentType)
 		}
-		if obj.ContentEncoding != "" {
+		// If content was transcoded, the underlying encoding was removed so we shouldn't report it.
+		if obj.ContentEncoding != "" && !transcoded {
 			w.Header().Set("Content-Encoding", obj.ContentEncoding)
 		}
 	}
