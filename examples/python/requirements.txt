@@ -31,7 +31,7 @@ googleapis-common-protos==1.53.0
     # via google-api-core
 idna==3.2
     # via requests
-protobuf==3.18.1
+protobuf==3.18.3
     # via
     #   google-api-core
     #   googleapis-common-protos
