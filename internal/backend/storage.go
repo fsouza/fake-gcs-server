@@ -5,6 +5,16 @@
 // Package backend proides the backends used by fake-gcs-server.
 package backend
 
+type Conditions interface {
+	ConditionsMet(activeGeneration int64) bool
+}
+
+type NoConditions struct{}
+
+func (NoConditions) ConditionsMet(int64) bool {
+	return true
+}
+
 // Storage is the generic interface for implementing the backend storage of the
 // server.
 type Storage interface {
@@ -12,7 +22,7 @@ type Storage interface {
 	ListBuckets() ([]Bucket, error)
 	GetBucket(name string) (Bucket, error)
 	DeleteBucket(name string) error
-	CreateObject(obj StreamingObject) (StreamingObject, error)
+	CreateObject(obj StreamingObject, conditions Conditions) (StreamingObject, error)
 	ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error)
 	GetObject(bucketName, objectName string) (StreamingObject, error)
 	GetObjectWithGeneration(bucketName, objectName string, generation int64) (StreamingObject, error)
@@ -27,6 +37,7 @@ type Error string
 func (e Error) Error() string { return string(e) }
 
 const (
-	BucketNotFound = Error("bucket not found")
-	BucketNotEmpty = Error("bucket must be empty prior to deletion")
+	BucketNotFound     = Error("bucket not found")
+	BucketNotEmpty     = Error("bucket must be empty prior to deletion")
+	PreConditionFailed = Error("Precondition failed")
 )

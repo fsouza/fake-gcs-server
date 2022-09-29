@@ -113,6 +113,18 @@ func findObject(obj Object, objectList []Object, matchGeneration bool) int {
 	return -1
 }
 
+// findObject looks for an object in the given list and return the index where it
+// was found, or -1 if the object doesn't exist.
+func findLastObjectGeneration(obj Object, objectList []Object) int64 {
+	highScore := int64(0)
+	for _, o := range objectList {
+		if obj.IDNoGen() == o.IDNoGen() && o.Generation > highScore {
+			highScore = o.Generation
+		}
+	}
+	return highScore
+}
+
 // NewStorageMemory creates an instance of StorageMemory.
 func NewStorageMemory(objects []StreamingObject) (Storage, error) {
 	s := &storageMemory{
@@ -189,7 +201,7 @@ func (s *storageMemory) DeleteBucket(name string) error {
 }
 
 // CreateObject stores an object in the backend.
-func (s *storageMemory) CreateObject(obj StreamingObject) (StreamingObject, error) {
+func (s *storageMemory) CreateObject(obj StreamingObject, conditions Conditions) (StreamingObject, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucketInMemory, err := s.getBucketInMemory(obj.BucketName)
@@ -197,6 +209,10 @@ func (s *storageMemory) CreateObject(obj StreamingObject) (StreamingObject, erro
 		bucketInMemory = newBucketInMemory(obj.BucketName, false)
 	}
 	bufferedObj, err := obj.BufferedObject()
+	currentGeneration := findLastObjectGeneration(bufferedObj, bucketInMemory.activeObjects)
+	if !conditions.ConditionsMet(currentGeneration) {
+		return StreamingObject{}, PreConditionFailed
+	}
 	if err != nil {
 		return StreamingObject{}, err
 	}
@@ -295,7 +311,7 @@ func (s *storageMemory) PatchObject(bucketName, objectName string, metadata map[
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	s.CreateObject(obj) // recreate object
+	s.CreateObject(obj, NoConditions{}) // recreate object
 	return obj, nil
 }
 
@@ -309,7 +325,7 @@ func (s *storageMemory) UpdateObject(bucketName, objectName string, metadata map
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	s.CreateObject(obj) // recreate object
+	s.CreateObject(obj, NoConditions{}) // recreate object
 	return obj, nil
 }
 
@@ -351,7 +367,7 @@ func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, d
 	dest.Etag = fmt.Sprintf("%q", dest.Md5Hash)
 	dest.Metadata = metadata
 
-	result, err := s.CreateObject(dest.StreamingObject())
+	result, err := s.CreateObject(dest.StreamingObject(), NoConditions{})
 	if err != nil {
 		return result, err
 	}
