@@ -62,7 +62,7 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 
 	s := &storageFS{rootDir: rootDir, mh: mh}
 	for _, o := range objects {
-		obj, err := s.CreateObject(o)
+		obj, err := s.CreateObject(o, NoConditions{})
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +148,7 @@ func (s *storageFS) DeleteBucket(name string) error {
 // The crc32c checksum and md5 hash of the object content is calculated when
 // reading the object content. Any checksum or hash in the passed-in object
 // metadata is overwritten.
-func (s *storageFS) CreateObject(obj StreamingObject) (StreamingObject, error) {
+func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (StreamingObject, error) {
 	if obj.Generation > 0 {
 		return StreamingObject{}, errors.New("not implemented: fs storage type does not support objects generation yet")
 	}
@@ -163,6 +163,18 @@ func (s *storageFS) CreateObject(obj StreamingObject) (StreamingObject, error) {
 	err := s.createBucket(obj.BucketName)
 	if err != nil {
 		return StreamingObject{}, err
+	}
+
+	var activeGeneration int64
+	existingObj, err := s.getObject(obj.BucketName, obj.Name)
+	if err != nil {
+		activeGeneration = 0
+	} else {
+		activeGeneration = existingObj.Generation
+	}
+
+	if !conditions.ConditionsMet(activeGeneration) {
+		return StreamingObject{}, PreConditionFailed
 	}
 
 	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name))
@@ -342,8 +354,8 @@ func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[stri
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	obj.Generation = 0         // reset generation id
-	return s.CreateObject(obj) // recreate object
+	obj.Generation = 0                         // reset generation id
+	return s.CreateObject(obj, NoConditions{}) // recreate object
 }
 
 // UpdateObject replaces the given object metadata.
@@ -357,8 +369,8 @@ func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[str
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	obj.Generation = 0         // reset generation id
-	return s.CreateObject(obj) // recreate object
+	obj.Generation = 0                         // reset generation id
+	return s.CreateObject(obj, NoConditions{}) // recreate object
 }
 
 type concatenatedContent struct {
@@ -404,7 +416,7 @@ func (s *storageFS) ComposeObject(bucketName string, objectNames []string, desti
 	dest.Content = concatObjectReaders(sourceObjects)
 	dest.Metadata = metadata
 
-	result, err := s.CreateObject(dest)
+	result, err := s.CreateObject(dest, NoConditions{})
 	if err != nil {
 		return result, err
 	}

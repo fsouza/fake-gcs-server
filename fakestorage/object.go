@@ -289,7 +289,7 @@ func (s *Server) CreateObject(obj Object) {
 // If the bucket within the object doesn't exist, it also creates it. If the
 // object already exists, it overwrites the object.
 func (s *Server) CreateObjectStreaming(obj StreamingObject) error {
-	obj, err := s.createObject(obj)
+	obj, err := s.createObject(obj, backend.NoConditions{})
 	if err != nil {
 		return err
 	}
@@ -297,7 +297,7 @@ func (s *Server) CreateObjectStreaming(obj StreamingObject) error {
 	return nil
 }
 
-func (s *Server) createObject(obj StreamingObject) (StreamingObject, error) {
+func (s *Server) createObject(obj StreamingObject, conditions backend.Conditions) (StreamingObject, error) {
 	oldBackendObj, err := s.backend.GetObject(obj.BucketName, obj.Name)
 	// Calling Close before checking err is okay on objects, and the object
 	// may need to be closed whether or not there's an error.
@@ -306,7 +306,7 @@ func (s *Server) createObject(obj StreamingObject) (StreamingObject, error) {
 	prevVersionExisted := err == nil
 
 	// The caller is responsible for closing the created object.
-	newBackendObj, err := s.backend.CreateObject(toBackendObjects([]StreamingObject{obj})[0])
+	newBackendObj, err := s.backend.CreateObject(toBackendObjects([]StreamingObject{obj})[0], conditions)
 	if err != nil {
 		return StreamingObject{}, err
 	}
@@ -680,7 +680,7 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 		Role:   role,
 	}}
 
-	obj, err = s.createObject(obj)
+	obj, err = s.createObject(obj, backend.NoConditions{})
 	if err != nil {
 		return errToJsonResponse(err)
 	}
@@ -735,7 +735,7 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 		Content: obj.Content,
 	}
 
-	created, err := s.createObject(newObject)
+	created, err := s.createObject(newObject, backend.NoConditions{})
 	if err != nil {
 		return errToJsonResponse(err)
 	}
