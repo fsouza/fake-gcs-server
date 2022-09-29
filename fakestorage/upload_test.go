@@ -389,6 +389,50 @@ func TestServerClientObjectOperationsFailureToWriteExistingObject(t *testing.T) 
 	})
 }
 
+func TestServerClientUploadRacesAreOnlyWonByOne(t *testing.T) {
+	const (
+		bucketName  = "some-bucket"
+		repetitions = 40
+		parallelism = 5
+	)
+
+	bucket := NewServer(nil).Client().Bucket(bucketName)
+	if err := bucket.Create(context.Background(), "my-project", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Repeat test to increase chance of detecting race
+	for i := 0; i < repetitions; i++ {
+		objHandle := bucket.Object(fmt.Sprintf("object-%d.bin", i))
+		results := make(chan bool)
+		for j := 0; j < parallelism; j++ {
+			workerIndex := j
+			go func() {
+				firstWriter := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+				firstWriter.Write([]byte(fmt.Sprintf("%d", workerIndex)))
+				results <- (firstWriter.Close() == nil)
+			}()
+		}
+
+		var successes int
+		var failures int
+		for j := 0; j < parallelism; j++ {
+			if <-results {
+				successes++
+			} else {
+				failures++
+			}
+		}
+
+		if successes != 1 {
+			t.Errorf("in attempt %d, expected 1 success but got %d", i, successes)
+		}
+		if failures != parallelism-1 {
+			t.Errorf("in attempt %d, expected %d failures but got %d", i, parallelism-1, failures)
+		}
+	}
+}
+
 func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
 	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		client := server.Client()
