@@ -291,7 +291,7 @@ func getObjectACL(predefinedACL string) []storage.ACLRule {
 
 	return []storage.ACLRule{
 		{
-			Entity: "projectOwner",
+			Entity: "projectOwner-test-project",
 			Role:   "OWNER",
 		},
 	}
