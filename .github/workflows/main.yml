@@ -71,7 +71,7 @@ jobs:
       - name: get staticcheck version
         id: get-staticcheck-version
         run: |
-          echo "::set-output name=version::$(staticcheck --version | sed -e 's/,//g')"
+          echo "version=$(staticcheck --version | sed -e 's/,//g')" >>${GITHUB_OUTPUT}
 
       - name: staticcheck cache
         id: staticcheck-cache
