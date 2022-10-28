@@ -144,7 +144,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 					if obj.Name != receivedEvent.Name {
 						t.Errorf("wrong object name\nwant %q\ngot %q", obj.Name, receivedEvent.Name)
 					}
-					if strconv.Itoa(len(bufferedObj.Content)) != receivedEvent.Size {
+					if int64(len(bufferedObj.Content)) != receivedEvent.Size {
 						t.Errorf("wrong object size\nwant %q\ngot %q", strconv.Itoa(len(bufferedObj.Content)), receivedEvent.Size)
 					}
 					if !reflect.DeepEqual(test.metadata, receivedEvent.MetaData) {
