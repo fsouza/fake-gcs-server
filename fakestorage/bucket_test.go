@@ -275,7 +275,7 @@ func TestServerClientListObjects(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, err := NewServerWithOptions(options)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 			defer server.Stop()
 			client := server.Client()
