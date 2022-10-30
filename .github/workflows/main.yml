@@ -16,8 +16,6 @@ jobs:
           - 1.18
           - 1.19
         os:
-          - macos
-          - ubuntu
           - windows
         arch:
           - 386
