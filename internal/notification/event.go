@@ -155,21 +155,21 @@ func (m *PubsubEventManager) publish(o *backend.StreamingObject, eventType Event
 	return nil
 }
 
-// gcsEvent is the payload of a GCS event.  The description of the full object
-// can be found here:
+// gcsEvent is the payload of a GCS event. Note that all properties are string-quoted.
+// The description of the full object can be found here:
 // https://cloud.google.com/storage/docs/json_api/v1/objects#resource-representations.
 type gcsEvent struct {
 	Kind            string            `json:"kind"`
 	ID              string            `json:"id"`
 	Name            string            `json:"name"`
 	Bucket          string            `json:"bucket"`
-	Generation      int64             `json:"generation,omitempty"`
+	Generation      int64             `json:"generation,string,omitempty"`
 	ContentType     string            `json:"contentType"`
 	ContentEncoding string            `json:"contentEncoding,omitempty"`
 	Created         string            `json:"timeCreated,omitempty"`
 	Updated         string            `json:"updated,omitempty"`
 	StorageClass    string            `json:"storageClass"`
-	Size            string            `json:"size"`
+	Size            int64             `json:"size,string"`
 	MD5Hash         string            `json:"md5Hash,omitempty"`
 	CRC32c          string            `json:"crc32c,omitempty"`
 	MetaData        map[string]string `json:"metadata,omitempty"`
@@ -187,7 +187,7 @@ func generateEvent(o *backend.StreamingObject, eventType EventType, eventTime st
 		Created:         o.Created,
 		Updated:         o.Updated,
 		StorageClass:    "STANDARD",
-		Size:            strconv.FormatInt(o.Size, 10),
+		Size:            o.Size,
 		MD5Hash:         o.Md5Hash,
 		CRC32c:          o.Crc32c,
 		MetaData:        o.Metadata,
