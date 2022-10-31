@@ -104,10 +104,6 @@ func uploadAndCompare(t *testing.T, storage Storage, obj Object) int64 {
 }
 
 func TestObjectCRUD(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("time resolution on Windows makes this test flaky on that platform")
-	}
-
 	const bucketName = "prod-bucket"
 	const objectName = "video/hi-res/best_video_1080p.mp4"
 	content1 := []byte("content1")

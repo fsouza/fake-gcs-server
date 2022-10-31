@@ -1,9 +1,4 @@
-//go:build !windows
-
 package backend
-
-// This file contains open and rename functions for Windows compatibility. See
-// rename_windoes.go for details.
 
 import "os"
 

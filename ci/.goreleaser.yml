@@ -9,15 +9,10 @@ builds:
     goos:
       - darwin
       - linux
-      - windows
-    ignore:
-      - goos: windows
-        goarch: arm64
 archives:
   - replacements:
       darwin: Darwin
       linux: Linux
-      windows: Windows
     files:
       - LICENSE
       - README.md
