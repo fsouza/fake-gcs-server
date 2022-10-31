@@ -113,7 +113,7 @@ func findObject(obj Object, objectList []Object, matchGeneration bool) int {
 	return -1
 }
 
-// findObject looks for an object in the given list and return the index where it
+// findLastObjectGeneration looks for an object in the given list and return the index where it
 // was found, or -1 if the object doesn't exist.
 func findLastObjectGeneration(obj Object, objectList []Object) int64 {
 	highScore := int64(0)

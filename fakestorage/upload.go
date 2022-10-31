@@ -160,8 +160,8 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	return xmlResponse{status: http.StatusNoContent}
 }
 
-func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, objectName string) (*generationCondition, error) {
-	result := &generationCondition{
+func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, objectName string) (generationCondition, error) {
+	result := generationCondition{
 		ifGenerationMatch:    nil,
 		ifGenerationNotMatch: nil,
 	}
@@ -170,7 +170,7 @@ func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, obj
 	if ifGenerationMatch != "" {
 		gen, err := strconv.ParseInt(ifGenerationMatch, 10, 64)
 		if err != nil {
-			return nil, err
+			return generationCondition{}, err
 		}
 		result.ifGenerationMatch = &gen
 	}
@@ -180,7 +180,7 @@ func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, obj
 	if ifGenerationNotMatch != "" {
 		gen, err := strconv.ParseInt(ifGenerationNotMatch, 10, 64)
 		if err != nil {
-			return nil, err
+			return generationCondition{}, err
 		}
 		result.ifGenerationNotMatch = &gen
 	}
@@ -343,7 +343,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		Content: notImplementedSeeker{io.NopCloser(io.MultiReader(partReaders...))},
 	}
 
-	obj, err = s.createObject(obj, *conditions)
+	obj, err = s.createObject(obj, conditions)
 	if err != nil {
 		return errToJsonResponse(err)
 	}

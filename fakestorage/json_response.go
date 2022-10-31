@@ -65,8 +65,7 @@ func errToJsonResponse(err error) jsonResponse {
 	if errors.As(err, &pathError) && pathError.Err == syscall.ENAMETOOLONG {
 		status = http.StatusBadRequest
 	}
-	var backendError backend.Error
-	if errors.As(err, &backendError) && backendError == backend.PreConditionFailed {
+	if err == backend.PreConditionFailed {
 		status = http.StatusPreconditionFailed
 	}
 	return jsonResponse{errorMessage: err.Error(), status: status}
