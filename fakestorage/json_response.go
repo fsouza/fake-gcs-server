@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"syscall"
+
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
 type jsonResponse struct {
@@ -62,6 +64,9 @@ func errToJsonResponse(err error) jsonResponse {
 	var pathError *os.PathError
 	if errors.As(err, &pathError) && pathError.Err == syscall.ENAMETOOLONG {
 		status = http.StatusBadRequest
+	}
+	if err == backend.PreConditionFailed {
+		status = http.StatusPreconditionFailed
 	}
 	return jsonResponse{errorMessage: err.Error(), status: status}
 }

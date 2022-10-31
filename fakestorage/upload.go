@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/gorilla/mux"
 )
@@ -44,6 +45,21 @@ type contentRange struct {
 	Start      int  // Start of the range, -1 if unknown
 	End        int  // End of the range, -1 if unknown
 	Total      int  // Total bytes expected, -1 if unknown
+}
+
+type generationCondition struct {
+	ifGenerationMatch    *int64
+	ifGenerationNotMatch *int64
+}
+
+func (c generationCondition) ConditionsMet(activeGeneration int64) bool {
+	if c.ifGenerationMatch != nil && *c.ifGenerationMatch != activeGeneration {
+		return false
+	}
+	if c.ifGenerationNotMatch != nil && *c.ifGenerationNotMatch == activeGeneration {
+		return false
+	}
+	return true
 }
 
 func (s *Server) insertObject(r *http.Request) jsonResponse {
@@ -136,7 +152,7 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 		},
 		Content: infile,
 	}
-	obj, err = s.createObject(obj)
+	obj, err = s.createObject(obj, backend.NoConditions{})
 	if err != nil {
 		return xmlResponse{errorMessage: err.Error()}
 	}
@@ -144,32 +160,19 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	return xmlResponse{status: http.StatusNoContent}
 }
 
-func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, objectName string) *jsonResponse {
+func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, objectName string) (generationCondition, error) {
+	result := generationCondition{
+		ifGenerationMatch:    nil,
+		ifGenerationNotMatch: nil,
+	}
 	ifGenerationMatch := r.URL.Query().Get("ifGenerationMatch")
 
 	if ifGenerationMatch != "" {
 		gen, err := strconv.ParseInt(ifGenerationMatch, 10, 64)
 		if err != nil {
-			return &jsonResponse{
-				status:       http.StatusBadRequest,
-				errorMessage: err.Error(),
-			}
+			return generationCondition{}, err
 		}
-		if gen == 0 {
-			_, err := s.backend.GetObject(bucketName, objectName)
-			if err == nil {
-				return &jsonResponse{
-					status:       http.StatusPreconditionFailed,
-					errorMessage: "Precondition failed",
-				}
-			}
-		} else if _, err := s.backend.GetObjectWithGeneration(bucketName, objectName, gen); err != nil {
-			return &jsonResponse{
-				status:       http.StatusPreconditionFailed,
-				errorMessage: "Precondition failed",
-			}
-		}
-		return nil
+		result.ifGenerationMatch = &gen
 	}
 
 	ifGenerationNotMatch := r.URL.Query().Get("ifGenerationNotMatch")
@@ -177,31 +180,12 @@ func (s *Server) checkUploadPreconditions(r *http.Request, bucketName string, ob
 	if ifGenerationNotMatch != "" {
 		gen, err := strconv.ParseInt(ifGenerationNotMatch, 10, 64)
 		if err != nil {
-			return &jsonResponse{
-				status:       http.StatusBadRequest,
-				errorMessage: err.Error(),
-			}
+			return generationCondition{}, err
 		}
-		obj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, gen)
-		// Calling Close before checking err is okay on objects, and the return
-		// path below is complicated.
-		defer obj.Close() //lint:ignore SA5001 // see above
-		if gen == 0 {
-			if err != nil {
-				return &jsonResponse{
-					status:       http.StatusPreconditionFailed,
-					errorMessage: "Precondition failed",
-				}
-			}
-		} else if err == nil {
-			return &jsonResponse{
-				status:       http.StatusPreconditionFailed,
-				errorMessage: "Precondition failed",
-			}
-		}
+		result.ifGenerationNotMatch = &gen
 	}
 
-	return nil
+	return result, nil
 }
 
 func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
@@ -225,7 +209,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		},
 		Content: notImplementedSeeker{r.Body},
 	}
-	obj, err := s.createObject(obj)
+	obj, err := s.createObject(obj, backend.NoConditions{})
 	if err != nil {
 		return errToJsonResponse(err)
 	}
@@ -271,7 +255,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		},
 		Content: notImplementedSeeker{r.Body},
 	}
-	obj, err := s.createObject(obj)
+	obj, err := s.createObject(obj, backend.NoConditions{})
 	if err != nil {
 		return errToJsonResponse(err)
 	}
@@ -339,8 +323,12 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		objName = metadata.Name
 	}
 
-	if resp := s.checkUploadPreconditions(r, bucketName, objName); resp != nil {
-		return *resp
+	conditions, err := s.wrapUploadPreconditions(r, bucketName, objName)
+	if err != nil {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: err.Error(),
+		}
 	}
 
 	obj := StreamingObject{
@@ -354,7 +342,8 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		},
 		Content: notImplementedSeeker{io.NopCloser(io.MultiReader(partReaders...))},
 	}
-	obj, err = s.createObject(obj)
+
+	obj, err = s.createObject(obj, conditions)
 	if err != nil {
 		return errToJsonResponse(err)
 	}
@@ -490,7 +479,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	}
 	if commit {
 		s.uploads.Delete(uploadID)
-		streamingObject, err := s.createObject(obj.StreamingObject())
+		streamingObject, err := s.createObject(obj.StreamingObject(), backend.NoConditions{})
 		if err != nil {
 			return errToJsonResponse(err)
 		}

@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -385,6 +386,77 @@ func TestServerClientObjectOperationsFailureToWriteExistingObject(t *testing.T) 
 		err := secondWriter.Close()
 		if err == nil {
 			t.Fatal("expected overwriting existing object to fail, but received no error")
+		}
+	})
+}
+
+func TestServerClientUploadRacesAreOnlyWonByOne(t *testing.T) {
+	const (
+		bucketName  = "some-bucket"
+		repetitions = 10
+		parallelism = 5
+	)
+
+	type workerResult struct {
+		success bool
+		worker  uint16
+	}
+
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		bucket := server.Client().Bucket(bucketName)
+		if err := bucket.Create(context.Background(), "my-project", nil); err != nil {
+			t.Fatal(err)
+		}
+
+		// Repeat test to increase chance of detecting race
+		for i := 0; i < repetitions; i++ {
+			objHandle := bucket.Object(fmt.Sprintf("object-%d.bin", i))
+
+			results := make(chan workerResult)
+			for j := uint16(0); j < parallelism; j++ {
+				go func(workerIndex uint16) {
+					writer := objHandle.If(storage.Conditions{DoesNotExist: true}).NewWriter(context.Background())
+					buf := make([]byte, 2)
+					binary.BigEndian.PutUint16(buf, workerIndex)
+					writer.Write(buf)
+					results <- workerResult{success: writer.Close() == nil, worker: workerIndex}
+				}(j)
+			}
+
+			var successes int
+			var failures int
+			var winner uint16
+			for j := 0; j < parallelism; j++ {
+				result := <-results
+				if result.success {
+					successes++
+					winner = result.worker
+				} else {
+					failures++
+				}
+			}
+
+			if successes != 1 {
+				t.Errorf("in attempt %d, expected 1 success but got %d", i, successes)
+			}
+			if failures != parallelism-1 {
+				t.Errorf("in attempt %d, expected %d failures but got %d", i, parallelism-1, failures)
+			}
+			reader, err := objHandle.NewReader(context.Background())
+			if err != nil {
+				t.Errorf("in attempt %d, readback failed with %#v", i, err)
+			}
+			buf := make([]byte, 2)
+			l, err := reader.Read(buf)
+			if err != nil {
+				t.Errorf("in attempt %d, readback.read failed with %#v", i, err)
+			}
+			if l != 2 {
+				t.Errorf("in attempt %d, insufficient bytes read", i)
+			}
+			if winner != binary.BigEndian.Uint16(buf) {
+				t.Errorf("in attempt %d, %d were told as winner, but %d actually stored", i, winner, binary.BigEndian.Uint16(buf))
+			}
 		}
 	})
 }
