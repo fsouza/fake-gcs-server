@@ -222,6 +222,7 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, err
 	}
 
+	tempFile.Close()
 	err = compatRename(tempFile.Name(), path)
 	if err != nil {
 		return StreamingObject{}, err
