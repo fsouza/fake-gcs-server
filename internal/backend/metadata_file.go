@@ -30,5 +30,5 @@ func (m metadataFile) remove(path string) error {
 }
 
 func (m metadataFile) rename(pathSrc, pathDst string) error {
-	return compatRename(pathSrc+metadataSuffix, pathDst+metadataSuffix)
+	return os.Rename(pathSrc+metadataSuffix, pathDst+metadataSuffix)
 }
