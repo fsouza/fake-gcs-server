@@ -285,18 +285,12 @@ func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, e
 }
 
 func openObjectAndSetSize(obj *StreamingObject, path string) error {
-	// file is expected to be closed by the caller by calling obj.Close()
-	file, err := os.Open(path)
+	info, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 
-	info, err := file.Stat()
-	if err != nil {
-		return err
-	}
-
-	obj.Content = file
+	obj.Content = newLazyReader(path)
 	obj.Size = info.Size()
 
 	return nil
