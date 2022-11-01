@@ -5,6 +5,7 @@
 package backend
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -179,32 +180,11 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 
 	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name))
 
-	tempFile, err := os.CreateTemp(filepath.Dir(path), "fake-gcs-object")
-	if err != nil {
-		return StreamingObject{}, err
-	}
-	tempFile.Close()
-
-	tempFile, err = os.OpenFile(tempFile.Name(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
-	if err != nil {
-		return StreamingObject{}, err
-	}
-	defer tempFile.Close()
-
-	// The file is renamed below, which causes this to be a no-op. If the
-	// function returns before the rename, though, the temp file will be
-	// removed.
-	defer os.Remove(tempFile.Name())
-
-	err = os.Chmod(tempFile.Name(), 0o600)
-	if err != nil {
-		return StreamingObject{}, err
-	}
-
+	var buf bytes.Buffer
 	hasher := checksum.NewStreamingHasher()
 	objectContent := io.TeeReader(obj.Content, hasher)
 
-	if _, err = io.Copy(tempFile, objectContent); err != nil {
+	if _, err = io.Copy(&buf, objectContent); err != nil {
 		return StreamingObject{}, err
 	}
 
@@ -218,16 +198,11 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, err
 	}
 
-	if err = s.mh.write(tempFile.Name(), encoded); err != nil {
+	if err := writeFile(path, buf.Bytes(), 0o600); err != nil {
 		return StreamingObject{}, err
 	}
 
-	err = os.Rename(tempFile.Name(), path)
-	if err != nil {
-		return StreamingObject{}, err
-	}
-
-	if err = s.mh.rename(tempFile.Name(), path); err != nil {
+	if err = s.mh.write(path, encoded); err != nil {
 		return StreamingObject{}, err
 	}
 
