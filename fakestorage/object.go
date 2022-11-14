@@ -134,15 +134,6 @@ func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
 // Object represents an object that is stored within the fake server. The
 // content of this type is stored is buffered, i.e. it's stored in memory.
 // Use StreamingObject to stream the content from a reader, e.g a file.
-//
-// TODO: if object content and attributes were passed around separately,
-// several functions could be simplified and separate Object and Streaming
-// object types wouldn't be needed. Many functions that return objects only
-// care about metadata, and some functions that take objects don't care about
-// content. The Object type would be retained for backward compatibility of
-// NewServer, NewServerWithHostPort and NewServerWithOptions, but internally
-// the type wouldn't be used. This would also enable the content type to be
-// specific to the needs of each function: io.Reader vs. io.ReadSeekCloser.
 type Object struct {
 	ObjectAttrs
 	Content []byte `json:"-"`
