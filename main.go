@@ -33,6 +33,7 @@ func main() {
 	var emptyBuckets []string
 	opts := cfg.ToFakeGcsOptions()
 	if cfg.Seed != "" {
+		addMimeTypes()
 		opts.InitialObjects, emptyBuckets = generateObjectsFromFiles(logger, cfg.Seed)
 	}
 
@@ -48,6 +49,16 @@ func main() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	<-ch
+}
+
+func addMimeTypes() {
+	mapping := map[string]string{
+		".yaml": "application/x-yaml",
+		".yml":  "application/x-yaml",
+	}
+	for ext, typ := range mapping {
+		mime.AddExtensionType(ext, typ)
+	}
 }
 
 func generateObjectsFromFiles(logger *logrus.Logger, folder string) ([]fakestorage.Object, []string) {
