@@ -1,0 +1,5 @@
+kubectl 1.22.15
+minikube 1.28.0
+helm 3.10.0
+k9s 0.26.7
+skaffold 2.0.3
