@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/fsouza/fake-gcs-server/internal/config"
@@ -101,6 +102,12 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object
 			if err != nil {
 				return fmt.Errorf("could not read file %q: %w", path, err)
 			}
+			defaultACL := []storage.ACLRule{
+				{
+					Entity: "projectOwner-test-project",
+					Role:   "OWNER",
+				},
+			}
 			objects = append(objects, fakestorage.Object{
 				ObjectAttrs: fakestorage.ObjectAttrs{
 					BucketName:  bucketName,
@@ -108,6 +115,7 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]fakestorage.Object
 					ContentType: mime.TypeByExtension(filepath.Ext(path)),
 					Crc32c:      checksum.EncodedCrc32cChecksum(fileContent),
 					Md5Hash:     checksum.EncodedMd5Hash(fileContent),
+					ACL:         defaultACL,
 				},
 				Content: fileContent,
 			})
