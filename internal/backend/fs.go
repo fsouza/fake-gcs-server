@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -178,7 +179,16 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, PreConditionFailed
 	}
 
-	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name))
+	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), obj.Name)
+	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return StreamingObject{}, err
+	}
+
+	// Nothing to do if this operation only creates directories
+	if strings.HasSuffix(obj.Name, "/") {
+		// TODO: populate Crc32c, Md5Hash, and Etag
+		return StreamingObject{obj.ObjectAttrs, noopSeekCloser{bytes.NewReader([]byte{})}}, nil
+	}
 
 	var buf bytes.Buffer
 	hasher := checksum.NewStreamingHasher()
@@ -217,28 +227,30 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	infos, err := os.ReadDir(filepath.Join(s.rootDir, url.PathEscape(bucketName)))
-	if err != nil {
-		return nil, err
-	}
 	objects := []ObjectAttrs{}
-	for _, info := range infos {
+	// TODO: WalkDir more efficient?
+	bucketPath := filepath.Join(s.rootDir, url.PathEscape(bucketName))
+	if err := filepath.Walk(bucketPath, func(path string, info fs.FileInfo, _ error) error {
+		objName := strings.TrimPrefix(path, bucketPath+string(filepath.Separator))
+		// TODO: should this check path?
 		if s.mh.isSpecialFile(info.Name()) {
-			continue
+			return nil
 		}
-		unescaped, err := url.PathUnescape(info.Name())
+		if info.IsDir() {
+			return nil
+		}
+		if prefix != "" && !strings.HasPrefix(objName, prefix) {
+			return nil
+		}
+		object, err := s.getObject(bucketName, objName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unescape object name %s: %w", info.Name(), err)
-		}
-		if prefix != "" && !strings.HasPrefix(unescaped, prefix) {
-			continue
-		}
-		object, err := s.getObject(bucketName, unescaped)
-		if err != nil {
-			return nil, err
+			return err
 		}
 		object.Close()
 		objects = append(objects, object.ObjectAttrs)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return objects, nil
 }
@@ -264,7 +276,7 @@ func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, gener
 }
 
 func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, error) {
-	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName))
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
 
 	encoded, err := s.mh.read(path)
 	if err != nil {
@@ -303,7 +315,7 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 	if objectName == "" {
 		return errors.New("can't delete object with empty name")
 	}
-	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), url.PathEscape(objectName))
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
 	if err := s.mh.remove(path); err != nil {
 		return err
 	}
