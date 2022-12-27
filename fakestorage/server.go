@@ -140,6 +140,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		handlers.AllowedHeaders(allowedHeaders),
 		handlers.AllowedOrigins([]string{"*"}),
 		handlers.AllowCredentials(),
+		handlers.ExposedHeaders([]string{"Location"}),
 	)
 
 	handler := cors(s.mux)
