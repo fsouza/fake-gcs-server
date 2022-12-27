@@ -813,6 +813,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	for name, value := range obj.Metadata {
 		w.Header().Set("X-Goog-Meta-"+name, value)
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	if ranged && !satisfiable {
 		status = http.StatusRequestedRangeNotSatisfiable
