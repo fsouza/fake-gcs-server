@@ -721,11 +721,18 @@ func TestServerClientObjectReaderError(t *testing.T) {
 
 func TestServerClientObjectReadBucketCNAME(t *testing.T) {
 	url := "https://mybucket.mydomain.com:4443/files/txt/text-01.txt"
-	expectedHeaders := map[string]string{"accept-ranges": "bytes", "content-length": "9"}
+	expectedHeaders := map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-meta-marco": "Polo"}
 	expectedBody := "something"
 	opts := Options{
 		InitialObjects: []Object{
-			{ObjectAttrs: ObjectAttrs{BucketName: "mybucket.mydomain.com", Name: "files/txt/text-01.txt"}, Content: []byte("something")},
+			{
+				ObjectAttrs: ObjectAttrs{
+					BucketName: "mybucket.mydomain.com",
+					Name:       "files/txt/text-01.txt",
+					Metadata:   map[string]string{"Marco": "Polo"},
+				},
+				Content: []byte("something"),
+			},
 		},
 	}
 	server, err := NewServerWithOptions(opts)
