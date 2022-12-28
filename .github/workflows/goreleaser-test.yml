@@ -5,9 +5,11 @@ on:
       - main
     paths:
       - ci/.goreleaser.yml
+      - .github/workflows/goreleaser-test.yml
   pull_request:
     paths:
       - ci/.goreleaser.yml
+      - .github/workflows/goreleaser-test.yml
 jobs:
   test-goreleaser:
     runs-on: ubuntu-latest
