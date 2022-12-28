@@ -29,6 +29,7 @@ func main() {
 		log.Fatal(err)
 	}
 	logger := logrus.New()
+	logger.SetLevel(cfg.LogLevel)
 
 	var emptyBuckets []string
 	opts := cfg.ToFakeGcsOptions()

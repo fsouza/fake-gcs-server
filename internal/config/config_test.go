@@ -11,6 +11,7 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/sirupsen/logrus"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -38,6 +39,7 @@ func TestLoadConfig(t *testing.T) {
 				"-event.object-prefix", "uploads/",
 				"-event.list", "finalize,delete,metadataUpdate,archive",
 				"-location", "US-EAST1",
+				"-log-level", "warn",
 			},
 			expectedConfig: Config{
 				Seed:               "/var/gcs",
@@ -56,6 +58,7 @@ func TestLoadConfig(t *testing.T) {
 					list:            []string{"finalize", "delete", "metadataUpdate", "archive"},
 				},
 				bucketLocation: "US-EAST1",
+				LogLevel:       logrus.WarnLevel,
 			},
 		},
 		{
@@ -74,6 +77,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
+				LogLevel:       logrus.InfoLevel,
 			},
 		},
 		{
@@ -109,6 +113,11 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name:      "invalid events",
 			args:      []string{"-event.list", "invalid,stuff", "-event.pubsub-topic", "gcs-events", "-event.pubsub-project-id", "test-project"},
+			expectErr: true,
+		},
+		{
+			name:      "invalid log level",
+			args:      []string{"-log-level", "non-existent-level"},
 			expectErr: true,
 		},
 	}
