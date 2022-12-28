@@ -27,6 +27,7 @@ type ObjectAttrs struct {
 	Created         string
 	Deleted         string
 	Updated         string
+	CustomTime      string
 	Generation      int64
 }
 

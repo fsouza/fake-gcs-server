@@ -42,6 +42,7 @@ type ObjectAttrs struct {
 	Created    time.Time
 	Updated    time.Time
 	Deleted    time.Time
+	CustomTime time.Time
 	Generation int64
 	Metadata   map[string]string
 }
@@ -50,24 +51,27 @@ func (o *ObjectAttrs) id() string {
 	return o.BucketName + "/" + o.Name
 }
 
+type jsonObject struct {
+	BucketName      string            `json:"bucket"`
+	Name            string            `json:"name"`
+	Size            int64             `json:"size,string"`
+	ContentType     string            `json:"contentType"`
+	ContentEncoding string            `json:"contentEncoding"`
+	Crc32c          string            `json:"crc32c,omitempty"`
+	Md5Hash         string            `json:"md5Hash,omitempty"`
+	Etag            string            `json:"etag,omitempty"`
+	ACL             []aclRule         `json:"acl,omitempty"`
+	Created         time.Time         `json:"created,omitempty"`
+	Updated         time.Time         `json:"updated,omitempty"`
+	Deleted         time.Time         `json:"deleted,omitempty"`
+	CustomTime      time.Time         `json:"customTime,omitempty"`
+	Generation      int64             `json:"generation,omitempty,string"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
+}
+
 // MarshalJSON for ObjectAttrs to use ACLRule instead of storage.ACLRule
 func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
-	temp := struct {
-		BucketName      string            `json:"bucket"`
-		Name            string            `json:"name"`
-		Size            int64             `json:"size,string"`
-		ContentType     string            `json:"contentType"`
-		ContentEncoding string            `json:"contentEncoding"`
-		Crc32c          string            `json:"crc32c,omitempty"`
-		Md5Hash         string            `json:"md5Hash,omitempty"`
-		Etag            string            `json:"etag,omitempty"`
-		ACL             []aclRule         `json:"acl,omitempty"`
-		Created         time.Time         `json:"created,omitempty"`
-		Updated         time.Time         `json:"updated,omitempty"`
-		Deleted         time.Time         `json:"deleted,omitempty"`
-		Generation      int64             `json:"generation,omitempty,string"`
-		Metadata        map[string]string `json:"metadata,omitempty"`
-	}{
+	temp := jsonObject{
 		BucketName:      o.BucketName,
 		Name:            o.Name,
 		ContentType:     o.ContentType,
@@ -79,6 +83,7 @@ func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
 		Created:         o.Created,
 		Updated:         o.Updated,
 		Deleted:         o.Deleted,
+		CustomTime:      o.CustomTime,
 		Generation:      o.Generation,
 		Metadata:        o.Metadata,
 	}
@@ -91,22 +96,7 @@ func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON for ObjectAttrs to use ACLRule instead of storage.ACLRule
 func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
-	temp := struct {
-		BucketName      string            `json:"bucket"`
-		Name            string            `json:"name"`
-		Size            int64             `json:"size,string"`
-		ContentType     string            `json:"contentType"`
-		ContentEncoding string            `json:"contentEncoding"`
-		Crc32c          string            `json:"crc32c,omitempty"`
-		Md5Hash         string            `json:"md5Hash,omitempty"`
-		Etag            string            `json:"etag,omitempty"`
-		ACL             []aclRule         `json:"acl,omitempty"`
-		Created         time.Time         `json:"created,omitempty"`
-		Updated         time.Time         `json:"updated,omitempty"`
-		Deleted         time.Time         `json:"deleted,omitempty"`
-		Generation      int64             `json:"generation,omitempty,string"`
-		Metadata        map[string]string `json:"metadata,omitempty"`
-	}{}
+	var temp jsonObject
 	if err := json.Unmarshal(data, &temp); err != nil {
 		return err
 	}
@@ -123,6 +113,7 @@ func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
 	o.Deleted = temp.Deleted
 	o.Generation = temp.Generation
 	o.Metadata = temp.Metadata
+	o.CustomTime = temp.CustomTime
 	o.ACL = make([]storage.ACLRule, len(temp.ACL))
 	for i, ACL := range temp.ACL {
 		o.ACL[i] = storage.ACLRule(ACL)
@@ -416,6 +407,7 @@ func toBackendObjects(objects []StreamingObject) []backend.StreamingObject {
 				Created:         getCurrentIfZero(o.Created).Format(timestampFormat),
 				Deleted:         o.Deleted.Format(timestampFormat),
 				Updated:         getCurrentIfZero(o.Updated).Format(timestampFormat),
+				CustomTime:      o.CustomTime.Format(timestampFormat),
 				Generation:      o.Generation,
 				Metadata:        o.Metadata,
 			},
@@ -439,6 +431,7 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 				Created:         getCurrentIfZero(o.Created).Format(timestampFormat),
 				Deleted:         o.Deleted.Format(timestampFormat),
 				Updated:         getCurrentIfZero(o.Updated).Format(timestampFormat),
+				CustomTime:      o.CustomTime.Format(timestampFormat),
 				Generation:      o.Generation,
 				Metadata:        o.Metadata,
 			},
@@ -465,6 +458,7 @@ func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 				Created:         convertTimeWithoutError(o.Created),
 				Deleted:         convertTimeWithoutError(o.Deleted),
 				Updated:         convertTimeWithoutError(o.Updated),
+				CustomTime:      convertTimeWithoutError(o.CustomTime),
 				Generation:      o.Generation,
 				Metadata:        o.Metadata,
 			},
@@ -490,6 +484,7 @@ func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 			Created:         convertTimeWithoutError(o.Created),
 			Deleted:         convertTimeWithoutError(o.Deleted),
 			Updated:         convertTimeWithoutError(o.Updated),
+			CustomTime:      convertTimeWithoutError(o.CustomTime),
 			Generation:      o.Generation,
 			Metadata:        o.Metadata,
 		})
@@ -937,17 +932,18 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
 	objectName := vars["objectName"]
-	var metadata struct {
-		Metadata map[string]string `json:"metadata"`
+	var payload struct {
+		Metadata   map[string]string `json:"metadata"`
+		CustomTime time.Time         `json:"customTime"`
 	}
-	err := json.NewDecoder(r.Body).Decode(&metadata)
+	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusBadRequest,
 			errorMessage: "Metadata in the request couldn't decode",
 		}
 	}
-	backendObj, err := s.backend.PatchObject(bucketName, objectName, metadata.Metadata)
+	backendObj, err := s.backend.PatchObject(bucketName, objectName, payload.Metadata)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusNotFound,
