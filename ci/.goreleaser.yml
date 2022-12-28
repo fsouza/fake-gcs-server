@@ -14,7 +14,8 @@ builds:
       - goos: windows
         goarch: arm64
 archives:
-  - rlcp: true
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ title .Os }}_{{ .Arch }}"
+    rlcp: true
     files:
       - LICENSE
       - README.md
