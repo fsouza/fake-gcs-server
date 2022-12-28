@@ -231,7 +231,8 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 	// TODO: WalkDir more efficient?
 	bucketPath := filepath.Join(s.rootDir, url.PathEscape(bucketName))
 	if err := filepath.Walk(bucketPath, func(path string, info fs.FileInfo, _ error) error {
-		objName := filepath.Rel(bucketPath, path)
+		// Rel() should never return error since path always descend from bucketPath
+		objName, _ := filepath.Rel(bucketPath, path)
 		// TODO: should this check path?
 		if s.mh.isSpecialFile(info.Name()) {
 			return nil
