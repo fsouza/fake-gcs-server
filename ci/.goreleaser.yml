@@ -14,11 +14,7 @@ builds:
       - goos: windows
         goarch: arm64
 archives:
-  - replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-    files:
+  - files:
       - LICENSE
       - README.md
 checksum:
