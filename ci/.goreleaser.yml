@@ -14,7 +14,8 @@ builds:
       - goos: windows
         goarch: arm64
 archives:
-  - files:
+  - rlcp: true
+    files:
       - LICENSE
       - README.md
 checksum:
