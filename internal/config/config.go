@@ -40,6 +40,7 @@ type Config struct {
 	bucketLocation      string
 	certificateLocation string
 	privateKeyLocation  string
+	LogLevel            logrus.Level
 }
 
 type EventConfig struct {
@@ -55,6 +56,7 @@ func Load(args []string) (Config, error) {
 	var cfg Config
 	var allowedCORSHeaders string
 	var eventList string
+	var givenLogLevel string
 
 	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
 	fs.StringVar(&cfg.backend, "backend", filesystemBackend, "storage backend (memory or filesystem)")
@@ -73,8 +75,14 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.bucketLocation, "location", "US-CENTRAL1", "location for buckets")
 	fs.StringVar(&cfg.certificateLocation, "cert-location", "", "location for server certificate")
 	fs.StringVar(&cfg.privateKeyLocation, "private-key-location", "", "location for private key")
+	fs.StringVar(&givenLogLevel, "log-level", "info", "level for logging. Options same as for logrus: trace, debug, info, warn, error, fatal, and panic")
 
 	err := fs.Parse(args)
+	if err != nil {
+		return cfg, err
+	}
+
+	cfg.LogLevel, err = logrus.ParseLevel(givenLogLevel)
 	if err != nil {
 		return cfg, err
 	}
@@ -157,8 +165,9 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 			}
 		}
 	}
-
-	return fakestorage.Options{
+	logger := logrus.New()
+	logger.SetLevel(c.LogLevel)
+	opts := fakestorage.Options{
 		StorageRoot:         storageRoot,
 		Scheme:              c.scheme,
 		Host:                c.host,
@@ -166,10 +175,11 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 		PublicHost:          c.publicHost,
 		ExternalURL:         c.externalURL,
 		AllowedCORSHeaders:  c.allowedCORSHeaders,
-		Writer:              logrus.New().Writer(),
+		Writer:              logger.Writer(),
 		EventOptions:        eventOptions,
 		BucketsLocation:     c.bucketLocation,
 		CertificateLocation: c.certificateLocation,
 		PrivateKeyLocation:  c.privateKeyLocation,
 	}
+	return opts
 }
