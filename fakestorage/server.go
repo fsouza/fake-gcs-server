@@ -125,7 +125,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		return nil, err
 	}
 
-	allowedHeaders := []string{"Content-Type", "Content-Encoding", "Range"}
+	allowedHeaders := []string{"Content-Type", "Content-Encoding", "Range", "Content-Range"}
 	allowedHeaders = append(allowedHeaders, options.AllowedCORSHeaders...)
 
 	cors := handlers.CORS(
@@ -140,6 +140,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		handlers.AllowedHeaders(allowedHeaders),
 		handlers.AllowedOrigins([]string{"*"}),
 		handlers.AllowCredentials(),
+		handlers.ExposedHeaders([]string{"Location"}),
 	)
 
 	handler := cors(s.mux)
