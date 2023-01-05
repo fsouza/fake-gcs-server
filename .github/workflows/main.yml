@@ -34,7 +34,7 @@ jobs:
         with:
           go-version: ${{ matrix.go_version }}
 
-      - uses: actions/checkout@v3.2.0
+      - uses: actions/checkout@v3.3.0
 
       - name: run-tests-race
         if: ${{ matrix.arch == 'amd64' }}
@@ -52,7 +52,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3.2.0
+      - uses: actions/checkout@v3.3.0
 
       - uses: golangci/golangci-lint-action@v3.3.1
 
@@ -80,7 +80,7 @@ jobs:
           path: ~/.cache/staticcheck
           key: "${{ steps.get-staticcheck-version.outputs.version }}"
 
-      - uses: actions/checkout@v3.2.0
+      - uses: actions/checkout@v3.3.0
 
       - name: run staticcheck
         run: |
@@ -90,7 +90,7 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3.2.0
+      - uses: actions/checkout@v3.3.0
 
       - uses: actions/setup-go@v3.5.0
         id: go
@@ -148,7 +148,7 @@ jobs:
       - lint
       - staticcheck
     steps:
-      - uses: actions/checkout@v3.2.0
+      - uses: actions/checkout@v3.3.0
 
       - name: download binary
         uses: actions/download-artifact@v3.0.1
