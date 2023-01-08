@@ -299,19 +299,14 @@ func (s *storageMemory) DeleteObject(bucketName, objectName string) error {
 	return nil
 }
 
-// PatchObject updates an object metadata.
-func (s *storageMemory) PatchObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
+func (s *storageMemory) PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
-	if obj.Metadata == nil {
-		obj.Metadata = map[string]string{}
-	}
-	for k, v := range metadata {
-		obj.Metadata[k] = v
-	}
-	s.CreateObject(obj, NoConditions{}) // recreate object
+
+	obj.patch(attrsToUpdate)
+	s.CreateObject(obj, NoConditions{})
 	return obj, nil
 }
 
@@ -325,7 +320,7 @@ func (s *storageMemory) UpdateObject(bucketName, objectName string, metadata map
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	s.CreateObject(obj, NoConditions{}) // recreate object
+	s.CreateObject(obj, NoConditions{})
 	return obj, nil
 }
 
