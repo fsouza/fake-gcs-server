@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"syscall"
@@ -319,24 +318,7 @@ func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate Obj
 	}
 	defer obj.Close()
 
-	currObjValues := reflect.ValueOf(&(obj.ObjectAttrs)).Elem()
-	currObjType := currObjValues.Type()
-	newObjValues := reflect.ValueOf(attrsToUpdate)
-	for i := 0; i < newObjValues.NumField(); i++ {
-		if reflect.Value.IsZero(newObjValues.Field(i)) {
-			continue
-		} else if currObjType.Field(i).Name == "Metadata" {
-			if obj.Metadata == nil {
-				obj.Metadata = map[string]string{}
-			}
-			for k, v := range attrsToUpdate.Metadata {
-				obj.Metadata[k] = v
-			}
-		} else {
-			currObjValues.Field(i).Set(newObjValues.Field(i))
-		}
-	}
-
+	obj.patch(attrsToUpdate)
 	obj.Generation = 0 // reset generation id
 	return s.CreateObject(obj, NoConditions{})
 }
@@ -352,8 +334,8 @@ func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[str
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	obj.Generation = 0                         // reset generation id
-	return s.CreateObject(obj, NoConditions{}) // recreate object
+	obj.Generation = 0 // reset generation id
+	return s.CreateObject(obj, NoConditions{})
 }
 
 type concatenatedContent struct {

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -307,23 +306,7 @@ func (s *storageMemory) PatchObject(bucketName, objectName string, attrsToUpdate
 		return StreamingObject{}, err
 	}
 
-	currObjValues := reflect.ValueOf(&(obj.ObjectAttrs)).Elem()
-	currObjType := currObjValues.Type()
-	newObjValues := reflect.ValueOf(attrsToUpdate)
-	for i := 0; i < newObjValues.NumField(); i++ {
-		if reflect.Value.IsZero(newObjValues.Field(i)) {
-			continue
-		} else if currObjType.Field(i).Name == "Metadata" {
-			if obj.Metadata == nil {
-				obj.Metadata = map[string]string{}
-			}
-			for k, v := range attrsToUpdate.Metadata {
-				obj.Metadata[k] = v
-			}
-		} else {
-			currObjValues.Field(i).Set(newObjValues.Field(i))
-		}
-	}
+	obj.patch(attrsToUpdate)
 	s.CreateObject(obj, NoConditions{})
 	return obj, nil
 }
@@ -338,7 +321,7 @@ func (s *storageMemory) UpdateObject(bucketName, objectName string, metadata map
 	for k, v := range metadata {
 		obj.Metadata[k] = v
 	}
-	s.CreateObject(obj, NoConditions{}) // recreate object
+	s.CreateObject(obj, NoConditions{})
 	return obj, nil
 }
 
