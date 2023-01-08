@@ -310,7 +310,6 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 	return os.Remove(path)
 }
 
-// func (s *storageFS) PatchObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
 func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
@@ -323,7 +322,6 @@ func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate Obj
 	return s.CreateObject(obj, NoConditions{})
 }
 
-// UpdateObject replaces the given object metadata.
 func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {

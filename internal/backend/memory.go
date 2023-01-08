@@ -299,7 +299,6 @@ func (s *storageMemory) DeleteObject(bucketName, objectName string) error {
 	return nil
 }
 
-// PatchObject updates an object metadata.
 func (s *storageMemory) PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
