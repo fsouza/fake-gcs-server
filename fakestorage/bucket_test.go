@@ -97,7 +97,7 @@ func TestServerClientBucketAttrsAfterCreateBucket(t *testing.T) {
 func TestServerClientDeleteBucket(t *testing.T) {
 	t.Run("it deletes empty buckets", func(t *testing.T) {
 		const bucketName = "bucket-to-delete"
-		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
 			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
 			client := server.Client()
 			err := client.Bucket(bucketName).Delete(context.Background())
@@ -117,7 +117,7 @@ func TestServerClientDeleteBucket(t *testing.T) {
 	t.Run("it returns an error for non-empty buckets", func(t *testing.T) {
 		const bucketName = "non-empty-bucket"
 		objs := []Object{{ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "static/js/app.js"}}}
-		runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{objs: objs, enableFSBackend: true}, func(t *testing.T, server *Server) {
 			client := server.Client()
 			err := client.Bucket(bucketName).Delete(context.Background())
 			if err == nil {
@@ -128,7 +128,7 @@ func TestServerClientDeleteBucket(t *testing.T) {
 
 	t.Run("it returns an error for unknown buckets", func(t *testing.T) {
 		const bucketName = "non-existent-bucket"
-		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
 			client := server.Client()
 			err := client.Bucket(bucketName).Delete(context.Background())
 			if err == nil {

@@ -228,12 +228,13 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 	defer s.mtx.RUnlock()
 
 	objects := []ObjectAttrs{}
-	// TODO: WalkDir more efficient?
 	bucketPath := filepath.Join(s.rootDir, url.PathEscape(bucketName))
-	if err := filepath.Walk(bucketPath, func(path string, info fs.FileInfo, _ error) error {
-		// Rel() should never return error since path always descend from bucketPath
+	if err := filepath.Walk(bucketPath, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		objName, _ := filepath.Rel(bucketPath, path)
-		// TODO: should this check path?
 		if s.mh.isSpecialFile(info.Name()) {
 			return nil
 		}
