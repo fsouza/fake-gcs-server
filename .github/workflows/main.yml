@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
 jobs:
   test:
     strategy:

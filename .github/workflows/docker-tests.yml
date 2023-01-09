@@ -6,6 +6,11 @@ on:
   push:
     branches:
       - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
 jobs:
   test-dockerfile:
     name: test-dockerfile
