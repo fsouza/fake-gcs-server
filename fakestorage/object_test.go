@@ -1615,6 +1615,47 @@ func checkObjectMetadata(actual, expected map[string]string, t *testing.T) {
 	}
 }
 
+func TestServerClientObjectPatchCustomTime(t *testing.T) {
+	const (
+		bucketName  = "some-bucket"
+		objectName  = "items/data.txt"
+		content     = "some nice content"
+		contentType = "text/plain; charset=utf-8"
+	)
+	startTime := time.Now().Truncate(time.Second)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+				CustomTime:  startTime.Add(-5 * time.Hour),
+			},
+			Content: []byte(content),
+		},
+	}
+
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		objHandle := client.Bucket(bucketName).Object(objectName)
+
+		ctx := context.TODO()
+		_, err := objHandle.Update(ctx, storage.ObjectAttrsToUpdate{CustomTime: startTime})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		attrs, err := objHandle.Attrs(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !attrs.CustomTime.Equal(startTime) {
+			t.Errorf("unexpected custom time\nwant %q\ngot  %q", startTime.String(), attrs.CustomTime.String())
+		}
+	})
+}
+
 func TestParseRangeRequest(t *testing.T) {
 	ctx := context.TODO()
 
