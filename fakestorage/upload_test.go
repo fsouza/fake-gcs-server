@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
@@ -70,10 +71,12 @@ func TestServerClientObjectWriter(t *testing.T) {
 				server.CreateBucketWithOpts(CreateBucketOpts{Name: test.bucketName})
 				client := server.Client()
 
+				customTime := time.Now().Truncate(time.Second).Add(-time.Hour)
 				objHandle := client.Bucket(test.bucketName).Object(test.objectName)
 				w := objHandle.NewWriter(context.Background())
 				w.ChunkSize = test.chunkSize
 				w.ContentType = contentType
+				w.CustomTime = customTime
 				w.Metadata = map[string]string{
 					"foo": "bar",
 				}
@@ -114,6 +117,9 @@ func TestServerClientObjectWriter(t *testing.T) {
 				}
 				if !reflect.DeepEqual(obj.Metadata, w.Metadata) {
 					t.Errorf("wrong meta data\nwant %+v\ngot  %+v", w.Metadata, obj.Metadata)
+				}
+				if !customTime.Equal(obj.CustomTime) {
+					t.Errorf("wrong custom time\nwant %q\ngot  %q", customTime.String(), obj.CustomTime.String())
 				}
 
 				reader, err := client.Bucket(test.bucketName).Object(test.objectName).NewReader(context.Background())

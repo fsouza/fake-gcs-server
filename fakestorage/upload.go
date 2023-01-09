@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -35,6 +36,7 @@ const (
 type multipartMetadata struct {
 	ContentType     string            `json:"contentType"`
 	ContentEncoding string            `json:"contentEncoding"`
+	CustomTime      time.Time         `json:"customTime,omitempty"`
 	Name            string            `json:"name"`
 	Metadata        map[string]string `json:"metadata"`
 }
@@ -193,6 +195,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 	name := r.URL.Query().Get("name")
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
+	customTime := r.URL.Query().Get("customTime")
 	if name == "" {
 		return jsonResponse{
 			status:       http.StatusBadRequest,
@@ -205,6 +208,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 			Name:            name,
 			ContentType:     r.Header.Get(contentTypeHeader),
 			ContentEncoding: contentEncoding,
+			CustomTime:      convertTimeWithoutError(customTime),
 			ACL:             getObjectACL(predefinedACL),
 		},
 		Content: notImplementedSeeker{r.Body},
@@ -230,6 +234,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 	name := unescapeMuxVars(mux.Vars(r))["objectName"]
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	contentEncoding := r.URL.Query().Get("contentEncoding")
+	customTime := r.URL.Query().Get("customTime")
 
 	// Load data from HTTP Headers
 	if contentEncoding == "" {
@@ -250,6 +255,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 			Name:            name,
 			ContentType:     r.Header.Get(contentTypeHeader),
 			ContentEncoding: contentEncoding,
+			CustomTime:      convertTimeWithoutError(customTime),
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metaData,
 		},
@@ -337,6 +343,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 			Name:            objName,
 			ContentType:     contentType,
 			ContentEncoding: metadata.ContentEncoding,
+			CustomTime:      metadata.CustomTime,
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metadata.Metadata,
 		},
@@ -378,6 +385,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 			Name:            objName,
 			ContentType:     metadata.ContentType,
 			ContentEncoding: contentEncoding,
+			CustomTime:      metadata.CustomTime,
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metadata.Metadata,
 		},
