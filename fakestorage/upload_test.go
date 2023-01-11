@@ -16,6 +16,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -922,6 +923,7 @@ func TestFormDataUpload(t *testing.T) {
 	var buf bytes.Buffer
 	const content = "some weird content"
 	const contentType = "text/plain"
+	var successActionStatus int = http.StatusNoContent
 	writer := multipart.NewWriter(&buf)
 
 	var fieldWriter io.Writer
@@ -936,6 +938,13 @@ func TestFormDataUpload(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := fieldWriter.Write([]byte(contentType)); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("success_action_status"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(strconv.Itoa(successActionStatus))); err != nil {
 		t.Fatal(err)
 	}
 
@@ -974,9 +983,8 @@ func TestFormDataUpload(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	expectedStatus := http.StatusNoContent
-	if resp.StatusCode != expectedStatus {
-		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
+	if resp.StatusCode != successActionStatus {
+		t.Errorf("wrong status code\nwant %d\ngot  %d", successActionStatus, resp.StatusCode)
 	}
 
 	obj, err := server.GetObject("other-bucket", "object.txt")

@@ -123,6 +123,17 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	if contentTypes, ok := r.MultipartForm.Value["Content-Type"]; ok {
 		contentType = contentTypes[0]
 	}
+	var successActionStatus int = http.StatusNoContent
+	if successActionStatuses, ok := r.MultipartForm.Value["success_action_status"]; ok {
+		successInt, err := strconv.Atoi(successActionStatuses[0])
+		if err != nil {
+			return xmlResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
+		}
+		if successInt != http.StatusOK && successInt != http.StatusCreated && successInt != http.StatusNoContent {
+			return xmlResponse{errorMessage: "invalid success action status", status: http.StatusBadRequest}
+		}
+		successActionStatus = successInt
+	}
 	metaData := make(map[string]string)
 	for key := range r.MultipartForm.Value {
 		lowerKey := strings.ToLower(key)
@@ -159,7 +170,7 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 		return xmlResponse{errorMessage: err.Error()}
 	}
 	defer obj.Close()
-	return xmlResponse{status: http.StatusNoContent}
+	return xmlResponse{status: successActionStatus}
 }
 
 func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, objectName string) (generationCondition, error) {
