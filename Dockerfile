@@ -13,6 +13,7 @@ RUN go build -o fake-gcs-server
 FROM alpine:3.17.1
 RUN apk add --no-cache mailcap
 COPY --from=builder /code/fake-gcs-server /bin/fake-gcs-server
+COPY --from=builder /code/run.sh /run.sh
 RUN /bin/fake-gcs-server -h
 EXPOSE 4443
-ENTRYPOINT ["/bin/fake-gcs-server", "-data", "/data"]
+ENTRYPOINT "/run.sh"

@@ -94,6 +94,15 @@ instructions
 docker run --rm fsouza/fake-gcs-server -help
 ```
 
+### Using environment variables
+
+The docker image supports using environmental variables when starting fake-gcs-server.
+
+```shell
+docker run -d --name fake-gcs-server -e SCHEME=http -e PORT=8080 -p 8080:8080 fsouza/fake-gcs-server
+```
+
+
 ## Client library examples
 
 For examples using SDK from multiple languages, check out the
