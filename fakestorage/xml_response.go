@@ -13,9 +13,11 @@ type xmlResponse struct {
 }
 
 type xmlResponseBody struct {
-	XMLName  xml.Name `xml:"PostResponse"`
-	Bucket   string
-	Etag     interface{}
+	XMLName xml.Name `xml:"PostResponse"`
+	Bucket  string
+	Etag    struct {
+		Value string `xml:",innerxml"`
+	}
 	Key      string
 	Location string
 }
