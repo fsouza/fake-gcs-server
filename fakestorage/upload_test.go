@@ -923,7 +923,7 @@ func TestFormDataUpload(t *testing.T) {
 	var buf bytes.Buffer
 	const content = "some weird content"
 	const contentType = "text/plain"
-	var successActionStatus int = http.StatusNoContent
+	successActionStatus := http.StatusNoContent
 	writer := multipart.NewWriter(&buf)
 
 	var fieldWriter io.Writer

@@ -123,7 +123,7 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	if contentTypes, ok := r.MultipartForm.Value["Content-Type"]; ok {
 		contentType = contentTypes[0]
 	}
-	var successActionStatus int = http.StatusNoContent
+	successActionStatus := http.StatusNoContent
 	if successActionStatuses, ok := r.MultipartForm.Value["success_action_status"]; ok {
 		successInt, err := strconv.Atoi(successActionStatuses[0])
 		if err != nil {
@@ -170,6 +170,12 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 		return xmlResponse{errorMessage: err.Error()}
 	}
 	defer obj.Close()
+
+	if successActionStatus == 201 {
+		objectURI := fmt.Sprintf("%s/%s%s", s.URL(), bucketName, name)
+		xmlBody := createXmlResponseBody(bucketName, obj.Etag, strings.TrimPrefix(name, "/"), objectURI)
+		return xmlResponse{status: successActionStatus, data: xmlBody}
+	}
 	return xmlResponse{status: successActionStatus}
 }
 

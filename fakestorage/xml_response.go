@@ -12,6 +12,14 @@ type xmlResponse struct {
 	errorMessage string
 }
 
+type xmlResponseBody struct {
+	XMLName  xml.Name `xml:"PostResponse"`
+	Bucket   string
+	Etag     interface{}
+	Key      string
+	Location string
+}
+
 type xmlHandler = func(r *http.Request) xmlResponse
 
 func xmlToHTTPHandler(h xmlHandler) http.HandlerFunc {
@@ -33,8 +41,30 @@ func xmlToHTTPHandler(h xmlHandler) http.HandlerFunc {
 		}
 
 		w.WriteHeader(status)
-		xml.NewEncoder(w).Encode(data)
+		if status == 201 {
+			dataBytes, _ := data.([]byte)
+			w.Write(dataBytes)
+		} else {
+			xml.NewEncoder(w).Encode(data)
+		}
 	}
+}
+
+func createXmlResponseBody(bucketName, etag, key, location string) []byte {
+	responseBody := xmlResponseBody{
+		Bucket: bucketName,
+		Etag: struct {
+			Value string `xml:",innerxml"`
+		}{etag},
+		Location: location,
+		Key:      key,
+	}
+	x, err := xml.Marshal(responseBody)
+	if err != nil {
+		return nil
+	}
+
+	return []byte(xml.Header + string(x))
 }
 
 func (r *xmlResponse) getStatus() int {
