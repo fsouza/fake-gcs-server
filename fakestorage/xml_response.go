@@ -8,7 +8,7 @@ import (
 type xmlResponse struct {
 	status       int
 	header       http.Header
-	data         interface{}
+	data         any
 	errorMessage string
 }
 
@@ -25,7 +25,7 @@ func xmlToHTTPHandler(h xmlHandler) http.HandlerFunc {
 		}
 
 		status := resp.getStatus()
-		var data interface{}
+		var data any
 		if status > 399 {
 			data = newErrorResponse(status, resp.getErrorMessage(status), nil)
 		} else {

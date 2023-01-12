@@ -20,15 +20,15 @@ func formatTime(t time.Time) string {
 }
 
 type listResponse struct {
-	Kind     string        `json:"kind"`
-	Items    []interface{} `json:"items"`
-	Prefixes []string      `json:"prefixes,omitempty"`
+	Kind     string   `json:"kind"`
+	Items    []any    `json:"items"`
+	Prefixes []string `json:"prefixes,omitempty"`
 }
 
 func newListBucketsResponse(buckets []backend.Bucket, location string) listResponse {
 	resp := listResponse{
 		Kind:  "storage#buckets",
-		Items: make([]interface{}, len(buckets)),
+		Items: make([]any, len(buckets)),
 	}
 	for i, bucket := range buckets {
 		resp.Items[i] = newBucketResponse(bucket, location)
@@ -63,7 +63,7 @@ func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 func newListObjectsResponse(objs []ObjectAttrs, prefixes []string) listResponse {
 	resp := listResponse{
 		Kind:     "storage#objects",
-		Items:    make([]interface{}, len(objs)),
+		Items:    make([]any, len(objs)),
 		Prefixes: prefixes,
 	}
 	for i, obj := range objs {

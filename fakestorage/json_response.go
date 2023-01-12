@@ -13,7 +13,7 @@ import (
 type jsonResponse struct {
 	status       int
 	header       http.Header
-	data         interface{}
+	data         any
 	errorMessage string
 }
 
@@ -30,7 +30,7 @@ func jsonToHTTPHandler(h jsonHandler) http.HandlerFunc {
 		}
 
 		status := resp.getStatus()
-		var data interface{}
+		var data any
 		if status > 399 {
 			data = newErrorResponse(status, resp.getErrorMessage(status), nil)
 		} else {
