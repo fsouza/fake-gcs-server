@@ -336,16 +336,17 @@ func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate Obj
 	return s.CreateObject(obj, NoConditions{})
 }
 
-func (s *storageFS) UpdateObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
+func (s *storageFS) UpdateObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
 	defer obj.Close()
-	obj.Metadata = map[string]string{}
-	for k, v := range metadata {
-		obj.Metadata[k] = v
+
+	if attrsToUpdate.Metadata != nil {
+		obj.Metadata = map[string]string{}
 	}
+	obj.patch(attrsToUpdate)
 	obj.Generation = 0 // reset generation id
 	return s.CreateObject(obj, NoConditions{})
 }

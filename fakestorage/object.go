@@ -975,25 +975,45 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	defer backendObj.Close()
 
 	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
-	resp := jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
-	return resp
+	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
 }
 
 func (s *Server) updateObject(r *http.Request) jsonResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
 	objectName := vars["objectName"]
-	var metadata struct {
-		Metadata map[string]string `json:"metadata"`
+
+	type acls struct {
+		Entity string
+		Role   string
 	}
-	err := json.NewDecoder(r.Body).Decode(&metadata)
+
+	var payload struct {
+		Metadata   map[string]string `json:"metadata"`
+		CustomTime string
+		Acl        []acls
+	}
+	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusBadRequest,
 			errorMessage: "Metadata in the request couldn't decode",
 		}
 	}
-	backendObj, err := s.backend.UpdateObject(bucketName, objectName, metadata.Metadata)
+
+	var attrsToUpdate backend.ObjectAttrs
+
+	attrsToUpdate.Metadata = payload.Metadata
+	attrsToUpdate.CustomTime = payload.CustomTime
+
+	if len(payload.Acl) > 0 {
+		attrsToUpdate.ACL = []storage.ACLRule{}
+		for _, aclData := range payload.Acl {
+			newAcl := storage.ACLRule{Entity: storage.ACLEntity(aclData.Entity), Role: storage.ACLRole(aclData.Role)}
+			attrsToUpdate.ACL = append(attrsToUpdate.ACL, newAcl)
+		}
+	}
+	backendObj, err := s.backend.UpdateObject(bucketName, objectName, attrsToUpdate)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusNotFound,

@@ -310,16 +310,17 @@ func (s *storageMemory) PatchObject(bucketName, objectName string, attrsToUpdate
 	return obj, nil
 }
 
-// UpdateObject replaces an object metadata.
-func (s *storageMemory) UpdateObject(bucketName, objectName string, metadata map[string]string) (StreamingObject, error) {
+// UpdateObject replaces an object metadata, custom time, and acl.
+func (s *storageMemory) UpdateObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
-	obj.Metadata = map[string]string{}
-	for k, v := range metadata {
-		obj.Metadata[k] = v
+
+	if attrsToUpdate.Metadata != nil {
+		obj.Metadata = map[string]string{}
 	}
+	obj.patch(attrsToUpdate)
 	s.CreateObject(obj, NoConditions{})
 	return obj, nil
 }
