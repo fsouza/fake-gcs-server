@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -1613,6 +1614,58 @@ func checkObjectMetadata(actual, expected map[string]string, t *testing.T) {
 			t.Errorf("Metadata for key %s: actual = %s, expected = %s", k, actual[k], v)
 		}
 	}
+}
+
+func TestServerClientObjectUpdateCustomTime(t *testing.T) {
+	const (
+		bucketName  = "some-bucket"
+		objectName  = "data.txt"
+		content     = "some nice content"
+		contentType = "text/plain; charset=utf-8"
+	)
+	startTime := time.Now().Truncate(time.Second)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+				CustomTime:  startTime.Add(-5 * time.Hour),
+			},
+			Content: []byte(content),
+		},
+	}
+	url := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o/%s", bucketName, objectName)
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.HTTPClient()
+		jsonBody := []byte(`{"CustomTime": "` + formatTime(startTime) + `"}`)
+		bodyReader := bytes.NewReader(jsonBody)
+		req, err := http.NewRequest(http.MethodPut, url, bodyReader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+		}
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var respJsonBody ObjectAttrs
+		err = json.Unmarshal(data, &respJsonBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		updatedCustomTime := respJsonBody.CustomTime
+		if !updatedCustomTime.Equal(startTime) {
+			t.Errorf("unexpected custom time\nwant %q\ngot  %q", startTime.String(), updatedCustomTime.String())
+		}
+	})
 }
 
 func TestServerClientObjectPatchCustomTime(t *testing.T) {
