@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/pkg/xattr v0.4.9
 	github.com/sirupsen/logrus v1.9.0
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/oauth2 v0.5.0
 	google.golang.org/api v0.110.0
 )
