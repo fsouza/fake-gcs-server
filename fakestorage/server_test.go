@@ -7,6 +7,7 @@ package fakestorage
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,9 +19,216 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/fsouza/fake-gcs-server/internal/notification"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/api/iterator"
 )
+
+func TestMain(m *testing.M) {
+	const emptyBucketDir = "../testdata/basic/empty-bucket"
+	err := ensureEmptyDir(emptyBucketDir)
+	if err != nil {
+		panic(err)
+	}
+	var status int
+	defer func() {
+		os.Remove(emptyBucketDir)
+		os.Exit(status)
+	}()
+	status = m.Run()
+}
+
+func TestGenerateObjectsFromFiles(t *testing.T) {
+	testContentType := "text/plain; charset=utf-8"
+
+	t.Parallel()
+	tests := []struct {
+		name                 string
+		folder               string
+		expectedObjects      []Object
+		expectedEmptyBuckets []string
+	}{
+		{
+			name:   "should load from sample folder",
+			folder: "../testdata/basic",
+			expectedObjects: []Object{
+				{
+					ObjectAttrs: ObjectAttrs{
+						ACL: []storage.ACLRule{
+							{
+								Entity: "projectOwner-test-project",
+								Role:   "OWNER",
+							},
+						},
+						BucketName:  "sample-bucket",
+						Name:        "some_file.txt",
+						ContentType: "text/plain; charset=utf-8",
+					},
+					Content: []byte("Some amazing content to be loaded"),
+				},
+			},
+			expectedEmptyBuckets: []string{"empty-bucket"},
+		},
+		{
+			name:   "should support multiple levels",
+			folder: "../testdata/multi-level",
+			expectedObjects: []Object{
+				{
+					ObjectAttrs: ObjectAttrs{
+						ACL: []storage.ACLRule{
+							{
+								Entity: "projectOwner-test-project",
+								Role:   "OWNER",
+							},
+						},
+						BucketName:  "some-bucket",
+						Name:        "a/b/c/d/e/f/object1.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("this is object 1\n"),
+				},
+				{
+					ObjectAttrs: ObjectAttrs{
+						ACL: []storage.ACLRule{
+							{
+								Entity: "projectOwner-test-project",
+								Role:   "OWNER",
+							},
+						},
+						BucketName:  "some-bucket",
+						Name:        "a/b/c/d/e/f/object2.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("this is object 2\n"),
+				},
+				{
+					ObjectAttrs: ObjectAttrs{
+						ACL: []storage.ACLRule{
+							{
+								Entity: "projectOwner-test-project",
+								Role:   "OWNER",
+							},
+						},
+						BucketName:  "some-bucket",
+						Name:        "root-object.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("r00t\n"),
+				},
+			},
+		},
+		{
+			name:   "should skip inexistent folder",
+			folder: "../testdata/i-dont-exist",
+		},
+		{
+			name:   "should skip a regular file",
+			folder: "../testdata/basic/sample-bucket/some_file.txt",
+		},
+		{
+			name:   "should skip invalid directories and files",
+			folder: "../testdata/chaos",
+			expectedObjects: []Object{
+				{
+					ObjectAttrs: ObjectAttrs{
+						ACL: []storage.ACLRule{
+							{
+								Entity: "projectOwner-test-project",
+								Role:   "OWNER",
+							},
+						},
+						BucketName:  "bucket1",
+						Name:        "object1.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("object 1\n"),
+				},
+				{
+					ObjectAttrs: ObjectAttrs{
+						ACL: []storage.ACLRule{
+							{
+								Entity: "projectOwner-test-project",
+								Role:   "OWNER",
+							},
+						},
+						BucketName:  "bucket1",
+						Name:        "object2.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("object 2\n"),
+				},
+				{
+					ObjectAttrs: ObjectAttrs{
+						ACL: []storage.ACLRule{
+							{
+								Entity: "projectOwner-test-project",
+								Role:   "OWNER",
+							},
+						},
+						BucketName:  "bucket2",
+						Name:        "object1.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("object 1\n"),
+				},
+				{
+					ObjectAttrs: ObjectAttrs{
+						ACL: []storage.ACLRule{
+							{
+								Entity: "projectOwner-test-project",
+								Role:   "OWNER",
+							},
+						},
+						BucketName:  "bucket2",
+						Name:        "object2.txt",
+						ContentType: testContentType,
+					},
+					Content: []byte("object 2\n"),
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			objects, emptyBuckets := generateObjectsFromFiles(test.folder)
+			cmpOpts := []cmp.Option{
+				cmpopts.IgnoreFields(Object{}, "Crc32c", "Md5Hash"),
+				cmpopts.IgnoreUnexported(Object{}),
+			}
+			if diff := cmp.Diff(objects, test.expectedObjects, cmpOpts...); diff != "" {
+				t.Errorf("wrong list of objects returned\nwant %#v\ngot  %#v\ndiff: %s", test.expectedObjects, objects, diff)
+			}
+			if diff := cmp.Diff(emptyBuckets, test.expectedEmptyBuckets); diff != "" {
+				t.Errorf("wrong list of empty buckets returned\nwant %#v\ngot  %#v", test.expectedEmptyBuckets, emptyBuckets)
+			}
+		})
+	}
+}
+
+func ensureEmptyDir(dirname string) error {
+	err := os.Mkdir(dirname, 0o755)
+	if err != nil {
+		dir, direrr := os.Open(dirname)
+		if direrr != nil {
+			return fmt.Errorf("cannot create empty dir %q: mkdir failed with %v. open failed with %v", dirname, err, direrr)
+		}
+		defer dir.Close()
+
+		_, direrr = dir.Readdirnames(1)
+		if direrr == io.EOF {
+			return nil
+		}
+		if direrr != nil {
+			return fmt.Errorf("cannot create empty dir %q: mkdir failed with %v. readdir failed with %v", dirname, err, direrr)
+		}
+		return fmt.Errorf("cannot create empty dir %q: it already exists and is not empty", dirname)
+	}
+	return nil
+}
 
 func TestNewServer(t *testing.T) {
 	t.Parallel()

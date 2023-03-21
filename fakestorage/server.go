@@ -20,11 +20,14 @@ import (
 	"net/http/httputil"
 	"net/textproto"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
+	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -260,6 +263,7 @@ func (s *Server) buildMuxer() {
 	// Internal / update server configuration
 	s.mux.Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
 	s.mux.MatcherFunc(s.publicHostMatcher).Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
+	s.mux.Path("/_internal/reseed").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.reseedServer))
 	// Internal - end
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
@@ -285,6 +289,87 @@ func (s *Server) buildMuxer() {
 	s.mux.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.getObject)
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+}
+
+func (s *Server) reseedServer(r *http.Request) jsonResponse {
+	folder := "/data"
+	initialObjects, emptyBuckets := generateObjectsFromFiles(folder)
+
+	backendObjects := bufferedObjectsToBackendObjects(initialObjects)
+
+	var err error
+	if s.options.StorageRoot != "" {
+		s.backend, err = backend.NewStorageFS(backendObjects, s.options.StorageRoot)
+	} else {
+		s.backend, err = backend.NewStorageMemory(backendObjects)
+	}
+	if err != nil {
+		return errToJsonResponse(err)
+	}
+
+	for _, bucketName := range emptyBuckets {
+		s.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+	}
+
+	return jsonResponse{data: fromBackendObjects(backendObjects)}
+}
+
+func generateObjectsFromFiles(folder string) ([]Object, []string) {
+	var objects []Object
+	var emptyBuckets []string
+	if files, err := os.ReadDir(folder); err == nil {
+		for _, f := range files {
+			if !f.IsDir() {
+				continue
+			}
+			bucketName := f.Name()
+			localBucketPath := filepath.Join(folder, bucketName)
+
+			bucketObjects, err := objectsFromBucket(localBucketPath, bucketName)
+			if err != nil {
+				continue
+			}
+
+			if len(bucketObjects) < 1 {
+				emptyBuckets = append(emptyBuckets, bucketName)
+			}
+			objects = append(objects, bucketObjects...)
+		}
+	}
+	return objects, emptyBuckets
+}
+
+func objectsFromBucket(localBucketPath, bucketName string) ([]Object, error) {
+	var objects []Object
+	err := filepath.Walk(localBucketPath, func(path string, info os.FileInfo, _ error) error {
+		if info.Mode().IsRegular() {
+			// Rel() should never return error since path always descend from localBucketPath
+			relPath, _ := filepath.Rel(localBucketPath, path)
+			objectKey := filepath.ToSlash(relPath)
+			fileContent, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("could not read file %q: %w", path, err)
+			}
+			objects = append(objects, Object{
+				ObjectAttrs: ObjectAttrs{
+					ACL: []storage.ACLRule{
+						{
+							Entity: "projectOwner-test-project",
+							Role:   "OWNER",
+						},
+					},
+					BucketName:  bucketName,
+					Name:        objectKey,
+					ContentType: mime.TypeByExtension(filepath.Ext(path)),
+					Crc32c:      checksum.EncodedCrc32cChecksum(fileContent),
+					Md5Hash:     checksum.EncodedMd5Hash(fileContent),
+				},
+				Content: fileContent,
+			})
+		}
+		return nil
+	})
+	return objects, err
 }
 
 func (s *Server) healthcheck(w http.ResponseWriter, r *http.Request) {
