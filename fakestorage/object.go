@@ -434,6 +434,10 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 				CustomTime:      o.CustomTime.Format(timestampFormat),
 				Generation:      o.Generation,
 				Metadata:        o.Metadata,
+				Crc32c:          o.Crc32c,
+				Md5Hash:         o.Md5Hash,
+				Size:            o.Size,
+				Etag:            o.Etag,
 			},
 			Content: o.Content,
 		})

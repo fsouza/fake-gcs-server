@@ -198,9 +198,15 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, err
 	}
 
-	obj.Crc32c = hasher.EncodedCrc32cChecksum()
-	obj.Md5Hash = hasher.EncodedMd5Hash()
-	obj.Etag = fmt.Sprintf("%q", obj.Md5Hash)
+	if obj.Crc32c == "" {
+		obj.Crc32c = hasher.EncodedCrc32cChecksum()
+	}
+	if obj.Md5Hash == "" {
+		obj.Md5Hash = hasher.EncodedMd5Hash()
+	}
+	if obj.Etag == "" {
+		obj.Etag = fmt.Sprintf("%q", obj.Md5Hash)
+	}
 
 	// TODO: Handle if metadata is not present more gracefully?
 	encoded, err := json.Marshal(obj.ObjectAttrs)

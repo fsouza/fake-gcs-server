@@ -37,10 +37,18 @@ func newBucketInMemory(name string, versioningEnabled bool) bucketInMemory {
 }
 
 func (bm *bucketInMemory) addObject(obj Object) Object {
-	obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
-	obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
-	obj.Etag = fmt.Sprintf("%q", obj.Md5Hash)
-	obj.Size = int64(len(obj.Content))
+	if obj.Crc32c == "" {
+		obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
+	}
+	if obj.Md5Hash == "" {
+		obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
+	}
+	if obj.Etag == "" {
+		obj.Etag = fmt.Sprintf("%q", obj.Md5Hash)
+	}
+	if obj.Size == 0 {
+		obj.Size = int64(len(obj.Content))
+	}
 	obj.Generation = getNewGenerationIfZero(obj.Generation)
 	index := findObject(obj, bm.activeObjects, false)
 	if index >= 0 {
@@ -358,9 +366,10 @@ func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, d
 	}
 
 	dest.Content = data
-	dest.Crc32c = checksum.EncodedCrc32cChecksum(data)
-	dest.Md5Hash = checksum.EncodedMd5Hash(data)
-	dest.Etag = fmt.Sprintf("%q", dest.Md5Hash)
+	dest.Crc32c = ""
+	dest.Md5Hash = ""
+	dest.Etag = ""
+	dest.Size = 0
 	dest.Metadata = metadata
 
 	result, err := s.CreateObject(dest.StreamingObject(), NoConditions{})

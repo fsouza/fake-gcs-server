@@ -391,6 +391,7 @@ func TestServerClientObjectTranscoding(t *testing.T) {
 				Name:            objectName,
 				ContentType:     contentType,
 				ContentEncoding: contentEncoding,
+				Crc32c:          checksum.EncodedCrc32cChecksum([]byte(content)),
 			},
 			Content: b.Bytes(),
 		},
