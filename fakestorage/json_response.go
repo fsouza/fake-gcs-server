@@ -46,7 +46,8 @@ func jsonToHTTPHandler(h jsonHandler) http.HandlerFunc {
 			return
 		}
 
-		fmt.Printf("%s %s\n", r.URL, buf)
+		s := fmt.Sprintf("%s", buf)
+		fmt.Println(r.URL.String() + "\n" + s)
 
 		w.Write(buf)
 
