@@ -37,26 +37,36 @@ func newListBucketsResponse(buckets []backend.Bucket, location string) listRespo
 }
 
 type bucketResponse struct {
-	Kind        string            `json:"kind"`
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Versioning  *bucketVersioning `json:"versioning,omitempty"`
-	TimeCreated string            `json:"timeCreated,omitempty"`
-	Location    string            `json:"location,omitempty"`
+	Kind           string            `json:"kind"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Versioning     *bucketVersioning `json:"versioning,omitempty"`
+	TimeCreated    string            `json:"timeCreated,omitempty"`
+	Location       string            `json:"location,omitempty"`
+	ProjectNumber  string            `json:"projectNumber"`
+	Metageneration string            `json:"metageneration"`
+	StorageClass   string            `json:"storageClass"`
+	Etag           string            `json:"etag"`
+	LocationType   string            `json:"locationType"`
 }
 
 type bucketVersioning struct {
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 }
 
 func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 	return bucketResponse{
-		Kind:        "storage#bucket",
-		ID:          bucket.Name,
-		Name:        bucket.Name,
-		Versioning:  &bucketVersioning{bucket.VersioningEnabled},
-		TimeCreated: formatTime(bucket.TimeCreated),
-		Location:    location,
+		Kind:           "storage#bucket",
+		ID:             bucket.Name,
+		Name:           bucket.Name,
+		Versioning:     &bucketVersioning{bucket.VersioningEnabled},
+		TimeCreated:    formatTime(bucket.TimeCreated),
+		Location:       location,
+		ProjectNumber:  "0",
+		Metageneration: "0",
+		StorageClass:   "STANDARD",
+		Etag:           "",
+		LocationType:   "region",
 	}
 }
 
@@ -80,17 +90,17 @@ type objectAccessControl struct {
 	Email       string `json:"email,omitempty"`
 	Entity      string `json:"entity,omitempty"`
 	EntityID    string `json:"entityId,omitempty"`
-	Etag        string `json:"etag,omitempty"`
+	Etag        string `json:"etag"`
 	Generation  int64  `json:"generation,omitempty,string"`
 	ID          string `json:"id,omitempty"`
-	Kind        string `json:"kind,omitempty"`
+	Kind        string `json:"kind"`
 	Object      string `json:"object,omitempty"`
 	ProjectTeam struct {
 		ProjectNumber string `json:"projectNumber,omitempty"`
 		Team          string `json:"team,omitempty"`
 	} `json:"projectTeam,omitempty"`
 	Role     string `json:"role,omitempty"`
-	SelfLink string `json:"selfLink,omitempty"`
+	SelfLink string `json:"selfLink"`
 }
 
 type objectResponse struct {
@@ -111,6 +121,9 @@ type objectResponse struct {
 	Generation      int64                  `json:"generation,string"`
 	CustomTime      string                 `json:"customTime,omitempty"`
 	Metadata        map[string]string      `json:"metadata,omitempty"`
+	Metageneration  string                 `json:"metageneration"`
+	SelfLink        string                 `json:"selfLink"`
+	MediaLink       string                 `json:"mediaLink"`
 }
 
 func newObjectResponse(obj ObjectAttrs) objectResponse {
@@ -134,6 +147,9 @@ func newObjectResponse(obj ObjectAttrs) objectResponse {
 		Updated:         formatTime(obj.Updated),
 		CustomTime:      formatTime(obj.CustomTime),
 		Generation:      obj.Generation,
+		Metageneration:  "0",
+		SelfLink:        "",
+		MediaLink:       "",
 	}
 }
 

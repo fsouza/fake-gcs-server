@@ -3,6 +3,7 @@ package fakestorage
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"syscall"
@@ -38,7 +39,17 @@ func jsonToHTTPHandler(h jsonHandler) http.HandlerFunc {
 		}
 
 		w.WriteHeader(status)
-		json.NewEncoder(w).Encode(data)
+
+		buf, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			fmt.Println("Error while marshaling:", err)
+			return
+		}
+
+		fmt.Printf("%s %s\n", r.URL, buf)
+
+		w.Write(buf)
+
 	}
 }
 
