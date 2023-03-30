@@ -329,7 +329,7 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 	if err := s.mh.remove(path); err != nil {
 		return err
 	}
-	return os.Remove(path)
+	return os.RemoveAll(path)
 }
 
 func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
