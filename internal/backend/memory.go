@@ -33,7 +33,7 @@ type bucketInMemory struct {
 }
 
 func newBucketInMemory(name string, versioningEnabled bool) bucketInMemory {
-	return bucketInMemory{Bucket{name, versioningEnabled, time.Now()}, []Object{}, []Object{}}
+	return bucketInMemory{Bucket{name, versioningEnabled, time.Now(), time.Now()}, []Object{}, []Object{}}
 }
 
 func (bm *bucketInMemory) addObject(obj Object) Object {
@@ -172,7 +172,8 @@ func (s *storageMemory) ListBuckets() ([]Bucket, error) {
 	defer s.mtx.RUnlock()
 	buckets := []Bucket{}
 	for _, bucketInMemory := range s.buckets {
-		buckets = append(buckets, Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated})
+		buckets = append(buckets, Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled,
+			bucketInMemory.TimeCreated, bucketInMemory.Updated})
 	}
 	return buckets, nil
 }
@@ -182,7 +183,7 @@ func (s *storageMemory) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(name)
-	return Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated}, err
+	return Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated, bucketInMemory.Updated}, err
 }
 
 func (s *storageMemory) getBucketInMemory(name string) (bucketInMemory, error) {

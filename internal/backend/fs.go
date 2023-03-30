@@ -123,7 +123,9 @@ func (s *storageFS) GetBucket(name string) (Bucket, error) {
 	if err != nil {
 		return Bucket{}, err
 	}
-	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo))}, err
+	return Bucket{Name: name, VersioningEnabled: false,
+		TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo)),
+		Updated:     dirInfo.ModTime()}, err
 }
 
 // DeleteBucket removes the bucket from the backend.
