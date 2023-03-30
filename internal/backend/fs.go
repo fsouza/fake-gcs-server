@@ -182,14 +182,18 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 	}
 
 	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), obj.Name)
-	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return StreamingObject{}, err
-	}
 
 	// Nothing to do if this operation only creates directories
 	if strings.HasSuffix(obj.Name, "/") {
+		if err = os.MkdirAll(path, 0o700); err != nil {
+			return StreamingObject{}, err
+		}
 		// TODO: populate Crc32c, Md5Hash, and Etag
 		return StreamingObject{obj.ObjectAttrs, noopSeekCloser{bytes.NewReader([]byte{})}}, nil
+	} else {
+		if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			return StreamingObject{}, err
+		}
 	}
 
 	var buf bytes.Buffer
@@ -247,11 +251,16 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 			return nil
 		}
 		if info.IsDir() {
-			return nil
+			if objName == "." {
+				return nil
+			}
+
+			objName += "/"
 		}
 		if prefix != "" && !strings.HasPrefix(objName, prefix) {
 			return nil
 		}
+
 		object, err := s.getObject(bucketName, objName)
 		if err != nil {
 			return err
@@ -288,20 +297,39 @@ func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, gener
 func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, error) {
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
 
-	encoded, err := s.mh.read(path)
-	if err != nil {
-		return StreamingObject{}, err
-	}
-
 	var obj StreamingObject
-	if err = json.Unmarshal(encoded, &obj.ObjectAttrs); err != nil {
-		return StreamingObject{}, err
+	var err error
+	if strings.HasSuffix(objectName, "/") {
+		fileinfo, err := os.Stat(path)
+		if err != nil {
+			return StreamingObject{}, err
+		}
+
+		if !fileinfo.IsDir() {
+			return StreamingObject{}, Error("Conflict: expected directory but found file")
+		}
+
+		format := "2006-01-02T15:04:05.999999Z07:00"
+		obj.ObjectAttrs.Size = 0
+		obj.ObjectAttrs.Created = fileinfo.ModTime().Format(format)
+		obj.ObjectAttrs.Updated = fileinfo.ModTime().Format(format)
+	} else {
+		var encoded []byte
+		encoded, err = s.mh.read(path)
+
+		if err != nil {
+			return StreamingObject{}, err
+		}
+
+		if err = json.Unmarshal(encoded, &obj.ObjectAttrs); err != nil {
+			return StreamingObject{}, err
+		}
+
+		err = openObjectAndSetSize(&obj, path)
 	}
 
 	obj.Name = filepath.ToSlash(objectName)
 	obj.BucketName = bucketName
-
-	err = openObjectAndSetSize(&obj, path)
 
 	return obj, err
 }
@@ -326,6 +354,16 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 		return errors.New("can't delete object with empty name")
 	}
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
+	fileinfo, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if (fileinfo.IsDir() && !strings.HasSuffix(objectName, "/")) ||
+		(!fileinfo.IsDir() && strings.HasSuffix(objectName, "/")) {
+		return fs.ErrNotExist
+	}
+
 	if err := s.mh.remove(path); err != nil {
 		return err
 	}
