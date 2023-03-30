@@ -11,4 +11,5 @@ type Bucket struct {
 	Name              string
 	VersioningEnabled bool
 	TimeCreated       time.Time
+	Updated           time.Time
 }

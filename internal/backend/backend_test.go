@@ -243,8 +243,8 @@ func TestBucketCreateGetListDelete(t *testing.T) {
 			t.Fatalf("more than zero buckets found: %d, and expecting zero when starting the test", len(buckets))
 		}
 		bucketsToTest := []Bucket{
-			{"prod-bucket", false, time.Time{}},
-			{"prod-bucket-with-versioning", true, time.Time{}},
+			{"prod-bucket", false, time.Time{}, time.Time{}},
+			{"prod-bucket-with-versioning", true, time.Time{}, time.Time{}},
 		}
 		for _, bucket := range bucketsToTest {
 			_, err := storage.GetBucket(bucket.Name)

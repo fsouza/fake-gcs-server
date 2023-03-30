@@ -42,6 +42,7 @@ type bucketResponse struct {
 	Name        string            `json:"name"`
 	Versioning  *bucketVersioning `json:"versioning,omitempty"`
 	TimeCreated string            `json:"timeCreated,omitempty"`
+	Updated     string            `json:"updated,omitempty"`
 	Location    string            `json:"location,omitempty"`
 }
 
@@ -56,6 +57,7 @@ func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 		Name:        bucket.Name,
 		Versioning:  &bucketVersioning{bucket.VersioningEnabled},
 		TimeCreated: formatTime(bucket.TimeCreated),
+		Updated:     formatTime(bucket.Updated),
 		Location:    location,
 	}
 }
