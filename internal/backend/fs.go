@@ -229,6 +229,30 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 	return obj, err
 }
 
+func (s *storageFS) RenameObject(sourceBucket, sourceObjectName, targetBucket, targetObjectName string) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	err := s.createBucket(sourceBucket)
+	if err != nil {
+		return err
+	}
+
+	err = s.createBucket(targetBucket)
+	if err != nil {
+		return err
+	}
+
+	sourcePath := filepath.Join(s.rootDir, url.PathEscape(sourceBucket), sourceObjectName)
+	targetPath := filepath.Join(s.rootDir, url.PathEscape(targetBucket), targetObjectName)
+
+	err = os.MkdirAll(filepath.Dir(targetPath), 0o700)
+	if err != nil {
+		return err
+	}
+
+	return os.Rename(sourcePath, targetPath)
+}
+
 // ListObjects lists the objects in a given bucket with a given prefix and
 // delimeter.
 func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {

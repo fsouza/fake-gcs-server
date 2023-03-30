@@ -230,34 +230,70 @@ func (s *storageMemory) CreateObject(obj StreamingObject, conditions Conditions)
 	return newObj.StreamingObject(), nil
 }
 
+func (s *storageMemory) RenameObject(sourceBucket, sourceObjectName, targetBucket, targetObjectName string) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	srcBucket, err := s.getBucketInMemory(sourceBucket)
+	if err != nil {
+		return err
+	}
+
+	dstBucket, err := s.getBucketInMemory(sourceBucket)
+	if err != nil {
+		return err
+	}
+
+	objs, err := s.ListObjectsModels(sourceBucket, sourceObjectName, false)
+
+	for _, obj := range objs {
+		obj.Name = strings.ReplaceAll(obj.Name, sourceObjectName, targetObjectName)
+		if sourceBucket != targetBucket {
+			srcBucket.deleteObject(obj, false)
+			dstBucket.addObject(obj)
+		}
+	}
+
+	return nil
+}
+
+func (s *storageMemory) ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {
+	objs, err := s.ListObjectsModels(bucketName, prefix, versions)
+	objsAttrs := make([]ObjectAttrs, 0, len(objs))
+	for _, obj := range objs {
+		objsAttrs = append(objsAttrs, obj.ObjectAttrs)
+	}
+
+	return objsAttrs, err
+}
+
 // ListObjects lists the objects in a given bucket with a given prefix and
 // delimiter.
-func (s *storageMemory) ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {
+func (s *storageMemory) ListObjectsModels(bucketName string, prefix string, versions bool) ([]Object, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
 	if err != nil {
-		return []ObjectAttrs{}, err
+		return []Object{}, err
 	}
-	objAttrs := make([]ObjectAttrs, 0, len(bucketInMemory.activeObjects))
+	objs := make([]Object, 0, len(bucketInMemory.activeObjects))
 	for _, obj := range bucketInMemory.activeObjects {
 		if prefix != "" && !strings.HasPrefix(obj.Name, prefix) {
 			continue
 		}
-		objAttrs = append(objAttrs, obj.ObjectAttrs)
+		objs = append(objs, obj)
 	}
 	if !versions {
-		return objAttrs, nil
+		return objs, nil
 	}
 
-	archvObjs := make([]ObjectAttrs, 0, len(bucketInMemory.archivedObjects))
+	archvObjs := make([]Object, 0, len(bucketInMemory.archivedObjects))
 	for _, obj := range bucketInMemory.archivedObjects {
 		if prefix != "" && !strings.HasPrefix(obj.Name, prefix) {
 			continue
 		}
-		archvObjs = append(archvObjs, obj.ObjectAttrs)
+		archvObjs = append(archvObjs, obj)
 	}
-	return append(objAttrs, archvObjs...), nil
+	return append(objs, archvObjs...), nil
 }
 
 func (s *storageMemory) GetObject(bucketName, objectName string) (StreamingObject, error) {
