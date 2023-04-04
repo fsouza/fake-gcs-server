@@ -77,6 +77,7 @@ func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server,
 type Options struct {
 	InitialObjects []Object
 	StorageRoot    string
+	Seed           string
 	Scheme         string
 	Host           string
 	Port           uint16
@@ -292,8 +293,7 @@ func (s *Server) buildMuxer() {
 }
 
 func (s *Server) reseedServer(r *http.Request) jsonResponse {
-	folder := "/data"
-	initialObjects, emptyBuckets := generateObjectsFromFiles(folder)
+	initialObjects, emptyBuckets := generateObjectsFromFiles(s.options.Seed)
 
 	backendObjects := bufferedObjectsToBackendObjects(initialObjects)
 

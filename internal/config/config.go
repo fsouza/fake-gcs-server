@@ -169,6 +169,7 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 	logger.SetLevel(c.LogLevel)
 	opts := fakestorage.Options{
 		StorageRoot:         storageRoot,
+		Seed:                c.Seed,
 		Scheme:              c.scheme,
 		Host:                c.host,
 		Port:                uint16(c.port),
