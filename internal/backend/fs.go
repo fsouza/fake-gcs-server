@@ -233,28 +233,55 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 	return obj, err
 }
 
-func (s *storageFS) RenameObject(sourceBucket, sourceObjectName, targetBucket, targetObjectName string) error {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-	err := s.createBucket(sourceBucket)
+func (s *storageFS) addObject(name string, source StreamingObject, dest StreamingObject) error {
+	sourceObject, err := s.GetObject(source.BucketName, name)
 	if err != nil {
 		return err
 	}
 
-	err = s.createBucket(targetBucket)
+	obj := StreamingObject{
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      dest.BucketName,
+			Name:            strings.Replace(name, source.Name, dest.Name, 1),
+			ACL:             sourceObject.ACL,
+			ContentType:     dest.ContentType,
+			ContentEncoding: dest.ContentEncoding,
+			Metadata:        dest.Metadata,
+		},
+		Content: sourceObject.Content,
+	}
+
+	s.CreateObject(obj, NoConditions{})
+	return nil
+}
+
+func (s *storageFS) CopyObject(source StreamingObject, dest StreamingObject) error {
+	// s.mtx.Lock()
+	// defer s.mtx.Unlock()
+	if err := s.CreateBucket(source.BucketName, false); err != nil {
+		return err
+	}
+
+	if err := s.CreateBucket(dest.BucketName, false); err != nil {
+		return err
+	}
+
+	if err := s.addObject(source.Name, source, dest); err != nil {
+		return err
+	}
+	objs, err := s.ListObjects(source.BucketName, source.Name+"/", false)
 	if err != nil {
 		return err
 	}
 
-	sourcePath := filepath.Join(s.rootDir, url.PathEscape(sourceBucket), sourceObjectName)
-	targetPath := filepath.Join(s.rootDir, url.PathEscape(targetBucket), targetObjectName)
-
-	err = os.MkdirAll(filepath.Dir(targetPath), 0o700)
-	if err != nil {
-		return err
+	for _, obj := range objs {
+		err = s.addObject(obj.Name, source, dest)
+		if err != nil {
+			return err
+		}
 	}
 
-	return os.Rename(sourcePath, targetPath)
+	return nil
 }
 
 // ListObjects lists the objects in a given bucket with a given prefix and

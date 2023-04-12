@@ -714,7 +714,20 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 
 	dstBucket := vars["destinationBucket"]
 	dstName := vars["destinationObject"]
-	err = s.backend.RenameObject(obj.BucketName, obj.Name, dstBucket, dstName)
+	newObject := StreamingObject{
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      dstBucket,
+			Name:            vars["destinationObject"],
+			ACL:             obj.ACL,
+			ContentType:     metadata.ContentType,
+			ContentEncoding: metadata.ContentEncoding,
+			Metadata:        metadata.Metadata,
+		},
+		Content: obj.Content,
+	}
+
+	objs := toBackendObjects([]StreamingObject{obj, newObject})
+	err = s.backend.CopyObject(objs[0], objs[1])
 	if err != nil {
 		return errToJsonResponse(err)
 	}

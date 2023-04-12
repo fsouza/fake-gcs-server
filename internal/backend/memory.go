@@ -230,26 +230,53 @@ func (s *storageMemory) CreateObject(obj StreamingObject, conditions Conditions)
 	return newObj.StreamingObject(), nil
 }
 
-func (s *storageMemory) RenameObject(sourceBucket, sourceObjectName, targetBucket, targetObjectName string) error {
+func (s *storageMemory) addObject(name string, source StreamingObject, dest StreamingObject, dstBucket bucketInMemory) error {
+	sourceObject, err := s.GetObject(source.BucketName, name)
+	if err != nil {
+		return err
+	}
+
+	content, err := io.ReadAll(sourceObject.Content)
+	if err != nil {
+		return err
+	}
+	obj := Object{
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      dest.BucketName,
+			Name:            strings.Replace(name, source.Name, dest.Name, 1),
+			ACL:             sourceObject.ACL,
+			ContentType:     dest.ContentType,
+			ContentEncoding: dest.ContentEncoding,
+			Metadata:        dest.Metadata,
+		},
+		Content: content,
+	}
+
+	dstBucket.addObject(obj)
+	return nil
+}
+
+func (s *storageMemory) CopyObject(source StreamingObject, dest StreamingObject) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	srcBucket, err := s.getBucketInMemory(sourceBucket)
+	dstBucket, err := s.getBucketInMemory(dest.BucketName)
 	if err != nil {
 		return err
 	}
 
-	dstBucket, err := s.getBucketInMemory(sourceBucket)
+	err = s.addObject(source.Name, source, dest, dstBucket)
 	if err != nil {
 		return err
 	}
-
-	objs, err := s.ListObjectsModels(sourceBucket, sourceObjectName, false)
+	objs, err := s.ListObjectsModels(source.BucketName, source.Name+"/", false)
+	if err != nil {
+		return err
+	}
 
 	for _, obj := range objs {
-		obj.Name = strings.ReplaceAll(obj.Name, sourceObjectName, targetObjectName)
-		if sourceBucket != targetBucket {
-			srcBucket.deleteObject(obj, false)
-			dstBucket.addObject(obj)
+		err = s.addObject(obj.Name, source, dest, dstBucket)
+		if err != nil {
+			return err
 		}
 	}
 
