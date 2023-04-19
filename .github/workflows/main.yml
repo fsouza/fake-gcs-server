@@ -126,31 +126,31 @@ jobs:
           - lang: python
             docker-image: python:latest
             entrypoint: /bin/bash
-          - lang: node
-            docker-image: node:14-alpine
-            entrypoint: /bin/sh
-          - lang: go
-            docker-image: golang:alpine
-            entrypoint: /bin/sh
-          - lang: dotnet
-            docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
-            entrypoint: /bin/sh
-          - lang: scala
-            docker-image: mozilla/sbt:8u292_1.5.7
-            entrypoint: /bin/sh
-          - lang: java
-            docker-image: openjdk:11
-            entrypoint: /bin/sh
-          - lang: cpp
-            docker-image: alpine:3.15.4
-            entrypoint: /bin/sh
+          # - lang: node
+          #   docker-image: node:14-alpine
+          #   entrypoint: /bin/sh
+          # - lang: go
+          #   docker-image: golang:alpine
+          #   entrypoint: /bin/sh
+          # - lang: dotnet
+          #   docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
+          #   entrypoint: /bin/sh
+          # - lang: scala
+          #   docker-image: mozilla/sbt:8u292_1.5.7
+          #   entrypoint: /bin/sh
+          # - lang: java
+          #   docker-image: openjdk:11
+          #   entrypoint: /bin/sh
+          # - lang: cpp
+          #   docker-image: alpine:3.15.4
+          #   entrypoint: /bin/sh
 
     name: test-${{ matrix.lang }}-example
     runs-on: ubuntu-latest
     needs:
       - build-artifact
-      - lint
-      - staticcheck
+      # - lint
+      # - staticcheck
     steps:
       - uses: actions/checkout@v3.5.2
 

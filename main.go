@@ -9,16 +9,18 @@ import (
 	"fmt"
 	"log"
 	"mime"
+	"net"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/fsouza/fake-gcs-server/internal/config"
 	"github.com/sirupsen/logrus"
+
+	"github.com/fsouza/fake-gcs-server/grpc"
+	"github.com/soheilhy/cmux"
 )
 
 func main() {
@@ -29,17 +31,30 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	logger := logrus.New()
 	logger.SetLevel(cfg.LogLevel)
 
-	var emptyBuckets []string
 	opts := cfg.ToFakeGcsOptions()
+
+	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	m := cmux.New(listener)
+	httpsListener := m.Match(cmux.TLS())
+	grpcListener := m.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
+
+	var emptyBuckets []string
 	if cfg.Seed != "" {
 		addMimeTypes()
 		opts.InitialObjects, emptyBuckets = generateObjectsFromFiles(logger, cfg.Seed)
 	}
 
-	server, err := fakestorage.NewServerWithOptions(opts)
+	server, backend, err := fakestorage.NewServerWithOptionsOnCmux(opts, httpsListener)
 	if err != nil {
 		logger.WithError(err).Fatal("couldn't start the server")
 	}
@@ -48,9 +63,12 @@ func main() {
 		server.CreateBucketWithOpts(fakestorage.CreateBucketOpts{Name: bucketName})
 	}
 
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-	<-ch
+	go func() {
+		err := grpc.NewServerWithBackend(backend, grpcListener)
+		println("Error while starting grpc server: ", err)
+	}()
+
+	m.Serve()
 }
 
 func addMimeTypes() {

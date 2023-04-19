@@ -188,6 +188,76 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	return s, nil
 }
 
+func NewServerWithOptionsOnCmux(options Options, httpsListener net.Listener) (*Server, backend.Storage, error) {
+	s, err := newServer(options)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	allowedHeaders := []string{"Content-Type", "Content-Encoding", "Range", "Content-Range"}
+	allowedHeaders = append(allowedHeaders, options.AllowedCORSHeaders...)
+
+	cors := handlers.CORS(
+		handlers.AllowedMethods([]string{
+			http.MethodHead,
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+		}),
+		handlers.AllowedHeaders(allowedHeaders),
+		handlers.AllowedOrigins([]string{"*"}),
+		handlers.AllowCredentials(),
+		handlers.ExposedHeaders([]string{"Location"}),
+	)
+
+	handler := cors(s.mux)
+	if options.Writer != nil {
+		handler = handlers.LoggingHandler(options.Writer, handler)
+	}
+	handler = requestCompressHandler(handler)
+	s.transport = &muxTransport{handler: handler}
+	if options.NoListener {
+		return s, s.backend, nil
+	}
+
+	s.eventManager, err = notification.NewPubsubEventManager(options.EventOptions, options.Writer)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	s.ts = httptest.NewUnstartedServer(handler)
+	startFunc := s.ts.StartTLS
+	if options.Scheme == "http" {
+		startFunc = s.ts.Start
+	}
+	println("	Addr: ", fmt.Sprintf("%s:%d", options.Host, options.Port))
+	println("	setting s.ts.Listener to httpListener ...")
+	s.ts.Listener.Close()
+	s.ts.Listener = httpsListener
+	println("	Success!")
+	// if options.Port != 0 {
+	// 	addr := fmt.Sprintf("%s:%d", options.Host, options.Port)
+	// 	l, err := net.Listen("tcp", addr)
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+	// 	s.ts.Listener.Close()
+	// 	s.ts.Listener = l
+	// }
+	if options.CertificateLocation != "" && options.PrivateKeyLocation != "" {
+		cert, err := tls.LoadX509KeyPair(options.CertificateLocation, options.PrivateKeyLocation)
+		if err != nil {
+			return nil, nil, err
+		}
+		s.ts.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+	}
+	startFunc()
+
+	return s, s.backend, nil
+}
+
 func newServer(options Options) (*Server, error) {
 	backendObjects := bufferedObjectsToBackendObjects(options.InitialObjects)
 	var backendStorage backend.Storage
