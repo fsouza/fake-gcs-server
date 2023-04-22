@@ -188,7 +188,7 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	return s, nil
 }
 
-func NewServerWithOptionsOnCmux(options Options, httpsListener net.Listener) (*Server, backend.Storage, error) {
+func NewServerWithOptionsOnCmux(options Options, httpListener net.Listener) (*Server, backend.Storage, error) {
 	s, err := newServer(options)
 	if err != nil {
 		return nil, nil, err
@@ -232,20 +232,8 @@ func NewServerWithOptionsOnCmux(options Options, httpsListener net.Listener) (*S
 	if options.Scheme == "http" {
 		startFunc = s.ts.Start
 	}
-	println("	Addr: ", fmt.Sprintf("%s:%d", options.Host, options.Port))
-	println("	setting s.ts.Listener to httpListener ...")
 	s.ts.Listener.Close()
-	s.ts.Listener = httpsListener
-	println("	Success!")
-	// if options.Port != 0 {
-	// 	addr := fmt.Sprintf("%s:%d", options.Host, options.Port)
-	// 	l, err := net.Listen("tcp", addr)
-	// 	if err != nil {
-	// 		return nil, nil, err
-	// 	}
-	// 	s.ts.Listener.Close()
-	// 	s.ts.Listener = l
-	// }
+	s.ts.Listener = httpListener
 	if options.CertificateLocation != "" && options.PrivateKeyLocation != "" {
 		cert, err := tls.LoadX509KeyPair(options.CertificateLocation, options.PrivateKeyLocation)
 		if err != nil {

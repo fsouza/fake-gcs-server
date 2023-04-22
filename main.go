@@ -45,7 +45,7 @@ func main() {
 	}
 
 	m := cmux.New(listener)
-	httpsListener := m.Match(cmux.TLS())
+	httpListener := m.Match(cmux.HTTP1Fast())
 	grpcListener := m.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
 
 	var emptyBuckets []string
@@ -54,7 +54,7 @@ func main() {
 		opts.InitialObjects, emptyBuckets = generateObjectsFromFiles(logger, cfg.Seed)
 	}
 
-	server, backend, err := fakestorage.NewServerWithOptionsOnCmux(opts, httpsListener)
+	server, backend, err := fakestorage.NewServerWithOptionsOnCmux(opts, httpListener)
 	if err != nil {
 		logger.WithError(err).Fatal("couldn't start the server")
 	}
