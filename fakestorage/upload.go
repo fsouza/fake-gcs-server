@@ -485,7 +485,12 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
 	obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
 	obj.Etag = fmt.Sprintf("%q", obj.Md5Hash)
-	obj.ContentType = r.Header.Get(contentTypeHeader)
+	contentTypeHeader := r.Header.Get(contentTypeHeader)
+	if contentTypeHeader != "" {
+		obj.ContentType = contentTypeHeader
+	} else {
+		obj.ContentType = "application/octet-stream"
+	}
 	responseHeader := make(http.Header)
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
 		parsed, err := parseContentRange(contentRange)
