@@ -1669,6 +1669,57 @@ func TestServerClientObjectUpdateCustomTime(t *testing.T) {
 	})
 }
 
+func TestServerClientObjectUpdateContentType(t *testing.T) {
+	const (
+		bucketName  = "some-bucket"
+		objectName  = "data.txt"
+		content     = "some nice content"
+		contentType = "some content-type"
+	)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+			},
+			Content: []byte(content),
+		},
+	}
+	url := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o/%s", bucketName, objectName)
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.HTTPClient()
+		jsonBody := []byte(`{"ContentType": "another content-type"}`)
+		bodyReader := bytes.NewReader(jsonBody)
+		req, err := http.NewRequest(http.MethodPost, url, bodyReader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+		}
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var respJsonBody ObjectAttrs
+		err = json.Unmarshal(data, &respJsonBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var updatedContentType string = respJsonBody.ContentType
+		var expectedContentType string = "another content-type"
+		if updatedContentType != expectedContentType {
+			t.Errorf("unexpected content type time\nwant %q\ngot  %q", expectedContentType, updatedContentType)
+		}
+	})
+}
+
 func TestServerClientObjectPatchCustomTime(t *testing.T) {
 	const (
 		bucketName  = "some-bucket"
