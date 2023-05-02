@@ -1712,8 +1712,8 @@ func TestServerClientObjectUpdateContentType(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var updatedContentType string = respJsonBody.ContentType
-		var expectedContentType string = "another content-type"
+		updatedContentType := respJsonBody.ContentType
+		expectedContentType := "another content-type"
 		if updatedContentType != expectedContentType {
 			t.Errorf("unexpected content type time\nwant %q\ngot  %q", expectedContentType, updatedContentType)
 		}
