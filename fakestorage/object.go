@@ -731,6 +731,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	}
 	defer created.Close()
 
+	if vars["copyType"] == "copyTo" {
+		return jsonResponse{data: newObjectResponse(created.ObjectAttrs)}
+	}
 	return jsonResponse{data: newObjectRewriteResponse(created.ObjectAttrs)}
 }
 
