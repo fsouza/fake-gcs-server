@@ -33,12 +33,12 @@ jobs:
     name: tests (${{ matrix.os }}/go-${{ matrix.go_version }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}-latest
     steps:
+      - uses: actions/checkout@v3.5.2
+
       - uses: actions/setup-go@v4.0.0
         id: go
         with:
           go-version: ${{ matrix.go_version }}
-
-      - uses: actions/checkout@v3.5.2
 
       - name: run-tests-race
         if: ${{ matrix.arch == 'amd64' }}
@@ -64,6 +64,8 @@ jobs:
     name: staticcheck
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3.5.2
+
       - uses: actions/setup-go@v4.0.0
         id: go
         with:
@@ -83,8 +85,6 @@ jobs:
         with:
           path: ~/.cache/staticcheck
           key: "${{ steps.get-staticcheck-version.outputs.version }}"
-
-      - uses: actions/checkout@v3.5.2
 
       - name: run staticcheck
         run: |
