@@ -289,10 +289,6 @@ func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, e
 	}
 
 	obj := StreamingObject{ObjectAttrs: attrs}
-
-	obj.Name = filepath.ToSlash(objectName)
-	obj.BucketName = bucketName
-
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
 	err = openObjectAndSetSize(&obj, path)
 
@@ -328,6 +324,8 @@ func (s *storageFS) getObjectAttrs(bucketName, objectName string) (ObjectAttrs, 
 		return ObjectAttrs{}, fmt.Errorf("failed to stat: %w", err)
 	}
 
+	attrs.Name = filepath.ToSlash(objectName)
+	attrs.BucketName = bucketName
 	attrs.Size = info.Size()
 	return attrs, nil
 }
