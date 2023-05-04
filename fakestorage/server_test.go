@@ -296,6 +296,25 @@ func TestNewServerLogging(t *testing.T) {
 	}
 }
 
+// type ListenerStub struct {}
+
+// func TestNewServerGrpc(t *testing.T) {
+// 	t.Parallel()
+// 	l, err := net.Listen("tcp", ":2000")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	server, err := NewServerWithOptions(Options{Listener: l})
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if server.ts.Listener != l {
+// 		t.Error("Expected listener to be grpc")
+// 	}
+
+	
+// }
+
 func TestPublicURL(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -994,7 +1013,7 @@ func TestServerEventNotification(t *testing.T) {
 			}
 			eventManager := &fakeEventManager{}
 			server.eventManager = eventManager
-			err = server.backend.CreateBucket(obj.BucketName, test.versioningEnabled)
+			err = server.Backend.CreateBucket(obj.BucketName, test.versioningEnabled)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1033,7 +1052,7 @@ func TestServerBatchRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = server.backend.CreateBucket("some-bucket", true)
+	err = server.Backend.CreateBucket("some-bucket", true)
 	if err != nil {
 		t.Fatal(err)
 	}

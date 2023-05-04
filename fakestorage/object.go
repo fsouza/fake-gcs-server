@@ -280,7 +280,7 @@ func (s *Server) CreateObjectStreaming(obj StreamingObject) error {
 }
 
 func (s *Server) createObject(obj StreamingObject, conditions backend.Conditions) (StreamingObject, error) {
-	oldBackendObj, err := s.backend.GetObject(obj.BucketName, obj.Name)
+	oldBackendObj, err := s.Backend.GetObject(obj.BucketName, obj.Name)
 	// Calling Close before checking err is okay on objects, and the object
 	// may need to be closed whether or not there's an error.
 	defer oldBackendObj.Close() //lint:ignore SA5001 // see above
@@ -288,7 +288,7 @@ func (s *Server) createObject(obj StreamingObject, conditions backend.Conditions
 	prevVersionExisted := err == nil
 
 	// The caller is responsible for closing the created object.
-	newBackendObj, err := s.backend.CreateObject(toBackendObjects([]StreamingObject{obj})[0], conditions)
+	newBackendObj, err := s.Backend.CreateObject(toBackendObjects([]StreamingObject{obj})[0], conditions)
 	if err != nil {
 		return StreamingObject{}, err
 	}
@@ -303,7 +303,7 @@ func (s *Server) createObject(obj StreamingObject, conditions backend.Conditions
 			"overwrittenByGeneration": strconv.FormatInt(newBackendObj.Generation, 10),
 		}
 
-		bucket, _ := s.backend.GetBucket(obj.BucketName)
+		bucket, _ := s.Backend.GetBucket(obj.BucketName)
 		if bucket.VersioningEnabled {
 			s.eventManager.Trigger(&oldBackendObj, notification.EventArchive, oldObjEventAttr)
 		} else {
@@ -338,7 +338,7 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool
 }
 
 func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) ([]ObjectAttrs, []string, error) {
-	backendObjects, err := s.backend.ListObjects(bucketName, options.Prefix, options.Versions)
+	backendObjects, err := s.Backend.ListObjects(bucketName, options.Prefix, options.Versions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -513,7 +513,7 @@ func (s *Server) GetObject(bucketName, objectName string) (Object, error) {
 // GetObjectStreaming returns the object with the given name in the given
 // bucket, or an error if the object doesn't exist.
 func (s *Server) GetObjectStreaming(bucketName, objectName string) (StreamingObject, error) {
-	backendObj, err := s.backend.GetObject(bucketName, objectName)
+	backendObj, err := s.Backend.GetObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
@@ -537,7 +537,7 @@ func (s *Server) GetObjectWithGeneration(bucketName, objectName string, generati
 //
 // If versioning is enabled, archived versions are considered.
 func (s *Server) GetObjectWithGenerationStreaming(bucketName, objectName string, generation int64) (StreamingObject, error) {
-	backendObj, err := s.backend.GetObjectWithGeneration(bucketName, objectName, generation)
+	backendObj, err := s.Backend.GetObjectWithGeneration(bucketName, objectName, generation)
 	if err != nil {
 		return StreamingObject{}, err
 	}
@@ -614,12 +614,12 @@ func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	// may need to be closed whether or not there's an error.
 	defer obj.Close() //lint:ignore SA5001 // see above
 	if err == nil {
-		err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+		err = s.Backend.DeleteObject(vars["bucketName"], vars["objectName"])
 	}
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	bucket, _ := s.backend.GetBucket(obj.BucketName)
+	bucket, _ := s.Backend.GetBucket(obj.BucketName)
 	backendObj := toBackendObjects([]StreamingObject{obj})[0]
 	if bucket.VersioningEnabled {
 		s.eventManager.Trigger(&backendObj, notification.EventArchive, nil)
@@ -969,7 +969,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		}
 	}
 
-	backendObj, err := s.backend.PatchObject(bucketName, objectName, attrsToUpdate)
+	backendObj, err := s.Backend.PatchObject(bucketName, objectName, attrsToUpdate)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusNotFound,
@@ -1017,7 +1017,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 			attrsToUpdate.ACL = append(attrsToUpdate.ACL, newAcl)
 		}
 	}
-	backendObj, err := s.backend.UpdateObject(bucketName, objectName, attrsToUpdate)
+	backendObj, err := s.Backend.UpdateObject(bucketName, objectName, attrsToUpdate)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusNotFound,
@@ -1060,7 +1060,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 		sourceNames = append(sourceNames, n.Name)
 	}
 
-	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType)
+	backendObj, err := s.Backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusInternalServerError,

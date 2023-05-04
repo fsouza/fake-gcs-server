@@ -54,7 +54,8 @@ func main() {
 		opts.InitialObjects, emptyBuckets = generateObjectsFromFiles(logger, cfg.Seed)
 	}
 
-	server, backend, err := fakestorage.NewServerWithOptionsOnCmux(opts, httpListener)
+	opts.Listener = httpListener
+	server, err := fakestorage.NewServerWithOptions(opts)
 	if err != nil {
 		logger.WithError(err).Fatal("couldn't start the server")
 	}
@@ -64,7 +65,7 @@ func main() {
 	}
 
 	go func() {
-		err := grpc.NewServerWithBackend(backend, grpcListener)
+		err := grpc.NewServerWithBackend(server.Backend, grpcListener)
 		println("Error while starting grpc server: ", err)
 	}()
 

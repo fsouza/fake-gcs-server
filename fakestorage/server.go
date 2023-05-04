@@ -42,7 +42,7 @@ const defaultPublicHost = "storage.googleapis.com"
 //
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
-	backend      backend.Storage
+	Backend      backend.Storage
 	uploads      sync.Map
 	transport    http.RoundTripper
 	ts           *httptest.Server
@@ -119,6 +119,9 @@ type Options struct {
 	CertificateLocation string
 
 	PrivateKeyLocation string
+
+
+	Listener net.Listener
 }
 
 // NewServerWithOptions creates a new server configured according to the
@@ -167,7 +170,10 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	if options.Scheme == "http" {
 		startFunc = s.ts.Start
 	}
-	if options.Port != 0 {
+	if options.Listener != nil {
+		s.ts.Listener.Close()
+		s.ts.Listener = options.Listener
+	} else if options.Port != 0 {
 		addr := fmt.Sprintf("%s:%d", options.Host, options.Port)
 		l, err := net.Listen("tcp", addr)
 		if err != nil {
@@ -188,64 +194,6 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	return s, nil
 }
 
-func NewServerWithOptionsOnCmux(options Options, httpListener net.Listener) (*Server, backend.Storage, error) {
-	s, err := newServer(options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	allowedHeaders := []string{"Content-Type", "Content-Encoding", "Range", "Content-Range"}
-	allowedHeaders = append(allowedHeaders, options.AllowedCORSHeaders...)
-
-	cors := handlers.CORS(
-		handlers.AllowedMethods([]string{
-			http.MethodHead,
-			http.MethodGet,
-			http.MethodPost,
-			http.MethodPut,
-			http.MethodPatch,
-			http.MethodDelete,
-		}),
-		handlers.AllowedHeaders(allowedHeaders),
-		handlers.AllowedOrigins([]string{"*"}),
-		handlers.AllowCredentials(),
-		handlers.ExposedHeaders([]string{"Location"}),
-	)
-
-	handler := cors(s.mux)
-	if options.Writer != nil {
-		handler = handlers.LoggingHandler(options.Writer, handler)
-	}
-	handler = requestCompressHandler(handler)
-	s.transport = &muxTransport{handler: handler}
-	if options.NoListener {
-		return s, s.backend, nil
-	}
-
-	s.eventManager, err = notification.NewPubsubEventManager(options.EventOptions, options.Writer)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	s.ts = httptest.NewUnstartedServer(handler)
-	startFunc := s.ts.StartTLS
-	if options.Scheme == "http" {
-		startFunc = s.ts.Start
-	}
-	s.ts.Listener.Close()
-	s.ts.Listener = httpListener
-	if options.CertificateLocation != "" && options.PrivateKeyLocation != "" {
-		cert, err := tls.LoadX509KeyPair(options.CertificateLocation, options.PrivateKeyLocation)
-		if err != nil {
-			return nil, nil, err
-		}
-		s.ts.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
-	}
-	startFunc()
-
-	return s, s.backend, nil
-}
-
 func newServer(options Options) (*Server, error) {
 	backendObjects := bufferedObjectsToBackendObjects(options.InitialObjects)
 	var backendStorage backend.Storage
@@ -264,7 +212,7 @@ func newServer(options Options) (*Server, error) {
 	}
 
 	s := Server{
-		backend:      backendStorage,
+		Backend:      backendStorage,
 		uploads:      sync.Map{},
 		externalURL:  options.ExternalURL,
 		publicHost:   publicHost,
@@ -357,9 +305,9 @@ func (s *Server) reseedServer(r *http.Request) jsonResponse {
 
 	var err error
 	if s.options.StorageRoot != "" {
-		s.backend, err = backend.NewStorageFS(backendObjects, s.options.StorageRoot)
+		s.Backend, err = backend.NewStorageFS(backendObjects, s.options.StorageRoot)
 	} else {
-		s.backend, err = backend.NewStorageMemory(backendObjects)
+		s.Backend, err = backend.NewStorageMemory(backendObjects)
 	}
 	if err != nil {
 		return errToJsonResponse(err)
