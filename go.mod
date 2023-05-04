@@ -10,12 +10,12 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/oauth2 v0.7.0
-	google.golang.org/api v0.120.0
+	google.golang.org/api v0.121.0
 )
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	github.com/google/s2a-go v0.1.2 // indirect
+	github.com/google/s2a-go v0.1.3 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 )
 
