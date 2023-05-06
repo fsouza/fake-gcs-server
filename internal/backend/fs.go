@@ -250,12 +250,11 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 		if prefix != "" && !strings.HasPrefix(objName, prefix) {
 			return nil
 		}
-		object, err := s.getObject(bucketName, objName)
+		objAttrs, err := s.getObjectAttrs(bucketName, objName)
 		if err != nil {
 			return err
 		}
-		object.Close()
-		objects = append(objects, object.ObjectAttrs)
+		objects = append(objects, objAttrs)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -284,21 +283,13 @@ func (s *storageFS) GetObjectWithGeneration(bucketName, objectName string, gener
 }
 
 func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, error) {
-	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
-
-	encoded, err := s.mh.read(path)
+	attrs, err := s.getObjectAttrs(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
 
-	var obj StreamingObject
-	if err = json.Unmarshal(encoded, &obj.ObjectAttrs); err != nil {
-		return StreamingObject{}, err
-	}
-
-	obj.Name = filepath.ToSlash(objectName)
-	obj.BucketName = bucketName
-
+	obj := StreamingObject{ObjectAttrs: attrs}
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
 	err = openObjectAndSetSize(&obj, path)
 
 	return obj, err
@@ -314,6 +305,29 @@ func openObjectAndSetSize(obj *StreamingObject, path string) error {
 	obj.Size = info.Size()
 
 	return nil
+}
+
+func (s *storageFS) getObjectAttrs(bucketName, objectName string) (ObjectAttrs, error) {
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
+	encoded, err := s.mh.read(path)
+	if err != nil {
+		return ObjectAttrs{}, err
+	}
+
+	var attrs ObjectAttrs
+	if err = json.Unmarshal(encoded, &attrs); err != nil {
+		return ObjectAttrs{}, err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return ObjectAttrs{}, fmt.Errorf("failed to stat: %w", err)
+	}
+
+	attrs.Name = filepath.ToSlash(objectName)
+	attrs.BucketName = bucketName
+	attrs.Size = info.Size()
+	return attrs, nil
 }
 
 // DeleteObject deletes an object by bucket and name.

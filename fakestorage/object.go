@@ -731,6 +731,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	}
 	defer created.Close()
 
+	if vars["copyType"] == "copyTo" {
+		return jsonResponse{data: newObjectResponse(created.ObjectAttrs)}
+	}
 	return jsonResponse{data: newObjectRewriteResponse(created.ObjectAttrs)}
 }
 
@@ -993,9 +996,10 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	}
 
 	var payload struct {
-		Metadata   map[string]string `json:"metadata"`
-		CustomTime string
-		Acl        []acls
+		Metadata    map[string]string `json:"metadata"`
+		ContentType string            `json:"contentType"`
+		CustomTime  string
+		Acl         []acls
 	}
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -1009,7 +1013,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 
 	attrsToUpdate.Metadata = payload.Metadata
 	attrsToUpdate.CustomTime = payload.CustomTime
-
+	attrsToUpdate.ContentType = payload.ContentType
 	if len(payload.Acl) > 0 {
 		attrsToUpdate.ACL = []storage.ACLRule{}
 		for _, aclData := range payload.Acl {
