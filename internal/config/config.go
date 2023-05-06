@@ -181,7 +181,7 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 		BucketsLocation:     c.bucketLocation,
 		CertificateLocation: c.certificateLocation,
 		PrivateKeyLocation:  c.privateKeyLocation,
-		Listener: nil,
+		Listener:            nil,
 	}
 	return opts
 }

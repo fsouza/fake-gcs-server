@@ -120,7 +120,6 @@ type Options struct {
 
 	PrivateKeyLocation string
 
-
 	Listener net.Listener
 }
 

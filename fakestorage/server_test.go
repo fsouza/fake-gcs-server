@@ -312,7 +312,6 @@ func TestNewServerLogging(t *testing.T) {
 // 		t.Error("Expected listener to be grpc")
 // 	}
 
-	
 // }
 
 func TestPublicURL(t *testing.T) {
