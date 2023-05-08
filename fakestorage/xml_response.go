@@ -3,6 +3,7 @@ package fakestorage
 import (
 	"encoding/xml"
 	"net/http"
+	"strings"
 )
 
 type xmlResponse struct {
@@ -20,6 +21,40 @@ type xmlResponseBody struct {
 	}
 	Key      string
 	Location string
+}
+
+type ListBucketResult struct {
+	XMLName        xml.Name       `xml:"ListBucketResult"`
+	Name           string         `xml:"Name"`
+	CommonPrefixes []CommonPrefix `xml:"CommonPrefixes,omitempty"`
+	Delimiter      string         `xml:"Delimiter"`
+	Prefix         string         `xml:"Prefix"`
+	KeyCount       int            `xml:"KeyCount"`
+	Contents       []Contents     `xml:"Contents"`
+}
+
+type Contents struct {
+	XMLName      xml.Name `xml:"Contents"`
+	Key          string   `xml:"Key"`
+	Generation   int64    `xml:"Generation"`
+	LastModified string   `xml:"LastModified"`
+	ETag         ETag
+	Size         int64 `xml:"Size"`
+}
+
+type CommonPrefix struct {
+	Prefix string `xml:"Prefix"`
+}
+
+type ETag struct {
+	Value string `xml:",innerxml"`
+}
+
+func (e *ETag) Equals(etag string) bool {
+	trim := func(s string) string {
+		return strings.TrimPrefix(strings.TrimSuffix(s, "\""), "\"")
+	}
+	return trim(e.Value) == trim(etag)
 }
 
 type xmlHandler = func(r *http.Request) xmlResponse
@@ -43,8 +78,9 @@ func xmlToHTTPHandler(h xmlHandler) http.HandlerFunc {
 		}
 
 		w.WriteHeader(status)
-		if status == 201 {
-			dataBytes, _ := data.([]byte)
+
+		dataBytes, ok := data.([]byte)
+		if ok {
 			w.Write(dataBytes)
 		} else {
 			xml.NewEncoder(w).Encode(data)

@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
+	minio "github.com/minio/minio-go/v7"
 	"google.golang.org/api/iterator"
 )
 
@@ -783,6 +785,77 @@ func getObjectsForListTests() []Object {
 	}
 }
 
+type xmlListTest struct {
+	testCase     string
+	bucketName   string
+	query        minio.ListObjectsOptions
+	expectedKeys []string
+}
+
+func getTestCasesForXMLListTests() []xmlListTest {
+	return []xmlListTest{
+		{
+			"no prefix, no delimiter, multiple objects",
+			"some-bucket",
+			minio.ListObjectsOptions{Recursive: true},
+			[]string{
+				"img/brand.jpg",
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+				"img/low-res/party-01.jpg",
+				"img/low-res/party-02.jpg",
+				"img/low-res/party-03.jpg",
+				"video/hi-res/some_video_1080p.mp4",
+			},
+		},
+		{
+			"no prefix, no delimiter, single object",
+			"other-bucket",
+			minio.ListObjectsOptions{Recursive: true},
+			[]string{"static/css/style.css"},
+		},
+		{
+			"no prefix, no delimiter, no objects",
+			"empty-bucket",
+			minio.ListObjectsOptions{Recursive: true},
+			[]string{},
+		},
+		{
+			"filtering prefix only",
+			"some-bucket",
+			minio.ListObjectsOptions{Recursive: true, Prefix: "img/"},
+			[]string{
+				"img/brand.jpg",
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+				"img/low-res/party-01.jpg",
+				"img/low-res/party-02.jpg",
+				"img/low-res/party-03.jpg",
+			},
+		},
+		{
+			"full prefix",
+			"some-bucket",
+			minio.ListObjectsOptions{Recursive: true, Prefix: "img/brand.jpg"},
+			[]string{"img/brand.jpg"},
+		},
+		{
+			"filtering prefix and delimiter",
+			"some-bucket",
+			minio.ListObjectsOptions{Prefix: "img/"},
+			[]string{"img/brand.jpg", "img/hi-res/", "img/low-res/"},
+		},
+		{
+			"filtering prefix, no objects",
+			"some-bucket",
+			minio.ListObjectsOptions{Recursive: true, Prefix: "static/"},
+			[]string{},
+		},
+	}
+}
+
 type listTest struct {
 	testCase         string
 	bucketName       string
@@ -911,6 +984,41 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 			[]string{"foo/"},
 		},
 	}
+}
+
+func TestXMLClientListObjects(t *testing.T) {
+	runServersTest(t, runServersOptions{objs: getObjectsForListTests()}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
+		tests := getTestCasesForXMLListTests()
+
+		client, err := minio.New("storage.googleapis.com", &minio.Options{
+			Transport: server.transport,
+			Region:    "irrelevant",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		for _, test := range tests {
+			test := test
+			t.Run(test.testCase, func(t *testing.T) {
+				keys := []string{}
+
+				objectCh := client.ListObjects(ctx, test.bucketName, test.query)
+				for obj := range objectCh {
+					if obj.Err != nil {
+						t.Fatal(obj.Err)
+					}
+					keys = append(keys, obj.Key)
+				}
+				if !reflect.DeepEqual(keys, test.expectedKeys) {
+					t.Errorf("wrong object keys returned\nwant %#v\ngot  %#v", test.expectedKeys, keys)
+				}
+			})
+		}
+	})
 }
 
 func TestServiceClientListObjects(t *testing.T) {
