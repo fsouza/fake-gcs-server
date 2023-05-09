@@ -266,6 +266,16 @@ func (s *Server) buildMuxer() {
 	s.mux.Path("/_internal/reseed").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.reseedServer))
 	// Internal - end
 
+	// XML API
+	xmlApiRouters := []*mux.Router{
+		s.mux.Host(fmt.Sprintf("{bucketName}.%s", s.publicHost)).Subrouter(),
+		s.mux.MatcherFunc(s.publicHostMatcher).PathPrefix(`/{bucketName}`).Subrouter(),
+	}
+	for _, r := range xmlApiRouters {
+		r.Path("/").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
+		r.Path("").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
+	}
+
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet).HandlerFunc(s.downloadObject)

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -569,6 +570,60 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 		return jsonResponse{status: http.StatusNotFound}
 	}
 	return jsonResponse{data: newListObjectsResponse(objs, prefixes)}
+}
+
+func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
+	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
+
+	opts := ListOptions{
+		Prefix:    r.URL.Query().Get("prefix"),
+		Delimiter: r.URL.Query().Get("delimiter"),
+		Versions:  r.URL.Query().Get("versions") == "true",
+	}
+
+	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, opts)
+	if err != nil {
+		return xmlResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: err.Error(),
+		}
+	}
+
+	result := ListBucketResult{
+		Name:      bucketName,
+		Delimiter: opts.Delimiter,
+		Prefix:    opts.Prefix,
+		KeyCount:  len(objs),
+	}
+
+	if opts.Delimiter != "" {
+		for _, prefix := range prefixes {
+			result.CommonPrefixes = append(result.CommonPrefixes, CommonPrefix{Prefix: prefix})
+		}
+	}
+
+	for _, obj := range objs {
+		result.Contents = append(result.Contents, Contents{
+			Key:          obj.Name,
+			Generation:   obj.Generation,
+			Size:         obj.Size,
+			LastModified: obj.Updated.Format(time.RFC3339),
+			ETag:         ETag{Value: obj.Etag},
+		})
+	}
+
+	raw, err := xml.Marshal(result)
+	if err != nil {
+		return xmlResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: err.Error(),
+		}
+	}
+
+	return xmlResponse{
+		status: http.StatusOK,
+		data:   []byte(xml.Header + string(raw)),
+	}
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
