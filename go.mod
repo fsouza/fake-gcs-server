@@ -12,7 +12,7 @@ require (
 	github.com/soheilhy/cmux v0.1.5
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/oauth2 v0.8.0
-	google.golang.org/api v0.121.0
+	google.golang.org/api v0.122.0
 )
 
 require (
