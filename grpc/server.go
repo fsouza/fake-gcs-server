@@ -7,7 +7,6 @@ import (
 
 	pb "github.com/fsouza/fake-gcs-server/genproto/googleapis/storage/v1"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/timestamppb"

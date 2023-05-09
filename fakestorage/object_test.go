@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	minio "github.com/minio/minio-go/v7"
 	"google.golang.org/api/iterator"
