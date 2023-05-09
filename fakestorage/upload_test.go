@@ -747,6 +747,10 @@ func TestParseContentRange(t *testing.T) {
 			"bytes 0-1024/*", // A streaming request, unknown total
 			contentRange{KnownRange: true, Start: 0, End: 1024, Total: -1},
 		},
+		{
+			"bytes */*", // Start and end of a streaming request as sent by the C++ SDK
+			contentRange{KnownRange: false, KnownTotal: false, Start: -1, End: -1, Total: -1},
+		},
 	}
 
 	for _, test := range goodHeaderTests {
@@ -754,11 +758,11 @@ func TestParseContentRange(t *testing.T) {
 		t.Run(test.header, func(t *testing.T) {
 			t.Parallel()
 			output, err := parseContentRange(test.header)
-			if output != test.output {
-				t.Fatalf("output is different.\nexpected: %+v\n  actual: %+v\n", test.output, output)
-			}
 			if err != nil {
 				t.Fatal(err)
+			}
+			if output != test.output {
+				t.Fatalf("output is different.\nexpected: %+v\n  actual: %+v\n", test.output, output)
 			}
 		})
 	}
@@ -770,7 +774,6 @@ func TestParseContentRange(t *testing.T) {
 		"bytes start-20/100",  // Non-integer range start
 		"bytes 20-end/100",    // Non-integer range end
 		"bytes 100-200/total", // Non-integer size
-		"bytes */*",           // Unknown range or size
 	}
 	for _, test := range badHeaderTests {
 		test := test

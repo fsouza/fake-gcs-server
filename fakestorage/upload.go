@@ -545,6 +545,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 //	bytes 1024-2047/* (second 1024 bytes of a streaming document)
 //	bytes */4096      (The end of 4096 byte streaming document)
 //	bytes 0-*/*       (start and end of a streaming document as sent by nodeJS client lib)
+//	bytes */*         (start and end of a streaming document as sent by the C++ SDK)
 func parseContentRange(r string) (parsed contentRange, err error) {
 	invalidErr := fmt.Errorf("invalid Content-Range: %v", r)
 
@@ -589,10 +590,6 @@ func parseContentRange(r string) (parsed contentRange, err error) {
 	// Process total length
 	if parts[1] == "*" {
 		parsed.Total = -1
-
-		if parsed.Start < 0 {
-			return parsed, invalidErr
-		}
 	} else {
 		parsed.KnownTotal = true
 		parsed.Total, err = strconv.Atoi(parts[1])
