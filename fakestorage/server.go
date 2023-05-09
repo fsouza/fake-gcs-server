@@ -42,7 +42,7 @@ const defaultPublicHost = "storage.googleapis.com"
 //
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
-	backend      backend.Storage
+	Backend      backend.Storage
 	uploads      sync.Map
 	transport    http.RoundTripper
 	ts           *httptest.Server
@@ -119,6 +119,8 @@ type Options struct {
 	CertificateLocation string
 
 	PrivateKeyLocation string
+
+	Listener net.Listener
 }
 
 // NewServerWithOptions creates a new server configured according to the
@@ -167,7 +169,10 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	if options.Scheme == "http" {
 		startFunc = s.ts.Start
 	}
-	if options.Port != 0 {
+	if options.Listener != nil {
+		s.ts.Listener.Close()
+		s.ts.Listener = options.Listener
+	} else if options.Port != 0 {
 		addr := fmt.Sprintf("%s:%d", options.Host, options.Port)
 		l, err := net.Listen("tcp", addr)
 		if err != nil {
@@ -206,7 +211,7 @@ func newServer(options Options) (*Server, error) {
 	}
 
 	s := Server{
-		backend:      backendStorage,
+		Backend:      backendStorage,
 		uploads:      sync.Map{},
 		externalURL:  options.ExternalURL,
 		publicHost:   publicHost,
@@ -308,9 +313,9 @@ func (s *Server) reseedServer(r *http.Request) jsonResponse {
 
 	var err error
 	if s.options.StorageRoot != "" {
-		s.backend, err = backend.NewStorageFS(backendObjects, s.options.StorageRoot)
+		s.Backend, err = backend.NewStorageFS(backendObjects, s.options.StorageRoot)
 	} else {
-		s.backend, err = backend.NewStorageMemory(backendObjects)
+		s.Backend, err = backend.NewStorageMemory(backendObjects)
 	}
 	if err != nil {
 		return errToJsonResponse(err)
