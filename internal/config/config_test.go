@@ -48,9 +48,9 @@ func TestLoadConfig(t *testing.T) {
 				publicHost:         "127.0.0.1.nip.io:8443",
 				externalURL:        "https://myhost.example.com:8443",
 				allowedCORSHeaders: []string{"X-Goog-Meta-Uploader"},
-				host:               "127.0.0.1",
-				port:               443,
-				scheme:             "http",
+				Host:               "127.0.0.1",
+				Port:               443,
+				Scheme:             "http",
 				event: EventConfig{
 					pubsubProjectID: "test-project",
 					pubsubTopic:     "gcs-events",
@@ -70,9 +70,9 @@ func TestLoadConfig(t *testing.T) {
 				publicHost:         "storage.googleapis.com",
 				externalURL:        "",
 				allowedCORSHeaders: nil,
-				host:               "0.0.0.0",
-				port:               4443,
-				scheme:             "https",
+				Host:               "0.0.0.0",
+				Port:               4443,
+				Scheme:             "https",
 				event: EventConfig{
 					list: []string{"finalize"},
 				},
@@ -152,8 +152,8 @@ func TestToFakeGcsOptions(t *testing.T) {
 				fsRoot:      "/tmp/something",
 				publicHost:  "127.0.0.1.nip.io:8443",
 				externalURL: "https://myhost.example.com:8443",
-				host:        "0.0.0.0",
-				port:        443,
+				Host:        "0.0.0.0",
+				Port:        443,
 				event: EventConfig{
 					pubsubProjectID: "test-project",
 					pubsubTopic:     "gcs-events",
@@ -179,6 +179,7 @@ func TestToFakeGcsOptions(t *testing.T) {
 					},
 				},
 				BucketsLocation: "US-EAST1",
+				NoListener:      true,
 			},
 		},
 		{
@@ -188,8 +189,8 @@ func TestToFakeGcsOptions(t *testing.T) {
 				fsRoot:      "/tmp/something",
 				publicHost:  "127.0.0.1.nip.io:8443",
 				externalURL: "https://myhost.example.com:8443",
-				host:        "0.0.0.0",
-				port:        443,
+				Host:        "0.0.0.0",
+				Port:        443,
 			},
 			fakestorage.Options{
 				StorageRoot: "",
@@ -197,6 +198,7 @@ func TestToFakeGcsOptions(t *testing.T) {
 				ExternalURL: "https://myhost.example.com:8443",
 				Host:        "0.0.0.0",
 				Port:        443,
+				NoListener:  true,
 			},
 		},
 	}

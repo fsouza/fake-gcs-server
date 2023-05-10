@@ -5,13 +5,19 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
 	"mime"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"strings"
+	"syscall"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/fakestorage"
@@ -19,7 +25,6 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/config"
 	"github.com/fsouza/fake-gcs-server/internal/grpc"
 	"github.com/sirupsen/logrus"
-	"github.com/soheilhy/cmux"
 )
 
 func main() {
@@ -36,39 +41,61 @@ func main() {
 
 	opts := cfg.ToFakeGcsOptions()
 
-	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
-
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	m := cmux.New(listener)
-	httpListener := m.Match(cmux.HTTP1Fast())
-	grpcListener := m.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
+	if cfg.Scheme == "https" {
+		var tlsConfig *tls.Config
+		if opts.CertificateLocation != "" && opts.PrivateKeyLocation != "" {
+			cert, err := tls.LoadX509KeyPair(opts.CertificateLocation, opts.PrivateKeyLocation)
+			if err != nil {
+				log.Fatal(err)
+			}
+			tlsConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+		} else {
+			// hack to use the certificate from Go's test server
+			server := httptest.NewUnstartedServer(nil)
+			server.StartTLS()
+			server.Close()
+			tlsConfig = server.TLS
+		}
+		listener = tls.NewListener(listener, tlsConfig)
+	}
 
+	addMimeTypes()
 	var emptyBuckets []string
 	if cfg.Seed != "" {
-		addMimeTypes()
 		opts.InitialObjects, emptyBuckets = generateObjectsFromFiles(logger, cfg.Seed)
 	}
 
-	opts.Listener = httpListener
-	server, err := fakestorage.NewServerWithOptions(opts)
+	httpServer, err := fakestorage.NewServerWithOptions(opts)
 	if err != nil {
 		logger.WithError(err).Fatal("couldn't start the server")
 	}
-	logger.Infof("server started at %s", server.URL())
 	for _, bucketName := range emptyBuckets {
-		server.CreateBucketWithOpts(fakestorage.CreateBucketOpts{Name: bucketName})
+		httpServer.CreateBucketWithOpts(fakestorage.CreateBucketOpts{Name: bucketName})
 	}
 
+	grpcServer := grpc.NewServerWithBackend(httpServer.Backend())
 	go func() {
-		err := grpc.NewServerWithBackend(server.Backend(), grpcListener)
-		println("Error while starting grpc server: ", err)
+		http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && strings.HasPrefix(
+				r.Header.Get("Content-Type"), "application/grpc") {
+				grpcServer.ServeHTTP(w, r)
+			} else {
+				httpServer.HTTPHandler().ServeHTTP(w, r)
+			}
+		}))
 	}()
 
-	m.Serve()
+	logger.Infof("server started at %s://%s:%d", cfg.Scheme, cfg.Host, cfg.Port)
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	<-ch
 }
 
 func addMimeTypes() {

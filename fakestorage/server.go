@@ -46,7 +46,7 @@ type Server struct {
 	uploads      sync.Map
 	transport    http.RoundTripper
 	ts           *httptest.Server
-	mux          *mux.Router
+	handler      http.Handler
 	options      Options
 	externalURL  string
 	publicHost   string
@@ -119,8 +119,6 @@ type Options struct {
 	CertificateLocation string
 
 	PrivateKeyLocation string
-
-	Listener net.Listener
 }
 
 // NewServerWithOptions creates a new server configured according to the
@@ -149,30 +147,29 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		handlers.ExposedHeaders([]string{"Location"}),
 	)
 
-	handler := cors(s.mux)
+	s.handler = cors(s.handler)
 	if options.Writer != nil {
-		handler = handlers.LoggingHandler(options.Writer, handler)
+		s.handler = handlers.LoggingHandler(options.Writer, s.handler)
 	}
-	handler = requestCompressHandler(handler)
-	s.transport = &muxTransport{handler: handler}
-	if options.NoListener {
-		return s, nil
-	}
+	s.handler = requestCompressHandler(s.handler)
+	s.transport = &muxTransport{handler: s.handler}
 
 	s.eventManager, err = notification.NewPubsubEventManager(options.EventOptions, options.Writer)
 	if err != nil {
 		return nil, err
 	}
 
-	s.ts = httptest.NewUnstartedServer(handler)
+	if options.NoListener {
+		return s, nil
+	}
+
+	s.ts = httptest.NewUnstartedServer(s.handler)
 	startFunc := s.ts.StartTLS
 	if options.Scheme == "http" {
 		startFunc = s.ts.Start
 	}
-	if options.Listener != nil {
-		s.ts.Listener.Close()
-		s.ts.Listener = options.Listener
-	} else if options.Port != 0 {
+
+	if options.Port != 0 {
 		addr := fmt.Sprintf("%s:%d", options.Host, options.Port)
 		l, err := net.Listen("tcp", addr)
 		if err != nil {
@@ -237,14 +234,14 @@ func unescapeMuxVars(vars map[string]string) map[string]string {
 
 func (s *Server) buildMuxer() {
 	const apiPrefix = "/storage/v1"
-	s.mux = mux.NewRouter().SkipClean(true).UseEncodedPath()
+	handler := mux.NewRouter().SkipClean(true).UseEncodedPath()
 
 	// healthcheck
-	s.mux.Path("/_internal/healthcheck").Methods(http.MethodGet).HandlerFunc(s.healthcheck)
+	handler.Path("/_internal/healthcheck").Methods(http.MethodGet).HandlerFunc(s.healthcheck)
 
 	routers := []*mux.Router{
-		s.mux.PathPrefix(apiPrefix).Subrouter(),
-		s.mux.MatcherFunc(s.publicHostMatcher).PathPrefix(apiPrefix).Subrouter(),
+		handler.PathPrefix(apiPrefix).Subrouter(),
+		handler.MatcherFunc(s.publicHostMatcher).PathPrefix(apiPrefix).Subrouter(),
 	}
 
 	for _, r := range routers {
@@ -266,15 +263,15 @@ func (s *Server) buildMuxer() {
 	}
 
 	// Internal / update server configuration
-	s.mux.Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
-	s.mux.MatcherFunc(s.publicHostMatcher).Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
-	s.mux.Path("/_internal/reseed").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.reseedServer))
+	handler.Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
+	handler.MatcherFunc(s.publicHostMatcher).Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
+	handler.Path("/_internal/reseed").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.reseedServer))
 	// Internal - end
 
 	// XML API
 	xmlApiRouters := []*mux.Router{
-		s.mux.Host(fmt.Sprintf("{bucketName}.%s", s.publicHost)).Subrouter(),
-		s.mux.MatcherFunc(s.publicHostMatcher).PathPrefix(`/{bucketName}`).Subrouter(),
+		handler.Host(fmt.Sprintf("{bucketName}.%s", s.publicHost)).Subrouter(),
+		handler.MatcherFunc(s.publicHostMatcher).PathPrefix(`/{bucketName}`).Subrouter(),
 	}
 	for _, r := range xmlApiRouters {
 		r.Path("/").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
@@ -282,28 +279,30 @@ func (s *Server) buildMuxer() {
 	}
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
-	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
-	s.mux.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet).HandlerFunc(s.downloadObject)
-	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	s.mux.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
-	s.mux.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
+	handler.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+	handler.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet).HandlerFunc(s.downloadObject)
+	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
+	handler.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
 	// Batch endpoint
-	s.mux.MatcherFunc(s.publicHostMatcher).Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
-	s.mux.Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
+	handler.MatcherFunc(s.publicHostMatcher).Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
+	handler.Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
 
-	s.mux.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
-	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+	handler.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+	handler.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 
 	// Form Uploads
-	s.mux.Host(s.publicHost).Path("/{bucketName}").MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
-	s.mux.Host(bucketHost).MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
+	handler.Host(s.publicHost).Path("/{bucketName}").MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
+	handler.Host(bucketHost).MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
 
 	// Signed URLs (upload and download)
-	s.mux.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	s.mux.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.getObject)
-	s.mux.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	s.mux.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	handler.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	handler.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.getObject)
+	handler.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	handler.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+
+	s.handler = handler
 }
 
 func (s *Server) reseedServer(r *http.Request) jsonResponse {
@@ -441,6 +440,11 @@ func (s *Server) HTTPClient() *http.Client {
 	return &http.Client{Transport: s.transport}
 }
 
+// HTTPHandler returns an HTTP handler that behaves like GCS.
+func (s *Server) HTTPHandler() http.Handler {
+	return s.handler
+}
+
 // Client returns a GCS client configured to talk to the server.
 func (s *Server) Client() *storage.Client {
 	client, err := storage.NewClient(context.Background(), option.WithHTTPClient(s.HTTPClient()), option.WithCredentials(&google.Credentials{}))
@@ -501,7 +505,7 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		s.mux.ServeHTTP(partResponseWriter, partRequest)
+		s.handler.ServeHTTP(partResponseWriter, partRequest)
 		writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
 	}
 	mw.Close()

@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"io"
-	"net"
 
 	pb "github.com/fsouza/fake-gcs-server/genproto/googleapis/storage/v1"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -22,11 +21,11 @@ func InitServer(backend backend.Storage) *Server {
 	return &Server{backend: backend}
 }
 
-func NewServerWithBackend(backend backend.Storage, grpcListener net.Listener) error {
+func NewServerWithBackend(backend backend.Storage) *grpc.Server {
 	grpcServer := grpc.NewServer()
 	pb.RegisterStorageServerServer(grpcServer, InitServer(backend))
 	reflection.Register(grpcServer)
-	return grpcServer.Serve(grpcListener)
+	return grpcServer
 }
 
 func (g *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.Bucket, error) {

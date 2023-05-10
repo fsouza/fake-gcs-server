@@ -27,20 +27,21 @@ const (
 )
 
 type Config struct {
+	Scheme              string
 	Seed                string
-	publicHost          string
-	externalURL         string
-	allowedCORSHeaders  []string
-	scheme              string
-	host                string
-	port                uint
-	backend             string
-	fsRoot              string
-	event               EventConfig
-	bucketLocation      string
-	certificateLocation string
-	privateKeyLocation  string
-	LogLevel            logrus.Level
+	Host                string
+	Port                uint
+	CertificateLocation string
+	PrivateKeyLocation  string
+
+	publicHost         string
+	externalURL        string
+	allowedCORSHeaders []string
+	backend            string
+	fsRoot             string
+	event              EventConfig
+	bucketLocation     string
+	LogLevel           logrus.Level
 }
 
 type EventConfig struct {
@@ -63,18 +64,18 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
 	fs.StringVar(&cfg.publicHost, "public-host", "storage.googleapis.com", "Optional URL for public host")
 	fs.StringVar(&cfg.externalURL, "external-url", "", "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
-	fs.StringVar(&cfg.scheme, "scheme", "https", "using http or https")
-	fs.StringVar(&cfg.host, "host", "0.0.0.0", "host to bind to")
+	fs.StringVar(&cfg.Scheme, "scheme", "https", "using http or https")
+	fs.StringVar(&cfg.Host, "host", "0.0.0.0", "host to bind to")
 	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
 	fs.StringVar(&allowedCORSHeaders, "cors-headers", "", "comma separated list of headers to add to the CORS allowlist")
-	fs.UintVar(&cfg.port, "port", 4443, "port to bind to")
+	fs.UintVar(&cfg.Port, "port", 4443, "port to bind to")
 	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", "", "project ID containing the pubsub topic")
 	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", "", "pubsub topic name to publish events on")
 	fs.StringVar(&cfg.event.prefix, "event.object-prefix", "", "if not empty, only objects having this prefix will generate trigger events")
 	fs.StringVar(&eventList, "event.list", eventFinalize, "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
 	fs.StringVar(&cfg.bucketLocation, "location", "US-CENTRAL1", "location for buckets")
-	fs.StringVar(&cfg.certificateLocation, "cert-location", "", "location for server certificate")
-	fs.StringVar(&cfg.privateKeyLocation, "private-key-location", "", "location for private key")
+	fs.StringVar(&cfg.CertificateLocation, "cert-location", "", "location for server certificate")
+	fs.StringVar(&cfg.PrivateKeyLocation, "private-key-location", "", "location for private key")
 	fs.StringVar(&givenLogLevel, "log-level", "info", "level for logging. Options same as for logrus: trace, debug, info, warn, error, fatal, and panic")
 
 	err := fs.Parse(args)
@@ -104,11 +105,11 @@ func (c *Config) validate() error {
 	if c.backend == filesystemBackend && c.fsRoot == "" {
 		return fmt.Errorf("backend %q requires the filesystem-root to be defined", c.backend)
 	}
-	if c.scheme != "http" && c.scheme != "https" {
-		return fmt.Errorf(`invalid scheme %s, must be either "http"" or "https"`, c.scheme)
+	if c.Scheme != "http" && c.Scheme != "https" {
+		return fmt.Errorf(`invalid scheme %s, must be either "http"" or "https"`, c.Scheme)
 	}
-	if c.port > math.MaxUint16 {
-		return fmt.Errorf("port %d is too high, maximum value is %d", c.port, math.MaxUint16)
+	if c.Port > math.MaxUint16 {
+		return fmt.Errorf("port %d is too high, maximum value is %d", c.Port, math.MaxUint16)
 	}
 
 	return c.event.validate()
@@ -170,18 +171,18 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 	opts := fakestorage.Options{
 		StorageRoot:         storageRoot,
 		Seed:                c.Seed,
-		Scheme:              c.scheme,
-		Host:                c.host,
-		Port:                uint16(c.port),
+		Scheme:              c.Scheme,
+		Host:                c.Host,
+		Port:                uint16(c.Port),
 		PublicHost:          c.publicHost,
 		ExternalURL:         c.externalURL,
 		AllowedCORSHeaders:  c.allowedCORSHeaders,
 		Writer:              logger.Writer(),
 		EventOptions:        eventOptions,
 		BucketsLocation:     c.bucketLocation,
-		CertificateLocation: c.certificateLocation,
-		PrivateKeyLocation:  c.privateKeyLocation,
-		Listener:            nil,
+		CertificateLocation: c.CertificateLocation,
+		PrivateKeyLocation:  c.PrivateKeyLocation,
+		NoListener:          true,
 	}
 	return opts
 }
