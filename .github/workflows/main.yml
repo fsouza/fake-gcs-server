@@ -144,6 +144,9 @@ jobs:
           - lang: cpp
             docker-image: alpine:3.15.4
             entrypoint: /bin/sh
+          - lang: curl
+            docker-image: alpine
+            entrypoint: /bin/sh
 
     name: test-${{ matrix.lang }}-example
     runs-on: ubuntu-latest
