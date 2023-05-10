@@ -1,7 +1,7 @@
 name: docker-push
 on:
   push:
-    branch:
+    branches:
       - main
     tags:
       - "v*"
