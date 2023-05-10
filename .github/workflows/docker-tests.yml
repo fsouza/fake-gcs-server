@@ -28,6 +28,8 @@ jobs:
       - name: build
         uses: docker/build-push-action@v4.0.0
         with:
+          cache-from: gha
+          cache-to: gha
           context: .
           push: false
           tags: fsouza/fake-gcs-server:latest
