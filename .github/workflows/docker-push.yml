@@ -38,6 +38,8 @@ jobs:
       - name: build and push
         uses: docker/build-push-action@v4.0.0
         with:
+          cache-from: fsouzaci/gha-cache:fake-gcs-server
+          cache-to: fsouzaci/gha-cache:fake-gcs-server
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
