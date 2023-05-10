@@ -15,9 +15,9 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/fakestorage"
-	"github.com/fsouza/fake-gcs-server/grpc"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/fsouza/fake-gcs-server/internal/config"
+	"github.com/fsouza/fake-gcs-server/internal/grpc"
 	"github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 )
