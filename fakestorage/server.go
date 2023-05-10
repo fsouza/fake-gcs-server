@@ -42,7 +42,7 @@ const defaultPublicHost = "storage.googleapis.com"
 //
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
-	Backend      backend.Storage
+	backend      backend.Storage
 	uploads      sync.Map
 	transport    http.RoundTripper
 	ts           *httptest.Server
@@ -211,7 +211,7 @@ func newServer(options Options) (*Server, error) {
 	}
 
 	s := Server{
-		Backend:      backendStorage,
+		backend:      backendStorage,
 		uploads:      sync.Map{},
 		externalURL:  options.ExternalURL,
 		publicHost:   publicHost,
@@ -313,9 +313,9 @@ func (s *Server) reseedServer(r *http.Request) jsonResponse {
 
 	var err error
 	if s.options.StorageRoot != "" {
-		s.Backend, err = backend.NewStorageFS(backendObjects, s.options.StorageRoot)
+		s.backend, err = backend.NewStorageFS(backendObjects, s.options.StorageRoot)
 	} else {
-		s.Backend, err = backend.NewStorageMemory(backendObjects)
+		s.backend, err = backend.NewStorageMemory(backendObjects)
 	}
 	if err != nil {
 		return errToJsonResponse(err)
@@ -423,6 +423,10 @@ func (s *Server) URL() string {
 // PublicURL returns the server's public download URL.
 func (s *Server) PublicURL() string {
 	return fmt.Sprintf("%s://%s", s.scheme(), s.publicHost)
+}
+
+func (s *Server) Backend() backend.Storage {
+	return s.backend
 }
 
 func (s *Server) scheme() string {

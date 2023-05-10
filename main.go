@@ -64,7 +64,7 @@ func main() {
 	}
 
 	go func() {
-		err := grpc.NewServerWithBackend(server.Backend, grpcListener)
+		err := grpc.NewServerWithBackend(server.Backend(), grpcListener)
 		println("Error while starting grpc server: ", err)
 	}()
 

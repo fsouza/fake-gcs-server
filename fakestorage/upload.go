@@ -67,7 +67,7 @@ func (c generationCondition) ConditionsMet(activeGeneration int64) bool {
 func (s *Server) insertObject(r *http.Request) jsonResponse {
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
 
-	if _, err := s.Backend.GetBucket(bucketName); err != nil {
+	if _, err := s.backend.GetBucket(bucketName); err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
 	uploadType := r.URL.Query().Get("uploadType")

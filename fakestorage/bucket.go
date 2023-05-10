@@ -24,7 +24,7 @@ var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$`)
 //
 // Deprecated: use CreateBucketWithOpts.
 func (s *Server) CreateBucket(name string) {
-	err := s.Backend.CreateBucket(name, false)
+	err := s.backend.CreateBucket(name, false)
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +43,7 @@ type CreateBucketOpts struct {
 //
 // If the underlying backend returns an error, this method panics.
 func (s *Server) CreateBucketWithOpts(opts CreateBucketOpts) {
-	err := s.Backend.CreateBucket(opts.Name, opts.VersioningEnabled)
+	err := s.backend.CreateBucket(opts.Name, opts.VersioningEnabled)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +71,7 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
 	}
 
-	_, err := s.Backend.GetBucket(name)
+	_, err := s.backend.GetBucket(name)
 	if err == nil {
 		return jsonResponse{
 			errorMessage: fmt.Sprintf(
@@ -84,12 +84,12 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	}
 
 	// Create the named bucket
-	if err := s.Backend.CreateBucket(name, versioning); err != nil {
+	if err := s.backend.CreateBucket(name, versioning); err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
 
 	// Return the created bucket:
-	bucket, err := s.Backend.GetBucket(name)
+	bucket, err := s.backend.GetBucket(name)
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
@@ -97,7 +97,7 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 }
 
 func (s *Server) listBuckets(r *http.Request) jsonResponse {
-	buckets, err := s.Backend.ListBuckets()
+	buckets, err := s.backend.ListBuckets()
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
@@ -106,7 +106,7 @@ func (s *Server) listBuckets(r *http.Request) jsonResponse {
 
 func (s *Server) getBucket(r *http.Request) jsonResponse {
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
-	bucket, err := s.Backend.GetBucket(bucketName)
+	bucket, err := s.backend.GetBucket(bucketName)
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
@@ -115,7 +115,7 @@ func (s *Server) getBucket(r *http.Request) jsonResponse {
 
 func (s *Server) deleteBucket(r *http.Request) jsonResponse {
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
-	err := s.Backend.DeleteBucket(bucketName)
+	err := s.backend.DeleteBucket(bucketName)
 	if err == backend.BucketNotFound {
 		return jsonResponse{status: http.StatusNotFound}
 	}
