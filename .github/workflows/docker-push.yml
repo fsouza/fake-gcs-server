@@ -1,6 +1,8 @@
 name: docker-push
 on:
   push:
+    branch:
+      - main
     tags:
       - "v*"
 
@@ -41,7 +43,7 @@ jobs:
           cache-from: fsouzaci/gha-cache:fake-gcs-server
           cache-to: fsouzaci/gha-cache:fake-gcs-server
           context: .
-          push: true
+          push: ${{ github.ref_type == 'tag' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
