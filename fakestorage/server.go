@@ -300,6 +300,9 @@ func (s *Server) buildMuxer() {
 	for _, r := range xmlApiRouters {
 		r.Path("/").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
 		r.Path("").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
+		r.Path("/{objectName:.+}").Methods(http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.xmlPutObject))
+		r.Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+		r.Path("/{objectName:.+}").Methods(http.MethodDelete).HandlerFunc(xmlToHTTPHandler(s.xmlDeleteObject))
 	}
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)

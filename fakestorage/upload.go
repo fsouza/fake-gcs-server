@@ -31,6 +31,8 @@ const (
 	cacheControlHeader = "Cache-Control"
 )
 
+const contentEncodingHeader = "Content-Encoding"
+
 const (
 	uploadTypeMedia     = "media"
 	uploadTypeMultipart = "multipart"

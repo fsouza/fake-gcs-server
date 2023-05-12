@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -651,6 +652,72 @@ func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
 	return xmlResponse{
 		status: http.StatusOK,
 		data:   []byte(xml.Header + string(raw)),
+	}
+}
+
+func (s *Server) xmlPutObject(r *http.Request) xmlResponse {
+	// https://cloud.google.com/storage/docs/xml-api/put-object-upload
+	vars := unescapeMuxVars(mux.Vars(r))
+	defer r.Body.Close()
+
+	metaData := make(map[string]string)
+	for key := range r.Header {
+		lowerKey := strings.ToLower(key)
+		if metaDataKey := strings.TrimPrefix(lowerKey, "x-goog-meta-"); metaDataKey != lowerKey {
+			metaData[metaDataKey] = r.Header.Get(key)
+		}
+	}
+
+	obj := StreamingObject{
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      vars["bucketName"],
+			Name:            vars["objectName"],
+			ContentType:     r.Header.Get(contentTypeHeader),
+			ContentEncoding: r.Header.Get(contentEncodingHeader),
+			Metadata:        metaData,
+		},
+	}
+	if source := r.Header.Get("x-goog-copy-source"); source != "" {
+		escaped, err := url.PathUnescape(source)
+		if err != nil {
+			return xmlResponse{status: http.StatusBadRequest}
+		}
+
+		split := strings.SplitN(escaped, "/", 2)
+		if len(split) != 2 {
+			return xmlResponse{status: http.StatusBadRequest}
+		}
+
+		sourceObject, err := s.GetObjectStreaming(split[0], split[1])
+		if err != nil {
+			return xmlResponse{status: http.StatusNotFound}
+		}
+		obj.Content = sourceObject.Content
+	} else {
+		obj.Content = notImplementedSeeker{r.Body}
+	}
+
+	obj, err := s.createObject(obj, backend.NoConditions{})
+
+	if err != nil {
+		return xmlResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: err.Error(),
+		}
+	}
+
+	obj.Close()
+	return xmlResponse{
+		status: http.StatusOK,
+	}
+}
+
+func (s *Server) xmlDeleteObject(r *http.Request) xmlResponse {
+	resp := s.deleteObject(r)
+	return xmlResponse{
+		status:       resp.status,
+		errorMessage: resp.errorMessage,
+		header:       resp.header,
 	}
 }
 
