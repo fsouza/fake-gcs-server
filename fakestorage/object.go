@@ -660,6 +660,10 @@ func (s *Server) xmlPutObject(r *http.Request) xmlResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 	defer r.Body.Close()
 
+	if _, err := s.backend.GetBucket(vars["bucketName"]); err != nil {
+		return xmlResponse{status: http.StatusNotFound}
+	}
+
 	metaData := make(map[string]string)
 	for key := range r.Header {
 		lowerKey := strings.ToLower(key)
