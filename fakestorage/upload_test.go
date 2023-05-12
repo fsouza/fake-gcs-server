@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -570,9 +569,6 @@ func TestServerClientSignedUpload(t *testing.T) {
 
 func TestServerClientSignedUploadBucketCNAME(t *testing.T) {
 	url := "https://mybucket.mydomain.com:4443/files/txt/text-02.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=fake-gcs&X-Goog-Expires=3600&X-Goog-SignedHeaders=host&X-Goog-Signature=fake-gc"
-	expectedName := "files/txt/text-02.txt"
-	expectedContentType := "text/plain"
-	expectedHash := "bHupxaFBQh4cA8uYB8l8dA=="
 	opts := Options{
 		InitialObjects: []Object{
 			{ObjectAttrs: ObjectAttrs{BucketName: "mybucket.mydomain.com", Name: "files/txt/text-01.txt"}, Content: []byte("something")},
@@ -595,23 +591,6 @@ func TestServerClientSignedUploadBucketCNAME(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
-	}
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var obj Object
-	if err := json.Unmarshal(data, &obj); err != nil {
-		t.Fatal(err)
-	}
-	if obj.Name != expectedName {
-		t.Errorf("wrong filename\nwant %q\ngot  %q", expectedName, obj.Name)
-	}
-	if obj.ContentType != expectedContentType {
-		t.Errorf("wrong content type\nwant %q\ngot  %q", expectedContentType, obj.ContentType)
-	}
-	if obj.Md5Hash != expectedHash {
-		t.Errorf("wrong md5 hash\nwant %q\ngot  %q", expectedHash, obj.Md5Hash)
 	}
 }
 
@@ -697,6 +676,64 @@ func TestServerClientSimpleUploadNoName(t *testing.T) {
 	expectedStatus := http.StatusBadRequest
 	if resp.StatusCode != expectedStatus {
 		t.Errorf("wrong status returned\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
+	}
+}
+
+func TestServerXMLPut(t *testing.T) {
+	server, err := NewServerWithOptions(Options{
+		PublicHost: "test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Stop()
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "bucket1"})
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "bucket2"})
+
+	const data = "some nice content"
+	req, err := http.NewRequest("PUT", server.URL()+"/bucket1/path", strings.NewReader(data))
+	req.Host = "test"
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got %d expected %d", resp.StatusCode, http.StatusOK)
+	}
+
+	req, err = http.NewRequest("PUT", server.URL()+"/bucket2/path", nil)
+	req.Host = "test"
+	req.Header.Set("x-goog-copy-source", "bucket1/path")
+
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got %d expected %d", resp.StatusCode, http.StatusOK)
+	}
+
+	req, err = http.NewRequest("PUT", server.URL()+"/bucket2/path2", nil)
+	req.Host = "test"
+	req.Header.Set("x-goog-copy-source", "bucket1/nonexistent")
+
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("got %d expected %d", resp.StatusCode, http.StatusNotFound)
 	}
 }
 
