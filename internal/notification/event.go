@@ -44,6 +44,8 @@ type EventManagerOptions struct {
 	ProjectID string
 	// TopicName is the pubsub topic name to publish events on.
 	TopicName string
+	// Bucket is the name of the bucket to publish events from.
+	Bucket string
 	// ObjectPrefix, if not empty, only objects having this prefix will generate
 	// trigger events.
 	ObjectPrefix string
@@ -65,6 +67,8 @@ type PubsubEventManager struct {
 	notifyOn EventNotificationOptions
 	// writer is where logs are written to.
 	writer io.Writer
+	// bucket, if not empty, only objects from this bucker will generate trigger events.
+	bucket string
 	// objectPrefix, if not empty, only objects having this prefix will generate
 	// trigger events.
 	objectPrefix string
@@ -76,6 +80,7 @@ func NewPubsubEventManager(options EventManagerOptions, w io.Writer) (*PubsubEve
 	manager := &PubsubEventManager{
 		writer:       w,
 		notifyOn:     options.NotifyOn,
+		bucket:       options.Bucket,
 		objectPrefix: options.ObjectPrefix,
 	}
 	if options.ProjectID != "" && options.TopicName != "" {
@@ -98,6 +103,9 @@ type eventPublisher interface {
 // event to a pubsub queue.
 func (m *PubsubEventManager) Trigger(o *backend.StreamingObject, eventType EventType, extraEventAttr map[string]string) {
 	if m.publisher == nil {
+		return
+	}
+	if m.bucket != "" && o.BucketName != m.bucket {
 		return
 	}
 	if m.objectPrefix != "" && !strings.HasPrefix(o.Name, m.objectPrefix) {

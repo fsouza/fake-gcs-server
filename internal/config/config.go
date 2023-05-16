@@ -47,6 +47,7 @@ type Config struct {
 type EventConfig struct {
 	pubsubProjectID string
 	pubsubTopic     string
+	bucket          string
 	prefix          string
 	list            []string
 }
@@ -71,6 +72,7 @@ func Load(args []string) (Config, error) {
 	fs.UintVar(&cfg.Port, "port", 4443, "port to bind to")
 	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", "", "project ID containing the pubsub topic")
 	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", "", "pubsub topic name to publish events on")
+	fs.StringVar(&cfg.event.bucket, "event.bucket", "", "if not empty, only objects in this bucket will generate trigger events")
 	fs.StringVar(&cfg.event.prefix, "event.object-prefix", "", "if not empty, only objects having this prefix will generate trigger events")
 	fs.StringVar(&eventList, "event.list", eventFinalize, "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
 	fs.StringVar(&cfg.bucketLocation, "location", "US-CENTRAL1", "location for buckets")
@@ -150,6 +152,7 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 	eventOptions := notification.EventManagerOptions{
 		ProjectID:    c.event.pubsubProjectID,
 		TopicName:    c.event.pubsubTopic,
+		Bucket:       c.event.bucket,
 		ObjectPrefix: c.event.prefix,
 	}
 	if c.event.pubsubProjectID != "" && c.event.pubsubTopic != "" {
