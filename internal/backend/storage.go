@@ -18,9 +18,10 @@ func (NoConditions) ConditionsMet(int64) bool {
 // Storage is the generic interface for implementing the backend storage of the
 // server.
 type Storage interface {
-	CreateBucket(name string, versioningEnabled bool) error
+	CreateBucket(name string, versioningEnabled bool, bucketAttrs BucketAttrs) error
 	ListBuckets() ([]Bucket, error)
 	GetBucket(name string) (Bucket, error)
+	UpdateBucket(name string, attrsToUpdate BucketAttrs) error
 	DeleteBucket(name string) error
 	CreateObject(obj StreamingObject, conditions Conditions) (StreamingObject, error)
 	ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error)

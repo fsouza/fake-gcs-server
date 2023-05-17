@@ -11,4 +11,10 @@ type Bucket struct {
 	Name              string
 	VersioningEnabled bool
 	TimeCreated       time.Time
+	DefaultEventBasedHold bool
+}
+
+const BucketMetadataSuffix = ".bucketMetadata"
+type BucketAttrs struct {
+	DefaultEventBasedHold bool
 }

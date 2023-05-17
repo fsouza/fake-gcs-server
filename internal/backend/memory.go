@@ -32,8 +32,8 @@ type bucketInMemory struct {
 	archivedObjects []Object
 }
 
-func newBucketInMemory(name string, versioningEnabled bool) bucketInMemory {
-	return bucketInMemory{Bucket{name, versioningEnabled, time.Now()}, []Object{}, []Object{}}
+func newBucketInMemory(name string, versioningEnabled bool, bucketAttrs BucketAttrs) bucketInMemory {
+	return bucketInMemory{Bucket{name, versioningEnabled, time.Now(), bucketAttrs.DefaultEventBasedHold}, []Object{}, []Object{}}
 }
 
 func (bm *bucketInMemory) addObject(obj Object) Object {
@@ -143,7 +143,7 @@ func NewStorageMemory(objects []StreamingObject) (Storage, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.CreateBucket(o.BucketName, false)
+		s.CreateBucket(o.BucketName, false, BucketAttrs{false})
 		bucket := s.buckets[o.BucketName]
 		bucket.addObject(bufferedObject)
 		s.buckets[o.BucketName] = bucket
@@ -151,8 +151,19 @@ func NewStorageMemory(objects []StreamingObject) (Storage, error) {
 	return s, nil
 }
 
+func (s *storageMemory) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) error { 
+	bucketInMemory, err := s.getBucketInMemory(bucketName)
+	if err != nil {
+		return err
+	}
+	bucketInMemory.DefaultEventBasedHold = attrsToUpdate.DefaultEventBasedHold
+	s.buckets[bucketName] = bucketInMemory
+	return nil
+}
+
+
 // CreateBucket creates a bucket.
-func (s *storageMemory) CreateBucket(name string, versioningEnabled bool) error {
+func (s *storageMemory) CreateBucket(name string, versioningEnabled bool, bucketAttrs BucketAttrs) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucket, err := s.getBucketInMemory(name)
@@ -162,7 +173,7 @@ func (s *storageMemory) CreateBucket(name string, versioningEnabled bool) error 
 		}
 		return nil
 	}
-	s.buckets[name] = newBucketInMemory(name, versioningEnabled)
+	s.buckets[name] = newBucketInMemory(name, versioningEnabled, bucketAttrs)
 	return nil
 }
 
@@ -172,7 +183,7 @@ func (s *storageMemory) ListBuckets() ([]Bucket, error) {
 	defer s.mtx.RUnlock()
 	buckets := []Bucket{}
 	for _, bucketInMemory := range s.buckets {
-		buckets = append(buckets, Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated})
+		buckets = append(buckets, Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated, false})
 	}
 	return buckets, nil
 }
@@ -182,7 +193,7 @@ func (s *storageMemory) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(name)
-	return Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated}, err
+	return Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated, bucketInMemory.DefaultEventBasedHold}, err
 }
 
 func (s *storageMemory) getBucketInMemory(name string) (bucketInMemory, error) {
@@ -214,7 +225,7 @@ func (s *storageMemory) CreateObject(obj StreamingObject, conditions Conditions)
 	defer s.mtx.Unlock()
 	bucketInMemory, err := s.getBucketInMemory(obj.BucketName)
 	if err != nil {
-		bucketInMemory = newBucketInMemory(obj.BucketName, false)
+		bucketInMemory = newBucketInMemory(obj.BucketName, false, BucketAttrs{})
 	}
 	bufferedObj, err := obj.BufferedObject()
 	currentGeneration := findLastObjectGeneration(bufferedObj, bucketInMemory.activeObjects)
