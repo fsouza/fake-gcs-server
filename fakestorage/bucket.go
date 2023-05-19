@@ -8,13 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
 	// "strconv"
-	"io"
 )
 
 var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$`)
@@ -37,7 +37,7 @@ func (s *Server) updateBucket(r *http.Request) jsonResponse {
 	attrsToUpdate := getBucketAttrsToUpdate(r.Body)
 	err := s.backend.UpdateBucket(bucketName, attrsToUpdate)
 	if err != nil {
-		panic(err) 
+		panic(err)
 	}
 	return jsonResponse{}
 }
@@ -63,8 +63,8 @@ func getBucketAttrsToUpdate(body io.ReadCloser) backend.BucketAttrs {
 // CreateBucketOpts defines the properties of a bucket you can create with
 // CreateBucketWithOpts.
 type CreateBucketOpts struct {
-	Name              string
-	VersioningEnabled bool
+	Name                  string
+	VersioningEnabled     bool
 	DefaultEventBasedHold bool
 }
 
@@ -84,9 +84,9 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	// Minimal version of Bucket from google.golang.org/api/storage/v1
 
 	var data struct {
-		Name       string            `json:"name,omitempty"`
-		Versioning *bucketVersioning `json:"versioning,omitempty"`
-		DefaultEventBasedHold bool `json:"defaultEventBasedHold,omitempty"`
+		Name                  string            `json:"name,omitempty"`
+		Versioning            *bucketVersioning `json:"versioning,omitempty"`
+		DefaultEventBasedHold bool              `json:"defaultEventBasedHold,omitempty"`
 	}
 
 	// Read the bucket props from the request body JSON

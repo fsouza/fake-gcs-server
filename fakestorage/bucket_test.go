@@ -15,9 +15,6 @@ import (
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
-
-	/* remove later */
-	//"fmt"
 )
 
 func tempDir() string {

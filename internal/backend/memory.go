@@ -151,7 +151,7 @@ func NewStorageMemory(objects []StreamingObject) (Storage, error) {
 	return s, nil
 }
 
-func (s *storageMemory) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) error { 
+func (s *storageMemory) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) error {
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
 	if err != nil {
 		return err
@@ -161,7 +161,6 @@ func (s *storageMemory) UpdateBucket(bucketName string, attrsToUpdate BucketAttr
 	s.buckets[bucketName] = bucketInMemory
 	return nil
 }
-
 
 // CreateBucket creates a bucket.
 func (s *storageMemory) CreateBucket(name string, bucketAttrs BucketAttrs) error {

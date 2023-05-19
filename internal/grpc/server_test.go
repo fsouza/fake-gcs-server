@@ -262,7 +262,7 @@ func TestBucketInsertGetListUpdateDelete(t *testing.T) {
 		bucketName := "bucket5"
 		_, err := grpcServer.InsertBucket(ctx, &pb.InsertBucketRequest{
 			Bucket: &pb.Bucket{
-				Name: bucketName,
+				Name:                  bucketName,
 				DefaultEventBasedHold: true,
 			},
 		})

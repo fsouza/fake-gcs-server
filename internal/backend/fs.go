@@ -41,7 +41,6 @@ type storageFS struct {
 	mh      metadataHandler
 }
 
-
 // NewStorageFS creates an instance of the filesystem-backed storage backend.
 func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 	if !strings.HasSuffix(rootDir, "/") {
@@ -89,13 +88,13 @@ func (s *storageFS) createBucket(name string, bucketAttrs BucketAttrs) error {
 	path := filepath.Join(s.rootDir, url.PathEscape(name))
 	err := os.MkdirAll(path, 0o700)
 	if err != nil {
-		return err 
+		return err
 	}
 	encoded, err := json.Marshal(bucketAttrs)
 	if err != nil {
 		return err
 	}
-	return writeFile(path + BucketMetadataSuffix, encoded, 0o600)
+	return writeFile(path+BucketMetadataSuffix, encoded, 0o600)
 }
 
 // ListBuckets returns a list of buckets from the list of directories in the
@@ -133,7 +132,7 @@ func (s *storageFS) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) e
 		return err
 	}
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName))
-	return writeFile(path + BucketMetadataSuffix, encoded, 0o600)
+	return writeFile(path+BucketMetadataSuffix, encoded, 0o600)
 }
 
 // GetBucket returns information about the given bucket, or an error if it
@@ -161,7 +160,7 @@ func (s *storageFS) getBucketAttributes(path string) (BucketAttrs, error) {
 	var attrs BucketAttrs
 	err = json.Unmarshal(content, &attrs)
 	if err != nil {
-		return BucketAttrs{}, err 
+		return BucketAttrs{}, err
 	}
 	return attrs, nil
 }

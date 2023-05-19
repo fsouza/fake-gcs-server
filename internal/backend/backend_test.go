@@ -244,7 +244,7 @@ func TestBucketAttrsUpdateVersioning(t *testing.T) {
 		}
 		err = storage.UpdateBucket(bucketName, updatedBucketAttrs)
 		if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) {
-			if err == nil{
+			if err == nil {
 				t.Fatal("fs storage should not accept updating buckets with versioning, but it's not failing")
 			}
 		} else {
@@ -259,7 +259,7 @@ func TestBucketAttrsUpdateVersioning(t *testing.T) {
 					t.Errorf("Expected versioning enabled to be %v, instead got %v", updatedBucketAttrs.VersioningEnabled, bucket.VersioningEnabled)
 				}
 			}
-		}	
+		}
 	})
 }
 
