@@ -143,7 +143,7 @@ func NewStorageMemory(objects []StreamingObject) (Storage, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.CreateBucket(o.BucketName, false, BucketAttrs{false})
+		s.CreateBucket(o.BucketName, BucketAttrs{false, false})
 		bucket := s.buckets[o.BucketName]
 		bucket.addObject(bufferedObject)
 		s.buckets[o.BucketName] = bucket
@@ -157,23 +157,24 @@ func (s *storageMemory) UpdateBucket(bucketName string, attrsToUpdate BucketAttr
 		return err
 	}
 	bucketInMemory.DefaultEventBasedHold = attrsToUpdate.DefaultEventBasedHold
+	bucketInMemory.VersioningEnabled = attrsToUpdate.VersioningEnabled
 	s.buckets[bucketName] = bucketInMemory
 	return nil
 }
 
 
 // CreateBucket creates a bucket.
-func (s *storageMemory) CreateBucket(name string, versioningEnabled bool, bucketAttrs BucketAttrs) error {
+func (s *storageMemory) CreateBucket(name string, bucketAttrs BucketAttrs) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucket, err := s.getBucketInMemory(name)
 	if err == nil {
-		if bucket.VersioningEnabled != versioningEnabled {
+		if bucket.VersioningEnabled != bucketAttrs.VersioningEnabled {
 			return fmt.Errorf("a bucket named %s already exists, but with different properties", name)
 		}
 		return nil
 	}
-	s.buckets[name] = newBucketInMemory(name, versioningEnabled, bucketAttrs)
+	s.buckets[name] = newBucketInMemory(name, bucketAttrs.VersioningEnabled, bucketAttrs)
 	return nil
 }
 

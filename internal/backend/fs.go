@@ -76,16 +76,16 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 
 // CreateBucket creates a bucket in the fs backend. A bucket is a folder in the
 // root directory.
-func (s *storageFS) CreateBucket(name string, versioningEnabled bool, bucketAttrs BucketAttrs) error {
-	if versioningEnabled {
-		return errors.New("not implemented: fs storage type does not support versioning yet")
-	}
+func (s *storageFS) CreateBucket(name string, bucketAttrs BucketAttrs) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	return s.createBucket(name, versioningEnabled, bucketAttrs)
+	return s.createBucket(name, bucketAttrs)
 }
 
-func (s *storageFS) createBucket(name string, versioningEnabled bool, bucketAttrs BucketAttrs) error {
+func (s *storageFS) createBucket(name string, bucketAttrs BucketAttrs) error {
+	if bucketAttrs.VersioningEnabled {
+		return errors.New("not implemented: fs storage type does not support versioning yet")
+	}
 	path := filepath.Join(s.rootDir, url.PathEscape(name))
 	err := os.MkdirAll(path, 0o700)
 	if err != nil {
@@ -125,6 +125,9 @@ func timespecToTime(ts syscall.Timespec) time.Time {
 }
 
 func (s *storageFS) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) error {
+	if attrsToUpdate.VersioningEnabled {
+		return errors.New("not implemented: fs storage type does not support versioning yet")
+	}
 	encoded, err := json.Marshal(attrsToUpdate)
 	if err != nil {
 		return err
@@ -199,7 +202,7 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	err := s.createBucket(obj.BucketName, false, BucketAttrs{})
+	err := s.createBucket(obj.BucketName, BucketAttrs{VersioningEnabled: false})
 	if err != nil {
 		return StreamingObject{}, err
 	}

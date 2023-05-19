@@ -15,6 +15,9 @@ import (
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
+
+	/* remove later */
+	//"fmt"
 )
 
 func tempDir() string {
@@ -22,6 +25,44 @@ func tempDir() string {
 		return "/var/tmp"
 	} else {
 		return os.TempDir()
+	}
+}
+
+func TestServerClientUpdateBucketAttrs(t *testing.T) {
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		const bucketName = "best-bucket-ever"
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, DefaultEventBasedHold: false})
+		client := server.Client()
+		_, err := client.Bucket(bucketName).Update(context.TODO(), storage.BucketAttrsToUpdate{DefaultEventBasedHold: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		attrs, err := client.Bucket(bucketName).Attrs(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !attrs.DefaultEventBasedHold {
+			t.Errorf("expected default event based hold to be true, instead got: %v", attrs.DefaultEventBasedHold)
+		}
+	})
+}
+
+func TestServerClientStoreAndRetrieveBucketAttrs(t *testing.T) {
+	for _, defaultEventBasedHold := range []bool{true, false} {
+		defaultEventBasedHold := defaultEventBasedHold
+
+		runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+			const bucketName = "best-bucket-ever"
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, DefaultEventBasedHold: defaultEventBasedHold})
+			client := server.Client()
+			attrs, err := client.Bucket(bucketName).Attrs(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if attrs.DefaultEventBasedHold != defaultEventBasedHold {
+				t.Errorf("expected default event based hold to be: %v", defaultEventBasedHold)
+			}
+		})
 	}
 }
 

@@ -17,4 +17,5 @@ type Bucket struct {
 const BucketMetadataSuffix = ".bucketMetadata"
 type BucketAttrs struct {
 	DefaultEventBasedHold bool
+	VersioningEnabled bool
 }

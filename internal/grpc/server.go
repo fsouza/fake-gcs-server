@@ -52,7 +52,7 @@ func (g *Server) DeleteBucket(ctx context.Context, req *pb.DeleteBucketRequest) 
 }
 
 func (g *Server) InsertBucket(ctx context.Context, req *pb.InsertBucketRequest) (*pb.Empty, error) {
-	err := g.backend.CreateBucket(req.Bucket.Name, false)
+	err := g.backend.CreateBucket(req.Bucket.Name, backend.BucketAttrs{})
 	return &pb.Empty{}, err
 }
 

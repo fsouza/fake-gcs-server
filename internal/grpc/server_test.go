@@ -105,7 +105,7 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 		// Set up
 		grpcServer := InitServer(storage)
 		bucketName := "bucket1"
-		storage.CreateBucket(bucketName, false)
+		storage.CreateBucket(bucketName, backend.BucketAttrs{})
 
 		// Object Attributes
 		obj1Name := "object1"

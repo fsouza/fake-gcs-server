@@ -13,6 +13,8 @@ import (
 
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
+	// "strconv"
+	"io"
 )
 
 var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$`)
@@ -24,10 +26,31 @@ var bucketRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$`)
 //
 // Deprecated: use CreateBucketWithOpts.
 func (s *Server) CreateBucket(name string) {
-	err := s.backend.CreateBucket(name, false)
+	err := s.backend.CreateBucket(name, backend.BucketAttrs{VersioningEnabled: false, DefaultEventBasedHold: false})
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (s *Server) updateBucket(r *http.Request) jsonResponse {
+	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
+	attrsToUpdate := getBucketAttrsToUpdate(r.Body)
+	err := s.backend.UpdateBucket(bucketName, attrsToUpdate)
+	if err != nil {
+		panic(err) 
+	}
+	return jsonResponse{}
+}
+
+func getBucketAttrsToUpdate(body io.ReadCloser) backend.BucketAttrs {
+	var data map[string]interface{}
+	json.NewDecoder(body).Decode(&data)
+	attrsToUpdate := backend.BucketAttrs{}
+	defaultEventBasedHold, exists := data["defaultEventBasedHold"]
+	if exists {
+		attrsToUpdate.DefaultEventBasedHold = defaultEventBasedHold.(bool)
+	}
+	return attrsToUpdate
 }
 
 // CreateBucketOpts defines the properties of a bucket you can create with
@@ -35,6 +58,7 @@ func (s *Server) CreateBucket(name string) {
 type CreateBucketOpts struct {
 	Name              string
 	VersioningEnabled bool
+	DefaultEventBasedHold bool
 }
 
 // CreateBucketWithOpts creates a bucket inside the server, so any API calls that
@@ -43,7 +67,7 @@ type CreateBucketOpts struct {
 //
 // If the underlying backend returns an error, this method panics.
 func (s *Server) CreateBucketWithOpts(opts CreateBucketOpts) {
-	err := s.backend.CreateBucket(opts.Name, opts.VersioningEnabled)
+	err := s.backend.CreateBucket(opts.Name, backend.BucketAttrs{VersioningEnabled: opts.VersioningEnabled, DefaultEventBasedHold: opts.DefaultEventBasedHold})
 	if err != nil {
 		panic(err)
 	}
@@ -55,6 +79,7 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	var data struct {
 		Name       string            `json:"name,omitempty"`
 		Versioning *bucketVersioning `json:"versioning,omitempty"`
+		DefaultEventBasedHold bool `json:"defaultEventBasedHold,omitempty"`
 	}
 
 	// Read the bucket props from the request body JSON
@@ -67,6 +92,7 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	if data.Versioning != nil {
 		versioning = data.Versioning.Enabled
 	}
+	defaultEventBasedHold := data.DefaultEventBasedHold
 	if err := validateBucketName(name); err != nil {
 		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
 	}
@@ -84,7 +110,7 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	}
 
 	// Create the named bucket
-	if err := s.backend.CreateBucket(name, versioning); err != nil {
+	if err := s.backend.CreateBucket(name, backend.BucketAttrs{VersioningEnabled: versioning, DefaultEventBasedHold: defaultEventBasedHold}); err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
 

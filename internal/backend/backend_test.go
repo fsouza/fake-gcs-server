@@ -125,7 +125,7 @@ func TestObjectCRUD(t *testing.T) {
 			// Delete in non-existent case
 			err = storage.DeleteObject(bucketName, objectName)
 			shouldError(t, err)
-			err = storage.CreateBucket(bucketName, versioningEnabled, BucketAttrs{})
+			err = storage.CreateBucket(bucketName, BucketAttrs{VersioningEnabled: versioningEnabled})
 			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && versioningEnabled {
 				t.Log("FS storage type should not implement versioning")
 				shouldError(t, err)
@@ -211,7 +211,7 @@ func TestObjectQueryErrors(t *testing.T) {
 		versioningEnabled := versioningEnabled
 		testForStorageBackends(t, func(t *testing.T, storage Storage) {
 			const bucketName = "random-bucket"
-			err := storage.CreateBucket(bucketName, versioningEnabled, BucketAttrs{})
+			err := storage.CreateBucket(bucketName, BucketAttrs{VersioningEnabled: versioningEnabled})
 			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && versioningEnabled {
 				t.Log("FS storage type should not implement versioning")
 				shouldError(t, err)
@@ -233,14 +233,42 @@ func TestObjectQueryErrors(t *testing.T) {
 	}
 }
 
-
-
-func TestBucketAttrs(t *testing.T) {
+func TestBucketAttrsUpdateVersioning(t *testing.T) {
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		bucketName := "randombucket"
-		initBucketAttrs := BucketAttrs{DefaultEventBasedHold: true}
+		initBucketAttrs := BucketAttrs{VersioningEnabled: false}
+		updatedBucketAttrs := BucketAttrs{VersioningEnabled: true}
+		err := storage.CreateBucket(bucketName, initBucketAttrs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = storage.UpdateBucket(bucketName, updatedBucketAttrs)
+		if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) {
+			if err == nil{
+				t.Fatal("fs storage should not accept updating buckets with versioning, but it's not failing")
+			}
+		} else {
+			if err != nil {
+				t.Fatal(err)
+			} else {
+				bucket, err := storage.GetBucket(bucketName)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if bucket.VersioningEnabled != updatedBucketAttrs.VersioningEnabled {
+					t.Errorf("Expected versioning enabled to be %v, instead got %v", updatedBucketAttrs.VersioningEnabled, bucket.VersioningEnabled)
+				}
+			}
+		}	
+	})
+}
+
+func TestBucketAttrsStoreRetrieveUpdate(t *testing.T) {
+	testForStorageBackends(t, func(t *testing.T, storage Storage) {
+		bucketName := "randombucket"
+		initBucketAttrs := BucketAttrs{DefaultEventBasedHold: true, VersioningEnabled: false}
 		updatedBucketAttrs := BucketAttrs{DefaultEventBasedHold: false}
-		err := storage.CreateBucket(bucketName, false, initBucketAttrs)
+		err := storage.CreateBucket(bucketName, initBucketAttrs)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -287,7 +315,7 @@ func TestBucketCreateGetListDelete(t *testing.T) {
 			// Use a large +/- 5 second window to allow for an imperfectly synchronized
 			// clock generating the filesystem timestamp and to reduce test flakes.
 			timeBeforeCreation := time.Now().Add(-5 * time.Second)
-			err = storage.CreateBucket(bucket.Name, bucket.VersioningEnabled, BucketAttrs{})
+			err = storage.CreateBucket(bucket.Name, BucketAttrs{VersioningEnabled: bucket.VersioningEnabled})
 			timeAfterCreation := time.Now().Add(5 * time.Second)
 			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && bucket.VersioningEnabled {
 				if err == nil {
@@ -333,12 +361,12 @@ func isBucketEquivalentTo(a, b Bucket, earliest, latest time.Time) bool {
 func TestBucketDuplication(t *testing.T) {
 	const bucketName = "prod-bucket"
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
-		err := storage.CreateBucket(bucketName, false, BucketAttrs{})
+		err := storage.CreateBucket(bucketName, BucketAttrs{VersioningEnabled: false})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = storage.CreateBucket(bucketName, true, BucketAttrs{})
+		err = storage.CreateBucket(bucketName, BucketAttrs{VersioningEnabled: true})
 		if err == nil {
 			t.Fatal("we were expecting a bucket duplication error")
 		}
