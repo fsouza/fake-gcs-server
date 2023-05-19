@@ -45,6 +45,22 @@ func TestServerClientUpdateBucketAttrs(t *testing.T) {
 			t.Errorf("expected default event based hold to be true, instead got: %v", attrs.DefaultEventBasedHold)
 		}
 	})
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		const bucketName = "best-bucket-ever"
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: false})
+		client := server.Client()
+		_, err := client.Bucket(bucketName).Update(context.TODO(), storage.BucketAttrsToUpdate{VersioningEnabled: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		attrs, err := client.Bucket(bucketName).Attrs(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !attrs.VersioningEnabled {
+			t.Errorf("expected VersioningEnabled hold to be true, instead got: %v", attrs.VersioningEnabled)
+		}
+	})
 }
 
 func TestServerClientStoreAndRetrieveBucketAttrs(t *testing.T) {

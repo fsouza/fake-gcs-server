@@ -40,6 +40,7 @@ func (g *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.B
 		Id:          bucket.Name,
 		Name:        bucket.Name,
 		Versioning:  &pb.Bucket_Versioning{Enabled: bucket.VersioningEnabled},
+		DefaultEventBasedHold: bucket.DefaultEventBasedHold,
 		TimeCreated: timestamppb.New(bucket.TimeCreated),
 	}
 	return grpc_bucket, nil
@@ -52,8 +53,16 @@ func (g *Server) DeleteBucket(ctx context.Context, req *pb.DeleteBucketRequest) 
 }
 
 func (g *Server) InsertBucket(ctx context.Context, req *pb.InsertBucketRequest) (*pb.Empty, error) {
-	err := g.backend.CreateBucket(req.Bucket.Name, backend.BucketAttrs{})
+	err := g.backend.CreateBucket(req.Bucket.Name, backend.BucketAttrs{DefaultEventBasedHold: req.Bucket.DefaultEventBasedHold})
 	return &pb.Empty{}, err
+}
+
+func (g *Server) UpdateBucket(ctx context.Context, req *pb.UpdateBucketRequest) (*pb.Bucket, error) {
+	updatedBucketAttrs := backend.BucketAttrs {
+		DefaultEventBasedHold: req.Metadata.DefaultEventBasedHold,
+	}
+	err := g.backend.UpdateBucket(req.Bucket, updatedBucketAttrs)
+	return &pb.Bucket{}, err
 }
 
 func (g *Server) ListBuckets(context.Context, *pb.ListBucketsRequest) (*pb.Buckets, error) {

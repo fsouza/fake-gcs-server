@@ -50,6 +50,13 @@ func getBucketAttrsToUpdate(body io.ReadCloser) backend.BucketAttrs {
 	if exists {
 		attrsToUpdate.DefaultEventBasedHold = defaultEventBasedHold.(bool)
 	}
+	versioning, exists := data["versioning"]
+	if exists {
+		versioning, success := versioning.(map[string]interface{})
+		if success {
+			attrsToUpdate.VersioningEnabled = versioning["enabled"].(bool)
+		}
+	}
 	return attrsToUpdate
 }
 
