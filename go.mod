@@ -6,7 +6,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
-	github.com/minio/minio-go/v7 v7.0.53
+	github.com/minio/minio-go/v7 v7.0.55
 	github.com/pkg/xattr v0.4.9
 	github.com/sirupsen/logrus v1.9.2
 	github.com/stretchr/testify v1.8.3
@@ -19,14 +19,14 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.16.0 // indirect
+	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/sha256-simd v1.0.0 // indirect
+	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/rs/xid v1.4.0 // indirect
-	golang.org/x/crypto v0.7.0 // indirect
+	github.com/rs/xid v1.5.0 // indirect
+	golang.org/x/crypto v0.9.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 
