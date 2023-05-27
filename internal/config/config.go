@@ -58,7 +58,7 @@ func Load(args []string) (Config, error) {
 	var cfg Config
 	var allowedCORSHeaders string
 	var eventList string
-	var givenLogLevel string
+	var logLevel string
 
 	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
 	fs.StringVar(&cfg.backend, "backend", filesystemBackend, "storage backend (memory or filesystem)")
@@ -78,14 +78,14 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.bucketLocation, "location", "US-CENTRAL1", "location for buckets")
 	fs.StringVar(&cfg.CertificateLocation, "cert-location", "", "location for server certificate")
 	fs.StringVar(&cfg.PrivateKeyLocation, "private-key-location", "", "location for private key")
-	fs.StringVar(&givenLogLevel, "log-level", "info", "level for logging. Options same as for logrus: trace, debug, info, warn, error, fatal, and panic")
+	fs.StringVar(&logLevel, "log-level", "info", "level for logging. Options same as for logrus: trace, debug, info, warn, error, fatal, and panic")
 
 	err := fs.Parse(args)
 	if err != nil {
 		return cfg, err
 	}
 
-	cfg.LogLevel, err = logrus.ParseLevel(givenLogLevel)
+	cfg.LogLevel, err = logrus.ParseLevel(logLevel)
 	if err != nil {
 		return cfg, err
 	}
@@ -95,6 +95,10 @@ func Load(args []string) (Config, error) {
 	}
 	if eventList != "" {
 		cfg.event.list = strings.Split(eventList, ",")
+	}
+
+	if cfg.externalURL == "" {
+		cfg.externalURL = fmt.Sprintf("%s://%s:%d", cfg.Scheme, cfg.Host, cfg.Port)
 	}
 
 	return cfg, cfg.validate()

@@ -68,7 +68,7 @@ func TestLoadConfig(t *testing.T) {
 				backend:            "filesystem",
 				fsRoot:             "/storage",
 				publicHost:         "storage.googleapis.com",
-				externalURL:        "",
+				externalURL:        "https://0.0.0.0:4443",
 				allowedCORSHeaders: nil,
 				Host:               "0.0.0.0",
 				Port:               4443,
