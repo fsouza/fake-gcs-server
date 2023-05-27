@@ -315,7 +315,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 	// If we see a string like "boundary='=", which is always invalid anyway,
 	// attempt to rescue the situation by converting all ' to ".
 	if strings.Contains(requestContentType, "boundary='=") {
-		requestContentType = strings.ReplaceAll(requestContentType, "'", "\"")
+		requestContentType = strings.ReplaceAll(requestContentType, "'", `"`)
 	}
 	_, params, err := mime.ParseMediaType(requestContentType)
 	if err != nil {
