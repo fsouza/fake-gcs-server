@@ -202,7 +202,7 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			if diff := cmp.Diff(objects, test.expectedObjects, cmpOpts...); diff != "" {
 				t.Errorf("wrong list of objects returned\nwant %#v\ngot  %#v\ndiff: %s", test.expectedObjects, objects, diff)
 			}
-			if diff := cmp.Diff(emptyBuckets, test.expectedEmptyBuckets); diff != "" {
+			if !cmp.Equal(emptyBuckets, test.expectedEmptyBuckets) {
 				t.Errorf("wrong list of empty buckets returned\nwant %#v\ngot  %#v", test.expectedEmptyBuckets, emptyBuckets)
 			}
 		})
