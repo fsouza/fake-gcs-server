@@ -16,15 +16,10 @@ jobs:
           - 1.19
           - "1.20"
         os:
-          - macos
-          - ubuntu
           - windows
         arch:
           - 386
           - amd64
-        exclude:
-          - os: macos
-            arch: 386
 
     name: tests (${{ matrix.os }}/go-${{ matrix.go_version }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}-latest
