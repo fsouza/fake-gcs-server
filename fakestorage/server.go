@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"mime/multipart"
 	"net"
@@ -340,6 +341,8 @@ func generateObjectsFromFiles(folder string) ([]Object, []string) {
 
 			bucketObjects, err := objectsFromBucket(localBucketPath, bucketName)
 			if err != nil {
+				// TODO: remove this line, added for debugging
+				log.Printf("skipping due to error: %v", err)
 				continue
 			}
 
