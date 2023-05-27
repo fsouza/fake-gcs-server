@@ -306,7 +306,18 @@ func getObjectACL(predefinedACL string) []storage.ACLRule {
 
 func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
-	_, params, err := mime.ParseMediaType(r.Header.Get(contentTypeHeader))
+	requestContentType := r.Header.Get(contentTypeHeader)
+	// gsutil is observed to submit incorrectly-quoted bounary strings
+	// like: boundary='===============5900997287163282353=='
+	// See https://github.com/GoogleCloudPlatform/gsutil/issues/1466
+	// Having an "=" character in the boundary param requires the value be quoted,
+	// but ' is not a quote char, " is.
+	// If we see a string like "boundary='=", which is always invalid anyway,
+	// attempt to rescue the situation by converting all ' to ".
+	if strings.Contains(requestContentType, "boundary='=") {
+		requestContentType = strings.ReplaceAll(requestContentType, "'", `"`)
+	}
+	_, params, err := mime.ParseMediaType(requestContentType)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusBadRequest,
