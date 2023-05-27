@@ -23,6 +23,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/api/googleapi"
 )
 
@@ -1013,4 +1014,105 @@ func isACLPublic(acl []storage.ACLRule) bool {
 		}
 	}
 	return false
+}
+
+func TestParseContentTypeParams(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name           string
+		input          string
+		expectedParams map[string]string
+	}{
+		{
+			name:           "no boundary",
+			input:          "multipart/related",
+			expectedParams: map[string]string{},
+		},
+		{
+			name:           "with boundary",
+			input:          "multipart/related; boundary=something",
+			expectedParams: map[string]string{"boundary": "something"},
+		},
+		{
+			name:           "with quoted boundary",
+			input:          `multipart/related; boundary="something"`,
+			expectedParams: map[string]string{"boundary": "something"},
+		},
+		{
+			name:           "boundaries that have a single quote, but don't use special chars",
+			input:          `multipart/related; boundary='something'`,
+			expectedParams: map[string]string{"boundary": "'something'"},
+		},
+		{
+			name:           "special characters within single quotes",
+			input:          `text/plain; boundary='===============1523364337061494617=='`,
+			expectedParams: map[string]string{"boundary": "===============1523364337061494617=="},
+		},
+		{
+			name:           "special characters within single quotes + other parameters",
+			input:          `text/plain; boundary='===============1523364337061494617=='; some=thing`,
+			expectedParams: map[string]string{"boundary": "===============1523364337061494617==", "some": "thing"},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			params, err := parseContentTypeParams(test.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if diff := cmp.Diff(params, test.expectedParams); diff != "" {
+				t.Errorf("unexpected params: %v", diff)
+			}
+		})
+	}
+}
+
+func TestParseContentTypeParamsGsutilEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	// "hardening" of the regex, to make sure we don't miss anything. As we
+	// run into bugs, this slice will grow.
+	testCases := []string{
+		"===============5900997287163282353==",
+		"===============5900997287163282353",
+		"590099728(7163282353",
+		"something with spaces",
+		"                ",
+		"===============5900997287163282353==590099728===",
+		"(",
+		")",
+		"<",
+		">",
+		"@",
+		",",
+		";",
+		":",
+		"/",
+		"[",
+		"]",
+		"?",
+		"=",
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase, func(t *testing.T) {
+			t.Parallel()
+			input := fmt.Sprintf("text/plain; a=b; boundary='%s'; c=d", testCase)
+			expectedParams := map[string]string{"boundary": testCase, "a": "b", "c": "d"}
+
+			params, err := parseContentTypeParams(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if diff := cmp.Diff(params, expectedParams); diff != "" {
+				t.Errorf("unexpected params: %v", diff)
+			}
+		})
+	}
 }

@@ -15,6 +15,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,19 @@ const (
 	uploadTypeMultipart = "multipart"
 	uploadTypeResumable = "resumable"
 )
+
+// per RFC 2045, double quotes should be used whenever parameters have a value
+// that includes some special character - anything in the set: ()<>@,;:\"/[]?=
+// (including space). gsutil likes to use `=` in the boundary, but incorrectly
+// quotes it using single quotes.
+//
+// We do exclude \ and " from the regexp because those are not supported by the
+// mime package.
+//
+// This has been reported to gsutil
+// (https://github.com/GoogleCloudPlatform/gsutil/issues/1466). If that issue
+// ever gets closed, we should be able to get rid of this hack.
+var gsutilBoundary = regexp.MustCompile(`boundary='([^']*[()<>@,;:"/\[\]?= ]+[^']*)'`)
 
 type multipartMetadata struct {
 	ContentType     string            `json:"contentType"`
@@ -306,18 +320,7 @@ func getObjectACL(predefinedACL string) []storage.ACLRule {
 
 func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
-	requestContentType := r.Header.Get(contentTypeHeader)
-	// gsutil is observed to submit incorrectly-quoted bounary strings
-	// like: boundary='===============5900997287163282353=='
-	// See https://github.com/GoogleCloudPlatform/gsutil/issues/1466
-	// Having an "=" character in the boundary param requires the value be quoted,
-	// but ' is not a quote char, " is.
-	// If we see a string like "boundary='=", which is always invalid anyway,
-	// attempt to rescue the situation by converting all ' to ".
-	if strings.Contains(requestContentType, "boundary='=") {
-		requestContentType = strings.ReplaceAll(requestContentType, "'", `"`)
-	}
-	_, params, err := mime.ParseMediaType(requestContentType)
+	params, err := parseContentTypeParams(r.Header.Get(contentTypeHeader))
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusBadRequest,
@@ -384,6 +387,12 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	defer obj.Close()
 	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs)}
+}
+
+func parseContentTypeParams(requestContentType string) (map[string]string, error) {
+	requestContentType = gsutilBoundary.ReplaceAllString(requestContentType, `boundary="$1"`)
+	_, params, err := mime.ParseMediaType(requestContentType)
+	return params, err
 }
 
 func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonResponse {
