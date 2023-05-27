@@ -122,6 +122,9 @@ jobs:
           - lang: python
             docker-image: python:latest
             entrypoint: /bin/bash
+          - lang: gsutil
+            docker-image: python:latest
+            entrypoint: /bin/bash
           - lang: node
             docker-image: node:14-alpine
             entrypoint: /bin/sh
