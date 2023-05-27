@@ -157,6 +157,7 @@ func TestToFakeGcsOptions(t *testing.T) {
 				event: EventConfig{
 					pubsubProjectID: "test-project",
 					pubsubTopic:     "gcs-events",
+					bucket:          "my-bucket",
 					prefix:          "uploads/",
 					list:            []string{"finalize", "delete"},
 				},
@@ -171,6 +172,7 @@ func TestToFakeGcsOptions(t *testing.T) {
 				EventOptions: notification.EventManagerOptions{
 					ProjectID:    "test-project",
 					TopicName:    "gcs-events",
+					Bucket:       "my-bucket",
 					ObjectPrefix: "uploads/",
 					NotifyOn: notification.EventNotificationOptions{
 						Finalize:       true,

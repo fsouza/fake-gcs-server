@@ -34,6 +34,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 		name      string
 		notifyOn  EventNotificationOptions
 		eventType string
+		bucket    string
 		prefix    string
 		metadata  map[string]string
 	}{
@@ -41,6 +42,37 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 			"None",
 			EventNotificationOptions{},
 			"",
+			"",
+			"",
+			nil,
+		},
+		{
+			"Finalize enabled, no bucket",
+			EventNotificationOptions{
+				Finalize: true,
+			},
+			string(EventFinalize),
+			"",
+			"",
+			nil,
+		},
+		{
+			"Finalize enabled, matching bucket",
+			EventNotificationOptions{
+				Finalize: true,
+			},
+			string(EventFinalize),
+			"some-bucket",
+			"",
+			nil,
+		},
+		{
+			"Finalize enabled, non-matching bucket",
+			EventNotificationOptions{
+				Finalize: true,
+			},
+			"",
+			"some-unmatched-bucket",
 			"",
 			nil,
 		},
@@ -51,6 +83,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 			},
 			string(EventFinalize),
 			"",
+			"",
 			nil,
 		},
 		{
@@ -59,6 +92,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 				Finalize: true,
 			},
 			string(EventFinalize),
+			"",
 			"files/",
 			nil,
 		},
@@ -67,6 +101,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 			EventNotificationOptions{
 				Finalize: true,
 			},
+			"",
 			"",
 			"uploads/",
 			nil,
@@ -78,6 +113,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 			},
 			string(EventDelete),
 			"",
+			"",
 			nil,
 		},
 		{
@@ -86,6 +122,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 				MetadataUpdate: true,
 			},
 			string(EventMetadata),
+			"",
 			"",
 			newMetadata,
 		},
@@ -107,6 +144,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 			obj := bufferedObj.StreamingObject()
 			eventManager := PubsubEventManager{
 				notifyOn:     test.notifyOn,
+				bucket:       test.bucket,
 				objectPrefix: test.prefix,
 			}
 			publisher := &mockPublisher{}
