@@ -26,8 +26,11 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	const emptyBucketDir = "../testdata/basic/empty-bucket"
-	err := ensureEmptyDir(emptyBucketDir)
+	emptyBucketDir, err := filepath.Abs(filepath.Join("..", "testdata", "basic", "empty-bucket"))
+	if err != nil {
+		panic(err)
+	}
+	err = ensureEmptyDir(emptyBucketDir)
 	if err != nil {
 		panic(err)
 	}
@@ -678,6 +681,47 @@ func TestUpdateServerConfig(t *testing.T) {
 			assert.Equal(t, test.expectedExternalUrl, server.externalURL)
 			assert.Equal(t, test.expectedPublicHost, server.publicHost)
 		})
+	}
+}
+
+func TestInternalReseed(t *testing.T) {
+	opts := Options{
+		PublicHost:  "0.0.0.0:4443",
+		ExternalURL: "https://0.0.0.0:4443",
+		Seed:        "../testdata/basic",
+	}
+	server, err := NewServerWithOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server.CreateBucket("sample-bucket")
+	server.CreateObject(Object{
+		ObjectAttrs: ObjectAttrs{
+			BucketName: "sample-bucket",
+			Name:       "something.txt",
+		},
+		Content: []byte("hello"),
+	})
+
+	client := server.HTTPClient()
+	req, err := http.NewRequest(http.MethodPost, "https://0.0.0.0:4443/_internal/reseed", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+	}
+
+	obj, err := server.GetObject("sample-bucket", "something.txt")
+	if err == nil {
+		t.Errorf("got unexpected <nil> error after reseeding. Object still exists? Object: %#v", obj)
 	}
 }
 
