@@ -42,19 +42,17 @@ func (s *Server) updateBucket(r *http.Request) jsonResponse {
 }
 
 func getBucketAttrsToUpdate(body io.ReadCloser) backend.BucketAttrs {
-	var data map[string]interface{}
-	json.NewDecoder(body).Decode(&data)
-	attrsToUpdate := backend.BucketAttrs{}
-	defaultEventBasedHold, exists := data["defaultEventBasedHold"]
-	if exists {
-		attrsToUpdate.DefaultEventBasedHold = defaultEventBasedHold.(bool)
+	var data struct {
+		DefaultEventBasedHold bool             `json:"defaultEventBasedHold,omitempty"`
+		Versioning            bucketVersioning `json:"versioning,omitempty"`
 	}
-	versioning, exists := data["versioning"]
-	if exists {
-		versioning, success := versioning.(map[string]interface{})
-		if success {
-			attrsToUpdate.VersioningEnabled = versioning["enabled"].(bool)
-		}
+	err := json.NewDecoder(body).Decode(&data)
+	if err != nil {
+		panic(err)
+	}
+	attrsToUpdate := backend.BucketAttrs{
+		DefaultEventBasedHold: data.DefaultEventBasedHold,
+		VersioningEnabled:     data.Versioning.Enabled,
 	}
 	return attrsToUpdate
 }
