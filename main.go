@@ -88,8 +88,8 @@ func main() {
 	if cfg.Scheme != "both" {
 		startServer(logger, &cfg, cfg.Scheme)
 	} else {
-		go startServer(logger, &cfg, "http")
-		go startServer(logger, &cfg, "https")
+		startServer(logger, &cfg, "http")
+		startServer(logger, &cfg, "https")
 	}
 
 	ch := make(chan os.Signal, 1)
