@@ -24,27 +24,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func main() {
-	cfg, err := config.Load(os.Args[1:])
-	if err == flag.ErrHelp {
-		return
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
+func startServer(logger *logrus.Logger, cfg *config.Config, scheme string) {
+	opts := cfg.ToFakeGcsOptions(scheme)
 
-	logger := logrus.New()
-	logger.SetLevel(cfg.LogLevel)
-
-	opts := cfg.ToFakeGcsOptions()
-
-	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if cfg.Scheme == "https" {
+	if opts.Scheme == "https" {
 		var tlsConfig *tls.Config
 		if opts.CertificateLocation != "" && opts.PrivateKeyLocation != "" {
 			cert, err := tls.LoadX509KeyPair(opts.CertificateLocation, opts.PrivateKeyLocation)
@@ -81,7 +70,27 @@ func main() {
 		}))
 	}()
 
-	logger.Infof("server started at %s://%s:%d", cfg.Scheme, cfg.Host, cfg.Port)
+	logger.Infof("server started at %s://%s:%d", opts.Scheme, opts.Host, opts.Port)
+}
+
+func main() {
+	cfg, err := config.Load(os.Args[1:])
+	if err == flag.ErrHelp {
+		return
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	logger := logrus.New()
+	logger.SetLevel(cfg.LogLevel)
+
+	if cfg.Scheme != "both" {
+		startServer(logger, &cfg, cfg.Scheme)
+	} else {
+		go startServer(logger, &cfg, "http")
+		go startServer(logger, &cfg, "https")
+	}
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)

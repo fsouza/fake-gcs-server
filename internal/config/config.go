@@ -31,6 +31,7 @@ type Config struct {
 	Seed                string
 	Host                string
 	Port                uint
+	PortHTTP            uint
 	CertificateLocation string
 	PrivateKeyLocation  string
 
@@ -65,11 +66,12 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
 	fs.StringVar(&cfg.publicHost, "public-host", "storage.googleapis.com", "Optional URL for public host")
 	fs.StringVar(&cfg.externalURL, "external-url", "", "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
-	fs.StringVar(&cfg.Scheme, "scheme", "https", "using http or https")
+	fs.StringVar(&cfg.Scheme, "scheme", "https", "using http or https or both")
 	fs.StringVar(&cfg.Host, "host", "0.0.0.0", "host to bind to")
 	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
 	fs.StringVar(&allowedCORSHeaders, "cors-headers", "", "comma separated list of headers to add to the CORS allowlist")
-	fs.UintVar(&cfg.Port, "port", 4443, "port to bind to")
+	fs.UintVar(&cfg.Port, "port", 4443, "port to bind https or http to, according to scheme, and for https if scheme is 'both'")
+	fs.UintVar(&cfg.PortHTTP, "port-http", 8000, "used only when scheme is 'both' as port to bind http to")
 	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", "", "project ID containing the pubsub topic")
 	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", "", "pubsub topic name to publish events on")
 	fs.StringVar(&cfg.event.bucket, "event.bucket", "", "if not empty, only objects in this bucket will generate trigger events")
@@ -111,11 +113,14 @@ func (c *Config) validate() error {
 	if c.backend == filesystemBackend && c.fsRoot == "" {
 		return fmt.Errorf("backend %q requires the filesystem-root to be defined", c.backend)
 	}
-	if c.Scheme != "http" && c.Scheme != "https" {
-		return fmt.Errorf(`invalid scheme %s, must be either "http"" or "https"`, c.Scheme)
+	if c.Scheme != "http" && c.Scheme != "https" && c.Scheme != "both" {
+		return fmt.Errorf(`invalid scheme %s, must be either "http"", "https" or "both"`, c.Scheme)
 	}
 	if c.Port > math.MaxUint16 {
 		return fmt.Errorf("port %d is too high, maximum value is %d", c.Port, math.MaxUint16)
+	}
+	if c.PortHTTP > math.MaxUint16 {
+		return fmt.Errorf("port-http %d is too high, maximum value is %d", c.PortHTTP, math.MaxUint16)
 	}
 
 	return c.event.validate()
@@ -148,7 +153,7 @@ func (c *EventConfig) validate() error {
 	return nil
 }
 
-func (c *Config) ToFakeGcsOptions() fakestorage.Options {
+func (c *Config) ToFakeGcsOptions(scheme string) fakestorage.Options {
 	storageRoot := c.fsRoot
 	if c.backend == memoryBackend {
 		storageRoot = ""
@@ -173,14 +178,18 @@ func (c *Config) ToFakeGcsOptions() fakestorage.Options {
 			}
 		}
 	}
+	port := c.Port
+	if c.Scheme == "both" && scheme == "http" {
+		port = c.PortHTTP
+	}
 	logger := logrus.New()
 	logger.SetLevel(c.LogLevel)
 	opts := fakestorage.Options{
 		StorageRoot:         storageRoot,
 		Seed:                c.Seed,
-		Scheme:              c.Scheme,
+		Scheme:              scheme,
 		Host:                c.Host,
-		Port:                uint16(c.Port),
+		Port:                uint16(port),
 		PublicHost:          c.publicHost,
 		ExternalURL:         c.externalURL,
 		AllowedCORSHeaders:  c.allowedCORSHeaders,
