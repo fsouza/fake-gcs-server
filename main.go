@@ -24,7 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func startServer(logger *logrus.Logger, cfg *config.Config, scheme string) {
+func createListener(logger *logrus.Logger, cfg *config.Config, scheme string) (net.Listener, *fakestorage.Options) {
 	opts := cfg.ToFakeGcsOptions(scheme)
 
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
@@ -51,26 +51,51 @@ func startServer(logger *logrus.Logger, cfg *config.Config, scheme string) {
 		listener = tls.NewListener(listener, tlsConfig)
 	}
 
+	return listener, &opts
+}
+
+func startServer(logger *logrus.Logger, cfg *config.Config) {
+	type listenerAndOpts struct {
+		listener net.Listener
+		opts     *fakestorage.Options
+	}
+
+	listenersAndOpts := make([]listenerAndOpts, 2)
+
+	if cfg.Scheme != "both" {
+		listener, opts := createListener(logger, cfg, cfg.Scheme)
+		listenersAndOpts[0] = listenerAndOpts{listener, opts}
+	} else {
+		listener, opts := createListener(logger, cfg, "http")
+		listenersAndOpts[0] = listenerAndOpts{listener, opts}
+		listener, opts = createListener(logger, cfg, "https")
+		listenersAndOpts[1] = listenerAndOpts{listener, opts}
+	}
+
 	addMimeTypes()
 
-	httpServer, err := fakestorage.NewServerWithOptions(opts)
+	httpServer, err := fakestorage.NewServerWithOptions(*listenersAndOpts[1].opts)
 	if err != nil {
 		logger.WithError(err).Fatal("couldn't start the server")
 	}
 
 	grpcServer := grpc.NewServerWithBackend(httpServer.Backend())
-	go func() {
-		http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.ProtoMajor == 2 && strings.HasPrefix(
-				r.Header.Get("Content-Type"), "application/grpc") {
-				grpcServer.ServeHTTP(w, r)
-			} else {
-				httpServer.HTTPHandler().ServeHTTP(w, r)
-			}
-		}))
-	}()
 
-	logger.Infof("server started at %s://%s:%d", opts.Scheme, opts.Host, opts.Port)
+	for _, listenerAndOpts := range listenersAndOpts {
+		go func(listener net.Listener) {
+			http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.ProtoMajor == 2 && strings.HasPrefix(
+					r.Header.Get("Content-Type"), "application/grpc") {
+					grpcServer.ServeHTTP(w, r)
+				} else {
+					httpServer.HTTPHandler().ServeHTTP(w, r)
+				}
+			}))
+		}(listenerAndOpts.listener)
+
+		logger.Infof("server started at %s://%s:%d",
+			listenerAndOpts.opts.Scheme, listenerAndOpts.opts.Host, listenerAndOpts.opts.Port)
+	}
 }
 
 func main() {
@@ -85,12 +110,7 @@ func main() {
 	logger := logrus.New()
 	logger.SetLevel(cfg.LogLevel)
 
-	if cfg.Scheme != "both" {
-		startServer(logger, &cfg, cfg.Scheme)
-	} else {
-		startServer(logger, &cfg, "http")
-		startServer(logger, &cfg, "https")
-	}
+	startServer(logger, &cfg)
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
