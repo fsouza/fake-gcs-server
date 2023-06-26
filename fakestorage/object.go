@@ -887,6 +887,13 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		if obj.ContentEncoding != "" && !transcoded {
 			w.Header().Set("Content-Encoding", obj.ContentEncoding)
 		}
+		// X-Goog-Stored-Content-Encoding must be set to the original encoding,
+		// defaulting to "identity" if no encoding was set.
+		storedContentEncoding := "identity"
+		if obj.ContentEncoding != "" {
+			storedContentEncoding = obj.ContentEncoding
+		}
+		w.Header().Set("X-Goog-Stored-Content-Encoding", storedContentEncoding)
 	}
 
 	w.WriteHeader(status)

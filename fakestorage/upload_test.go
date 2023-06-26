@@ -621,10 +621,19 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 	defer server.Stop()
 	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
 
-	const data = "some nice content"
 	const contentType = "text/plain"
 	const contentEncoding = "gzip"
-	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?predefinedAcl=publicRead&uploadType=media&name=some/nice/object.txt&contentEncoding="+contentEncoding, strings.NewReader(data))
+
+	const data = "some nice content"
+	// store the data compressed with gzip
+	buf := &bytes.Buffer{}
+	gzw := gzip.NewWriter(buf)
+	if _, err := gzw.Write([]byte(data)); err != nil {
+		t.Fatal(err)
+	}
+	compressed := buf.Bytes()
+
+	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?predefinedAcl=publicRead&uploadType=media&name=some/nice/object.txt&contentEncoding="+contentEncoding, bytes.NewReader(compressed))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -666,13 +675,13 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 	if !isACLPublic(acl) {
 		t.Errorf("wrong acl\ngot %+v", acl)
 	}
-	if string(obj.Content) != data {
-		t.Errorf("wrong content\nwant %q\ngot  %q", string(obj.Content), data)
+	if string(obj.Content) != string(compressed) {
+		t.Errorf("wrong content\nwant %q\ngot  %q", string(obj.Content), string(compressed))
 	}
 	if obj.ContentType != contentType {
 		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
 	}
-	checkChecksum(t, []byte(data), obj)
+	checkChecksum(t, compressed, obj)
 }
 
 func TestServerClientSimpleUploadNoName(t *testing.T) {
