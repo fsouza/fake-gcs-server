@@ -489,7 +489,7 @@ func TestServerClientSimpleUpload(t *testing.T) {
 
 	const data = "some nice content"
 	const contentType = "text/plain"
-	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?uploadType=media&name=some/nice/object.txt", strings.NewReader(data))
+	req, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/other-bucket/o?uploadType=media&name=some/nice/object.txt", strings.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -633,7 +633,7 @@ func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
 	}
 	compressed := buf.Bytes()
 
-	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?predefinedAcl=publicRead&uploadType=media&name=some/nice/object.txt&contentEncoding="+contentEncoding, bytes.NewReader(compressed))
+	req, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/other-bucket/o?predefinedAcl=publicRead&uploadType=media&name=some/nice/object.txt&contentEncoding="+contentEncoding, bytes.NewReader(compressed))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -690,7 +690,7 @@ func TestServerClientSimpleUploadNoName(t *testing.T) {
 	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
 
 	const data = "some nice content"
-	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?uploadType=media", strings.NewReader(data))
+	req, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/other-bucket/o?uploadType=media", strings.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -715,7 +715,7 @@ func TestServerInvalidUploadType(t *testing.T) {
 	defer server.Stop()
 	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
 	const data = "some nice content"
-	req, err := http.NewRequest("POST", server.URL()+"/storage/v1/b/other-bucket/o?uploadType=bananas&name=some-object.txt", strings.NewReader(data))
+	req, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/other-bucket/o?uploadType=bananas&name=some-object.txt", strings.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}
