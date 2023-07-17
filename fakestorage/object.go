@@ -1121,6 +1121,14 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 		}
 	}
 
+	const maxComposeObjects = 32
+	if len(composeRequest.SourceObjects) > maxComposeObjects {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: fmt.Sprintf("The number of source components provided (%d) exceeds the maximum (%d)", len(composeRequest.SourceObjects), maxComposeObjects),
+		}
+	}
+
 	sourceNames := make([]string, 0, len(composeRequest.SourceObjects))
 	for _, n := range composeRequest.SourceObjects {
 		sourceNames = append(sourceNames, n.Name)
