@@ -43,6 +43,7 @@ type bucketResponse struct {
 	Name                  string            `json:"name"`
 	Versioning            *bucketVersioning `json:"versioning,omitempty"`
 	TimeCreated           string            `json:"timeCreated,omitempty"`
+	Updated               string            `json:"updated,omitempty"`
 	Location              string            `json:"location,omitempty"`
 }
 
@@ -58,6 +59,7 @@ func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 		DefaultEventBasedHold: bucket.DefaultEventBasedHold,
 		Versioning:            &bucketVersioning{bucket.VersioningEnabled},
 		TimeCreated:           formatTime(bucket.TimeCreated),
+		Updated:               formatTime(bucket.TimeCreated), // not tracking update times yet, reporting `updated` = `timeCreated`
 		Location:              location,
 	}
 }
