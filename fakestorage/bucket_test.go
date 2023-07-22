@@ -127,6 +127,9 @@ func TestServerClientBucketAttrs(t *testing.T) {
 		// TODO: Test `attrs.Updated` as soon as it is available in the [`storage.BucketAttrs`][1] type
 		//       (not available as of cloud.google.com/go/storage v1.31.0)
 		//       [1]: https://pkg.go.dev/cloud.google.com/go/storage#BucketAttrs
+		if attrs.StorageClass != "STANDARD" {
+			t.Errorf("wrong bucket storage class returned\nwant %q\ngot  %q", "STANDARD", attrs.StorageClass)
+		}
 	})
 }
 
