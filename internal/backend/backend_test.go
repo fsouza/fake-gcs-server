@@ -294,6 +294,7 @@ func TestBucketAttrsStoreRetrieveUpdate(t *testing.T) {
 }
 
 func TestBucketCreateGetListDelete(t *testing.T) {
+	startTime := time.Now()
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		buckets, err := storage.ListBuckets()
 		if err != nil {
@@ -343,6 +344,9 @@ func TestBucketCreateGetListDelete(t *testing.T) {
 			}
 			if buckets[0].Name != bucket.Name {
 				t.Errorf("listed bucket has unexpected name. Expected %s, actual: %v", bucket.Name, buckets[0].Name)
+			}
+			if buckets[0].TimeCreated.Before(startTime.Truncate(time.Second)) || time.Now().Before(buckets[0].TimeCreated) {
+				t.Errorf("listed bucket has unexpected creation time. Expected between test start time %v and now %v, actual: %v", startTime, time.Now(), buckets[0].TimeCreated)
 			}
 			err = storage.DeleteBucket(bucket.Name)
 			if err != nil {
