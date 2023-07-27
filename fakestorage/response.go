@@ -21,7 +21,7 @@ func formatTime(t time.Time) string {
 
 type listResponse struct {
 	Kind     string   `json:"kind"`
-	Items    []any    `json:"items"`
+	Items    []any    `json:"items,omitempty"`
 	Prefixes []string `json:"prefixes,omitempty"`
 }
 
