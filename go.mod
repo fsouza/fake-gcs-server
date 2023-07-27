@@ -11,7 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/oauth2 v0.10.0
-	google.golang.org/api v0.133.0
+	google.golang.org/api v0.134.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230706204954-ccb25ca9f130
 )
 
