@@ -37,10 +37,11 @@ func (g *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.B
 	// // using line 193 in storage_resources.pb.go, fill out this, using whatever the bucket returned has
 	// // will have to just do this manually
 	grpc_bucket := &pb.Bucket{
-		Id:          bucket.Name,
-		Name:        bucket.Name,
-		Versioning:  &pb.Bucket_Versioning{Enabled: bucket.VersioningEnabled},
-		TimeCreated: timestamppb.New(bucket.TimeCreated),
+		Id:                    bucket.Name,
+		Name:                  bucket.Name,
+		Versioning:            &pb.Bucket_Versioning{Enabled: bucket.VersioningEnabled},
+		DefaultEventBasedHold: bucket.DefaultEventBasedHold,
+		TimeCreated:           timestamppb.New(bucket.TimeCreated),
 	}
 	return grpc_bucket, nil
 	///return GetBucketFromBackend(g.backend, req.Bucket)
@@ -52,8 +53,16 @@ func (g *Server) DeleteBucket(ctx context.Context, req *pb.DeleteBucketRequest) 
 }
 
 func (g *Server) InsertBucket(ctx context.Context, req *pb.InsertBucketRequest) (*pb.Empty, error) {
-	err := g.backend.CreateBucket(req.Bucket.Name, false)
+	err := g.backend.CreateBucket(req.Bucket.Name, backend.BucketAttrs{DefaultEventBasedHold: req.Bucket.DefaultEventBasedHold})
 	return &pb.Empty{}, err
+}
+
+func (g *Server) UpdateBucket(ctx context.Context, req *pb.UpdateBucketRequest) (*pb.Bucket, error) {
+	updatedBucketAttrs := backend.BucketAttrs{
+		DefaultEventBasedHold: req.Metadata.DefaultEventBasedHold,
+	}
+	err := g.backend.UpdateBucket(req.Bucket, updatedBucketAttrs)
+	return &pb.Bucket{}, err
 }
 
 func (g *Server) ListBuckets(context.Context, *pb.ListBucketsRequest) (*pb.Buckets, error) {

@@ -105,7 +105,7 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 		// Set up
 		grpcServer := InitServer(storage)
 		bucketName := "bucket1"
-		storage.CreateBucket(bucketName, false)
+		storage.CreateBucket(bucketName, backend.BucketAttrs{})
 
 		// Object Attributes
 		obj1Name := "object1"
@@ -253,7 +253,7 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 	})
 }
 
-func TestBucketInsertGetListDelete(t *testing.T) {
+func TestBucketInsertGetListUpdateDelete(t *testing.T) {
 	ctx := context.Background()
 
 	testForStorageBackends(t, func(t *testing.T, storage backend.Storage) {
@@ -262,7 +262,8 @@ func TestBucketInsertGetListDelete(t *testing.T) {
 		bucketName := "bucket5"
 		_, err := grpcServer.InsertBucket(ctx, &pb.InsertBucketRequest{
 			Bucket: &pb.Bucket{
-				Name: bucketName,
+				Name:                  bucketName,
+				DefaultEventBasedHold: true,
 			},
 		})
 		if err != nil {
@@ -284,7 +285,10 @@ func TestBucketInsertGetListDelete(t *testing.T) {
 			t.Errorf("Error while getting bucket from grpc: %v", err)
 		}
 		if grpc_bucket.Name != bucketName {
-			t.Errorf("Expected '%s', got '%s'", bucketName, bucket.Name)
+			t.Errorf("Expected '%s', got '%s'", bucketName, grpc_bucket.Name)
+		}
+		if !grpc_bucket.DefaultEventBasedHold {
+			t.Errorf("Expected true, got '%v'", grpc_bucket.DefaultEventBasedHold)
 		}
 
 		// Test GRPC ListBucket endpoint
@@ -297,6 +301,26 @@ func TestBucketInsertGetListDelete(t *testing.T) {
 		}
 		if grpc_buckets.Bucket[0].Name != bucketName {
 			t.Errorf("Wrong bucket name")
+		}
+
+		// Test GRPC UpdateBucket endpoint
+		_, update_err := grpcServer.UpdateBucket(ctx, &pb.UpdateBucketRequest{
+			Bucket: bucketName,
+			Metadata: &pb.Bucket{
+				DefaultEventBasedHold: false,
+			},
+		})
+		if update_err != nil {
+			t.Fatal(update_err)
+		}
+		grpc_bucket, err = grpcServer.GetBucket(ctx, &pb.GetBucketRequest{
+			Bucket: bucketName,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if grpc_bucket.DefaultEventBasedHold {
+			t.Errorf("After update, expected false, got '%v'", grpc_bucket.DefaultEventBasedHold)
 		}
 
 		// Test GRPC DeleteBucket endpoint

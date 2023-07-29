@@ -75,17 +75,26 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 
 // CreateBucket creates a bucket in the fs backend. A bucket is a folder in the
 // root directory.
-func (s *storageFS) CreateBucket(name string, versioningEnabled bool) error {
-	if versioningEnabled {
-		return errors.New("not implemented: fs storage type does not support versioning yet")
-	}
+func (s *storageFS) CreateBucket(name string, bucketAttrs BucketAttrs) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	return s.createBucket(name)
+	return s.createBucket(name, bucketAttrs)
 }
 
-func (s *storageFS) createBucket(name string) error {
-	return os.MkdirAll(filepath.Join(s.rootDir, url.PathEscape(name)), 0o700)
+func (s *storageFS) createBucket(name string, bucketAttrs BucketAttrs) error {
+	if bucketAttrs.VersioningEnabled {
+		return errors.New("not implemented: fs storage type does not support versioning yet")
+	}
+	path := filepath.Join(s.rootDir, url.PathEscape(name))
+	err := os.MkdirAll(path, 0o700)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(bucketAttrs)
+	if err != nil {
+		return err
+	}
+	return writeFile(path+BucketMetadataSuffix, encoded, 0o600)
 }
 
 // ListBuckets returns a list of buckets from the list of directories in the
@@ -114,16 +123,46 @@ func timespecToTime(ts syscall.Timespec) time.Time {
 	return time.Unix(int64(ts.Sec), int64(ts.Nsec))
 }
 
+func (s *storageFS) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) error {
+	if attrsToUpdate.VersioningEnabled {
+		return errors.New("not implemented: fs storage type does not support versioning yet")
+	}
+	encoded, err := json.Marshal(attrsToUpdate)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName))
+	return writeFile(path+BucketMetadataSuffix, encoded, 0o600)
+}
+
 // GetBucket returns information about the given bucket, or an error if it
 // doesn't exist.
 func (s *storageFS) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
-	dirInfo, err := os.Stat(filepath.Join(s.rootDir, url.PathEscape(name)))
+	path := filepath.Join(s.rootDir, url.PathEscape(name))
+	dirInfo, err := os.Stat(path)
 	if err != nil {
 		return Bucket{}, err
 	}
-	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo))}, err
+	attrs, err := s.getBucketAttributes(path)
+	if err != nil {
+		return Bucket{}, err
+	}
+	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo)), DefaultEventBasedHold: attrs.DefaultEventBasedHold}, err
+}
+
+func (s *storageFS) getBucketAttributes(path string) (BucketAttrs, error) {
+	content, err := os.ReadFile(path + BucketMetadataSuffix)
+	if err != nil {
+		return BucketAttrs{}, err
+	}
+	var attrs BucketAttrs
+	err = json.Unmarshal(content, &attrs)
+	if err != nil {
+		return BucketAttrs{}, err
+	}
+	return attrs, nil
 }
 
 // DeleteBucket removes the bucket from the backend.
@@ -162,7 +201,7 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	err := s.createBucket(obj.BucketName)
+	err := s.createBucket(obj.BucketName, BucketAttrs{VersioningEnabled: false})
 	if err != nil {
 		return StreamingObject{}, err
 	}

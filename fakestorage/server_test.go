@@ -1056,7 +1056,7 @@ func TestServerEventNotification(t *testing.T) {
 			}
 			eventManager := &fakeEventManager{}
 			server.eventManager = eventManager
-			err = server.backend.CreateBucket(obj.BucketName, test.versioningEnabled)
+			err = server.backend.CreateBucket(obj.BucketName, backend.BucketAttrs{VersioningEnabled: test.versioningEnabled})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1095,7 +1095,7 @@ func TestServerBatchRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = server.backend.CreateBucket("some-bucket", true)
+	err = server.backend.CreateBucket("some-bucket", backend.BucketAttrs{VersioningEnabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}
