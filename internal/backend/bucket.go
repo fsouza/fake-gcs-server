@@ -14,7 +14,7 @@ type Bucket struct {
 	DefaultEventBasedHold bool
 }
 
-const BucketMetadataSuffix = ".bucketMetadata"
+const bucketMetadataSuffix = ".bucketMetadata"
 
 type BucketAttrs struct {
 	DefaultEventBasedHold bool

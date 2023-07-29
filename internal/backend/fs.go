@@ -94,7 +94,7 @@ func (s *storageFS) createBucket(name string, bucketAttrs BucketAttrs) error {
 	if err != nil {
 		return err
 	}
-	return writeFile(path+BucketMetadataSuffix, encoded, 0o600)
+	return writeFile(path+bucketMetadataSuffix, encoded, 0o600)
 }
 
 // ListBuckets returns a list of buckets from the list of directories in the
@@ -132,7 +132,7 @@ func (s *storageFS) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) e
 		return err
 	}
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName))
-	return writeFile(path+BucketMetadataSuffix, encoded, 0o600)
+	return writeFile(path+bucketMetadataSuffix, encoded, 0o600)
 }
 
 // GetBucket returns information about the given bucket, or an error if it
@@ -145,15 +145,15 @@ func (s *storageFS) GetBucket(name string) (Bucket, error) {
 	if err != nil {
 		return Bucket{}, err
 	}
-	attrs, err := s.getBucketAttributes(path)
+	attrs, err := getBucketAttributes(path)
 	if err != nil {
 		return Bucket{}, err
 	}
 	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo)), DefaultEventBasedHold: attrs.DefaultEventBasedHold}, err
 }
 
-func (s *storageFS) getBucketAttributes(path string) (BucketAttrs, error) {
-	content, err := os.ReadFile(path + BucketMetadataSuffix)
+func getBucketAttributes(path string) (BucketAttrs, error) {
+	content, err := os.ReadFile(path + bucketMetadataSuffix)
 	if err != nil {
 		return BucketAttrs{}, err
 	}
