@@ -179,7 +179,7 @@ func (c *Config) ToFakeGcsOptions(scheme string) fakestorage.Options {
 		}
 	}
 	port := c.Port
-	if c.Scheme == "both" && scheme == "http" {
+	if scheme == "http" {
 		port = c.PortHTTP
 	}
 	logger := logrus.New()

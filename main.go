@@ -60,12 +60,14 @@ func startServer(logger *logrus.Logger, cfg *config.Config) {
 		opts     *fakestorage.Options
 	}
 
-	listenersAndOpts := make([]listenerAndOpts, 2)
+	var listenersAndOpts []listenerAndOpts
 
 	if cfg.Scheme != "both" {
+		listenersAndOpts = make([]listenerAndOpts, 1)
 		listener, opts := createListener(logger, cfg, cfg.Scheme)
 		listenersAndOpts[0] = listenerAndOpts{listener, opts}
 	} else {
+		listenersAndOpts = make([]listenerAndOpts, 2)
 		listener, opts := createListener(logger, cfg, "http")
 		listenersAndOpts[0] = listenerAndOpts{listener, opts}
 		listener, opts = createListener(logger, cfg, "https")
@@ -74,7 +76,7 @@ func startServer(logger *logrus.Logger, cfg *config.Config) {
 
 	addMimeTypes()
 
-	httpServer, err := fakestorage.NewServerWithOptions(*listenersAndOpts[1].opts)
+	httpServer, err := fakestorage.NewServerWithOptions(*listenersAndOpts[0].opts)
 	if err != nil {
 		logger.WithError(err).Fatal("couldn't start the server")
 	}
