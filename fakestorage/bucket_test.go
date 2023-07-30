@@ -124,6 +124,12 @@ func TestServerClientBucketAttrs(t *testing.T) {
 		if attrs.Created.Before(startTime.Truncate(time.Second)) || time.Now().Before(attrs.Created) {
 			t.Errorf("expecting bucket creation date between test start time %v and now %v, got %v", startTime, time.Now(), attrs.Created)
 		}
+		// TODO: Test `attrs.Updated` as soon as it is available in the [`storage.BucketAttrs`][1] type
+		//       (not available as of cloud.google.com/go/storage v1.31.0)
+		//       [1]: https://pkg.go.dev/cloud.google.com/go/storage#BucketAttrs
+		if attrs.StorageClass != "STANDARD" {
+			t.Errorf("wrong bucket storage class returned\nwant %q\ngot  %q", "STANDARD", attrs.StorageClass)
+		}
 	})
 }
 
