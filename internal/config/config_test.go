@@ -74,7 +74,7 @@ func TestLoadConfig(t *testing.T) {
 				allowedCORSHeaders: nil,
 				Host:               "0.0.0.0",
 				Port:               4443,
-				PortHTTP:           8000,
+				PortHTTP:           0,
 				Scheme:             "https",
 				event: EventConfig{
 					list: []string{"finalize"},

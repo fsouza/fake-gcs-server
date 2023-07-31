@@ -26,6 +26,11 @@ const (
 	eventArchive        = "archive"
 	defaultHTTPSPort    = 4443
 	defaultHTTPPort     = 8000
+	schemeHTTPS         = "https"
+	schemeHTTP          = "http"
+	schemeBoth          = "both"
+	flagPort            = "port"
+	flagPortHTTP        = "port-http"
 )
 
 type Config struct {
@@ -68,12 +73,12 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
 	fs.StringVar(&cfg.publicHost, "public-host", "storage.googleapis.com", "Optional URL for public host")
 	fs.StringVar(&cfg.externalURL, "external-url", "", "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
-	fs.StringVar(&cfg.Scheme, "scheme", "https", "using 'http' or 'https' or 'both'")
+	fs.StringVar(&cfg.Scheme, "scheme", schemeHTTPS, "using 'http' or 'https' or 'both'")
 	fs.StringVar(&cfg.Host, "host", "0.0.0.0", "host to bind to")
 	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
 	fs.StringVar(&allowedCORSHeaders, "cors-headers", "", "comma separated list of headers to add to the CORS allowlist")
-	fs.UintVar(&cfg.Port, "port", 0, "port to which https (default 4443) or http (default 8000) will be bound, based on the specified scheme. If the scheme is 'both', then bind to https")
-	fs.UintVar(&cfg.PortHTTP, "port-http", 0, "used only when scheme is 'both' as the port to bind http to (default 8000)")
+	fs.UintVar(&cfg.Port, flagPort, 0, "port to which https (default 4443) or http (default 8000) will be bound, based on the specified scheme. If the scheme is 'both', then bind to https")
+	fs.UintVar(&cfg.PortHTTP, flagPortHTTP, 0, "used only when scheme is 'both' as the port to bind http to (default 8000)")
 	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", "", "project ID containing the pubsub topic")
 	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", "", "pubsub topic name to publish events on")
 	fs.StringVar(&cfg.event.bucket, "event.bucket", "", "if not empty, only objects in this bucket will generate trigger events")
@@ -89,16 +94,24 @@ func Load(args []string) (Config, error) {
 		return cfg, err
 	}
 
+	// Create a map to store the flags and their values
+	setFlags := make(map[string]interface{})
+
+	// Check if a flag was used using Visit
+	fs.Visit(func(f *flag.Flag) {
+		setFlags[f.Name] = f.Value
+	})
+
 	// setting default values, if not provided, for port and http ports based on scheme value
-	if cfg.Port == 0 {
-		if cfg.Scheme == "https" || cfg.Scheme == "both" {
+	if _, ok := setFlags[flagPort]; !ok {
+		if cfg.Scheme == schemeHTTPS || cfg.Scheme == schemeBoth {
 			cfg.Port = defaultHTTPSPort
-		} else if cfg.Scheme == "http" {
+		} else if cfg.Scheme == schemeHTTP {
 			cfg.Port = defaultHTTPPort
 		}
 	}
 
-	if cfg.PortHTTP == 0 && cfg.Scheme == "both" {
+	if _, ok := setFlags[flagPortHTTP]; !ok && cfg.Scheme == schemeBoth {
 		cfg.PortHTTP = defaultHTTPPort
 	}
 
@@ -128,8 +141,8 @@ func (c *Config) validate() error {
 	if c.backend == filesystemBackend && c.fsRoot == "" {
 		return fmt.Errorf("backend %q requires the filesystem-root to be defined", c.backend)
 	}
-	if c.Scheme != "http" && c.Scheme != "https" && c.Scheme != "both" {
-		return fmt.Errorf(`invalid scheme %s, must be either "http"", "https" or "both"`, c.Scheme)
+	if c.Scheme != schemeHTTP && c.Scheme != schemeHTTPS && c.Scheme != schemeBoth {
+		return fmt.Errorf(`invalid scheme %s, must be either "%s", "%s" or "%s"`, c.Scheme, schemeHTTP, schemeHTTPS, schemeBoth)
 	}
 	if c.Port > math.MaxUint16 {
 		return fmt.Errorf("port %d is too high, maximum value is %d", c.Port, math.MaxUint16)
@@ -194,7 +207,7 @@ func (c *Config) ToFakeGcsOptions(scheme string) fakestorage.Options {
 		}
 	}
 	port := c.Port
-	if c.Scheme == "both" && scheme == "http" {
+	if c.Scheme == schemeBoth && scheme == schemeHTTP {
 		port = c.PortHTTP // this cli flag, for port http, is relevant only when scheme is both
 	}
 	logger := logrus.New()
