@@ -30,7 +30,7 @@ func createListener(logger *logrus.Logger, cfg *config.Config, scheme string) (n
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	if opts.Scheme == "https" {
@@ -63,15 +63,15 @@ func startServer(logger *logrus.Logger, cfg *config.Config) {
 	var listenersAndOpts []listenerAndOpts
 
 	if cfg.Scheme != "both" {
-		listenersAndOpts = make([]listenerAndOpts, 1)
 		listener, opts := createListener(logger, cfg, cfg.Scheme)
-		listenersAndOpts[0] = listenerAndOpts{listener, opts}
+		listenersAndOpts = []listenerAndOpts{{listener, opts}}
 	} else {
-		listenersAndOpts = make([]listenerAndOpts, 2)
-		listener, opts := createListener(logger, cfg, "http")
-		listenersAndOpts[0] = listenerAndOpts{listener, opts}
-		listener, opts = createListener(logger, cfg, "https")
-		listenersAndOpts[1] = listenerAndOpts{listener, opts}
+		httpListener, httpOpts := createListener(logger, cfg, "http")
+		httpsListener, httpsOpts := createListener(logger, cfg, "https")
+		listenersAndOpts = []listenerAndOpts{
+			{httpListener, httpOpts},
+			{httpsListener, httpsOpts},
+		}
 	}
 
 	addMimeTypes()
