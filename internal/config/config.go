@@ -24,6 +24,8 @@ const (
 	eventDelete         = "delete"
 	eventMetadataUpdate = "metadataUpdate"
 	eventArchive        = "archive"
+	defaultHTTPSPort    = 4443
+	defaultHTTPPort     = 8000
 )
 
 type Config struct {
@@ -66,12 +68,12 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
 	fs.StringVar(&cfg.publicHost, "public-host", "storage.googleapis.com", "Optional URL for public host")
 	fs.StringVar(&cfg.externalURL, "external-url", "", "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
-	fs.StringVar(&cfg.Scheme, "scheme", "https", "using http or https or both")
+	fs.StringVar(&cfg.Scheme, "scheme", "https", "using 'http' or 'https' or 'both'")
 	fs.StringVar(&cfg.Host, "host", "0.0.0.0", "host to bind to")
 	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
 	fs.StringVar(&allowedCORSHeaders, "cors-headers", "", "comma separated list of headers to add to the CORS allowlist")
-	fs.UintVar(&cfg.Port, "port", 4443, "port to bind https or http to, according to scheme, and for https if scheme is 'both'")
-	fs.UintVar(&cfg.PortHTTP, "port-http", 8000, "used only when scheme is 'both' as port to bind http to")
+	fs.UintVar(&cfg.Port, "port", 0, "port to which https (default 4443) or http (default 8000) will be bound, based on the specified scheme. If the scheme is 'both', then bind to https")
+	fs.UintVar(&cfg.PortHTTP, "port-http", 0, "used only when scheme is 'both' as the port to bind http to (default 8000)")
 	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", "", "project ID containing the pubsub topic")
 	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", "", "pubsub topic name to publish events on")
 	fs.StringVar(&cfg.event.bucket, "event.bucket", "", "if not empty, only objects in this bucket will generate trigger events")
@@ -85,6 +87,19 @@ func Load(args []string) (Config, error) {
 	err := fs.Parse(args)
 	if err != nil {
 		return cfg, err
+	}
+
+	// setting default values, if not provided, for port and http ports based on scheme value
+	if cfg.Port == 0 {
+		if cfg.Scheme == "https" || cfg.Scheme == "both" {
+			cfg.Port = defaultHTTPSPort
+		} else if cfg.Scheme == "http" {
+			cfg.Port = defaultHTTPPort
+		}
+	}
+
+	if cfg.PortHTTP == 0 && cfg.Scheme == "both" {
+		cfg.PortHTTP = defaultHTTPPort
 	}
 
 	cfg.LogLevel, err = logrus.ParseLevel(logLevel)
@@ -179,8 +194,8 @@ func (c *Config) ToFakeGcsOptions(scheme string) fakestorage.Options {
 		}
 	}
 	port := c.Port
-	if scheme == "http" {
-		port = c.PortHTTP
+	if c.Scheme == "both" && scheme == "http" {
+		port = c.PortHTTP // this cli flag, for port http, is relevant only when scheme is both
 	}
 	logger := logrus.New()
 	logger.SetLevel(c.LogLevel)
