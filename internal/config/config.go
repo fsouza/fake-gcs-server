@@ -77,7 +77,7 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.Host, "host", "0.0.0.0", "host to bind to")
 	fs.StringVar(&cfg.Seed, "data", "", "where to load data from (provided that the directory exists)")
 	fs.StringVar(&allowedCORSHeaders, "cors-headers", "", "comma separated list of headers to add to the CORS allowlist")
-	fs.UintVar(&cfg.Port, flagPort, 0, "port to which https (default 4443) or http (default 8000) will be bound, based on the specified scheme. If the scheme is 'both', then bind to https")
+	fs.UintVar(&cfg.Port, "port", defaultHTTPSPort, "port to bind to")
 	fs.UintVar(&cfg.PortHTTP, flagPortHTTP, 0, "used only when scheme is 'both' as the port to bind http to (default 8000)")
 	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", "", "project ID containing the pubsub topic")
 	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", "", "pubsub topic name to publish events on")
@@ -102,13 +102,9 @@ func Load(args []string) (Config, error) {
 		setFlags[f.Name] = f.Value
 	})
 
-	// setting default values, if not provided, for port and http ports based on scheme value
+	// setting default values, if not provided, for port - mind that the default port is 4443 regardless of the scheme
 	if _, ok := setFlags[flagPort]; !ok {
-		if cfg.Scheme == schemeHTTPS || cfg.Scheme == schemeBoth {
-			cfg.Port = defaultHTTPSPort
-		} else if cfg.Scheme == schemeHTTP {
-			cfg.Port = defaultHTTPPort
-		}
+		cfg.Port = defaultHTTPSPort
 	}
 
 	if _, ok := setFlags[flagPortHTTP]; !ok && cfg.Scheme == schemeBoth {
