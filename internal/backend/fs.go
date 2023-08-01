@@ -159,6 +159,9 @@ func (s *storageFS) GetBucket(name string) (Bucket, error) {
 func getBucketAttributes(path string) (BucketAttrs, error) {
 	content, err := os.ReadFile(path + bucketMetadataSuffix)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return BucketAttrs{}, nil
+		}
 		return BucketAttrs{}, err
 	}
 	var attrs BucketAttrs
