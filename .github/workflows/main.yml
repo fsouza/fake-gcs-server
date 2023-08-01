@@ -147,6 +147,12 @@ jobs:
           - lang: curl
             docker-image: alpine
             entrypoint: /bin/sh
+          - lang: curl-both-scheme-default-ports
+            docker-image: alpine
+            entrypoint: /bin/sh
+          - lang: curl-both-scheme-non-default-ports
+            docker-image: alpine
+            entrypoint: /bin/sh
 
     name: test-${{ matrix.lang }}-example
     runs-on: ubuntu-latest
