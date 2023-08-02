@@ -15,7 +15,7 @@ jobs:
         go_version:
           - 1.19
           - "1.20"
-          - "1.21.0-rc.3"
+          - "1.21.0-rc.4"
         os:
           - macos
           - ubuntu
