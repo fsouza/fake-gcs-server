@@ -296,7 +296,7 @@ func (s *Server) buildMuxer() {
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	handler.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
-	handler.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet).HandlerFunc(s.downloadObject)
+	handler.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
