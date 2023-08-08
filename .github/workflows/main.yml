@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3.5.3
 
-      - uses: actions/setup-go@v4.0.1
+      - uses: actions/setup-go@v4.1.0
         id: go
         with:
           go-version: ${{ matrix.go_version }}
@@ -62,7 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3.5.3
 
-      - uses: actions/setup-go@v4.0.1
+      - uses: actions/setup-go@v4.1.0
         id: go
         with:
           go-version: "1.21"
@@ -92,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3.5.3
 
-      - uses: actions/setup-go@v4.0.1
+      - uses: actions/setup-go@v4.1.0
         id: go
         with:
           go-version: "1.21"
