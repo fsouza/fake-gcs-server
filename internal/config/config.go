@@ -14,7 +14,7 @@ import (
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/notification"
-	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slog"
 )
 
 const (
@@ -49,7 +49,7 @@ type Config struct {
 	fsRoot             string
 	event              EventConfig
 	bucketLocation     string
-	LogLevel           logrus.Level
+	LogLevel           slog.Level
 }
 
 type EventConfig struct {
@@ -111,9 +111,17 @@ func Load(args []string) (Config, error) {
 		cfg.PortHTTP = defaultHTTPPort
 	}
 
-	cfg.LogLevel, err = logrus.ParseLevel(logLevel)
-	if err != nil {
-		return cfg, err
+	levels := map[string]slog.Level{
+		"debug":   slog.LevelDebug,
+		"info":    slog.LevelInfo,
+		"warning": slog.LevelWarn,
+		"warn":    slog.LevelWarn,
+		"error":   slog.LevelError,
+	}
+	if level, ok := levels[logLevel]; ok {
+		cfg.LogLevel = level
+	} else {
+		return cfg, fmt.Errorf("invalid log level %q", logLevel)
 	}
 
 	if allowedCORSHeaders != "" {
@@ -182,7 +190,7 @@ func (c *EventConfig) validate() error {
 	return nil
 }
 
-func (c *Config) ToFakeGcsOptions(scheme string) fakestorage.Options {
+func (c *Config) ToFakeGcsOptions(logger *slog.Logger, scheme string) fakestorage.Options {
 	storageRoot := c.fsRoot
 	if c.backend == memoryBackend {
 		storageRoot = ""
@@ -211,8 +219,6 @@ func (c *Config) ToFakeGcsOptions(scheme string) fakestorage.Options {
 	if c.Scheme == schemeBoth && scheme == schemeHTTP {
 		port = c.PortHTTP // this cli flag, for port http, is relevant only when scheme is both
 	}
-	logger := logrus.New()
-	logger.SetLevel(c.LogLevel)
 	opts := fakestorage.Options{
 		StorageRoot:         storageRoot,
 		Seed:                c.Seed,
@@ -222,7 +228,7 @@ func (c *Config) ToFakeGcsOptions(scheme string) fakestorage.Options {
 		PublicHost:          c.publicHost,
 		ExternalURL:         c.externalURL,
 		AllowedCORSHeaders:  c.allowedCORSHeaders,
-		Writer:              logger.Writer(),
+		Writer:              &slogWriter{logger: logger, level: slog.LevelInfo},
 		EventOptions:        eventOptions,
 		BucketsLocation:     c.bucketLocation,
 		CertificateLocation: c.CertificateLocation,

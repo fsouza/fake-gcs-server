@@ -32,7 +32,6 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/notification"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
@@ -542,7 +541,6 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 
 	_, err = b.WriteTo(w)
 	if err != nil {
-		logrus.New().Error(err)
 		http.Error(w, "unable to process request", http.StatusBadRequest)
 	}
 }

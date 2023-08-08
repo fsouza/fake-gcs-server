@@ -9,9 +9,10 @@ import (
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/notification"
+	"github.com/fsouza/slognil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slog"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -60,7 +61,7 @@ func TestLoadConfig(t *testing.T) {
 					list:            []string{"finalize", "delete", "metadataUpdate", "archive"},
 				},
 				bucketLocation: "US-EAST1",
-				LogLevel:       logrus.WarnLevel,
+				LogLevel:       slog.LevelWarn,
 			},
 		},
 		{
@@ -80,7 +81,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -103,7 +104,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -126,7 +127,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -150,7 +151,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -174,7 +175,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -197,7 +198,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -221,7 +222,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -245,7 +246,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -270,7 +271,7 @@ func TestLoadConfig(t *testing.T) {
 					list: []string{"finalize"},
 				},
 				bucketLocation: "US-CENTRAL1",
-				LogLevel:       logrus.InfoLevel,
+				LogLevel:       slog.LevelInfo,
 			},
 		},
 		{
@@ -421,7 +422,7 @@ func TestToFakeGcsOptions(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			opts := test.config.ToFakeGcsOptions(test.config.Scheme)
+			opts := test.config.ToFakeGcsOptions(slognil.NewLogger(), test.config.Scheme)
 			ignWriter := cmpopts.IgnoreFields(fakestorage.Options{}, "Writer")
 			if diff := cmp.Diff(opts, test.expected, ignWriter); diff != "" {
 				t.Errorf("wrong set of options returned\nwant %#v\ngot  %#v\ndiff: %v", test.expected, opts, diff)

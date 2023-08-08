@@ -21,16 +21,17 @@ import (
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/config"
 	"github.com/fsouza/fake-gcs-server/internal/grpc"
-	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slog"
 )
 
-func createListener(logger *logrus.Logger, cfg *config.Config, scheme string) (net.Listener, *fakestorage.Options) {
-	opts := cfg.ToFakeGcsOptions(scheme)
+func createListener(logger *slog.Logger, cfg *config.Config, scheme string) (net.Listener, *fakestorage.Options) {
+	opts := cfg.ToFakeGcsOptions(logger, scheme)
 
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Error(err.Error())
+		os.Exit(1)
 	}
 
 	if opts.Scheme == "https" {
@@ -54,7 +55,7 @@ func createListener(logger *logrus.Logger, cfg *config.Config, scheme string) (n
 	return listener, &opts
 }
 
-func startServer(logger *logrus.Logger, cfg *config.Config) {
+func startServer(logger *slog.Logger, cfg *config.Config) {
 	type listenerAndOpts struct {
 		listener net.Listener
 		opts     *fakestorage.Options
@@ -78,7 +79,8 @@ func startServer(logger *logrus.Logger, cfg *config.Config) {
 
 	httpServer, err := fakestorage.NewServerWithOptions(*listenersAndOpts[0].opts)
 	if err != nil {
-		logger.WithError(err).Fatal("couldn't start the server")
+		logger.With("Error", err).Error("couldn't start the server")
+		os.Exit(1)
 	}
 
 	grpcServer := grpc.NewServerWithBackend(httpServer.Backend())
@@ -95,8 +97,8 @@ func startServer(logger *logrus.Logger, cfg *config.Config) {
 			}))
 		}(listenerAndOpts.listener)
 
-		logger.Infof("server started at %s://%s:%d",
-			listenerAndOpts.opts.Scheme, listenerAndOpts.opts.Host, listenerAndOpts.opts.Port)
+		logger.Info(fmt.Sprintf("server started at %s://%s:%d",
+			listenerAndOpts.opts.Scheme, listenerAndOpts.opts.Host, listenerAndOpts.opts.Port))
 	}
 }
 
@@ -109,9 +111,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger := logrus.New()
-	logger.SetLevel(cfg.LogLevel)
-
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: cfg.LogLevel,
+	}))
 	startServer(logger, &cfg)
 
 	ch := make(chan os.Signal, 1)
