@@ -109,7 +109,7 @@ jobs:
           args: -c "./fake-gcs-server -h"
 
       - name: upload binary
-        uses: actions/upload-artifact@v3.1.2
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: fake-gcs-server
           path: ./fake-gcs-server
