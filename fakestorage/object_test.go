@@ -177,6 +177,10 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	if testObj.Content != nil && !bytes.Equal(attrs.MD5, checksum.MD5Hash(testObj.Content)) {
 		t.Errorf("wrong hash returned\nwant %d\ngot   %d", checksum.MD5Hash(testObj.Content), attrs.MD5)
 	}
+	expectedEtag := fmt.Sprintf("\"%s\"", checksum.EncodedHash(attrs.MD5))
+	if attrs.Etag != expectedEtag {
+		t.Errorf("wrong Etag returned\nwant %s\ngot   %s", expectedEtag, attrs.Etag)
+	}
 	if testObj.Metadata != nil {
 		if val, err := getMetadataHeaderFromAttrs(attrs, "MetaHeader"); err != nil || val != testObj.Metadata["MetaHeader"] {
 			t.Errorf("wrong MetaHeader returned\nwant %s\ngot %v", testObj.Metadata["MetaHeader"], val)
