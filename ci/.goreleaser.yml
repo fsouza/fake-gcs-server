@@ -15,7 +15,6 @@ builds:
         goarch: arm64
 archives:
   - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ title .Os }}_{{ .Arch }}"
-    rlcp: true
     files:
       - LICENSE
       - README.md
