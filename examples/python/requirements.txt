@@ -47,7 +47,7 @@ requests==2.31.0
     #   google-cloud-storage
 rsa==4.7.2
     # via google-auth
-urllib3==1.26.7
+urllib3==1.26.17
     # via requests
 
 # The following packages are considered to be unsafe in a requirements file:
