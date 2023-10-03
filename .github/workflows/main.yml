@@ -123,7 +123,7 @@ jobs:
             docker-image: python:latest
             entrypoint: /bin/bash
           - lang: gsutil
-            docker-image: python:latest
+            docker-image: python:3.11
             entrypoint: /bin/bash
           - lang: node
             docker-image: node:14-alpine
