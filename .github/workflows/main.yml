@@ -126,7 +126,7 @@ jobs:
             docker-image: python:3.11
             entrypoint: /bin/bash
           - lang: node
-            docker-image: node:14-alpine
+            docker-image: node:20-alpine
             entrypoint: /bin/sh
           - lang: go
             docker-image: golang:alpine
@@ -138,7 +138,7 @@ jobs:
             docker-image: mozilla/sbt:8u292_1.5.7
             entrypoint: /bin/sh
           - lang: java
-            docker-image: openjdk:11
+            docker-image: openjdk:17
             entrypoint: /bin/sh
           - lang: cpp
             docker-image: alpine:3.15.4
