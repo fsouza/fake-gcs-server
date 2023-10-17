@@ -711,8 +711,13 @@ func (s *Server) xmlPutObject(r *http.Request) xmlResponse {
 	}
 
 	obj.Close()
+
+	header := make(http.Header)
+	header.Set("ETag", obj.Etag)
+
 	return xmlResponse{
 		status: http.StatusOK,
+		header: header,
 	}
 }
 
