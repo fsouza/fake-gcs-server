@@ -29,7 +29,7 @@ jobs:
     name: tests (${{ matrix.os }}/go-${{ matrix.go_version }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}-latest
     steps:
-      - uses: actions/checkout@v4.1.0
+      - uses: actions/checkout@v4.1.1
 
       - uses: actions/setup-go@v4.1.0
         id: go
@@ -52,7 +52,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.0
+      - uses: actions/checkout@v4.1.1
 
       - uses: golangci/golangci-lint-action@v3.7.0
 
@@ -60,7 +60,7 @@ jobs:
     name: staticcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.0
+      - uses: actions/checkout@v4.1.1
 
       - uses: actions/setup-go@v4.1.0
         id: go
@@ -90,7 +90,7 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.0
+      - uses: actions/checkout@v4.1.1
 
       - uses: actions/setup-go@v4.1.0
         id: go
@@ -160,7 +160,7 @@ jobs:
       - lint
       - staticcheck
     steps:
-      - uses: actions/checkout@v4.1.0
+      - uses: actions/checkout@v4.1.1
 
       - name: download binary
         uses: actions/download-artifact@v3.0.2
