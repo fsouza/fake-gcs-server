@@ -416,6 +416,27 @@ func TestToFakeGcsOptions(t *testing.T) {
 				NoListener:  true,
 			},
 		},
+		{
+			"external-url with trailing slashes",
+			Config{
+				backend:     "memory",
+				fsRoot:      "/tmp/something",
+				publicHost:  "127.0.0.1.nip.io:8443",
+				externalURL: "https://myhost.example.com:8443/",
+				Host:        "0.0.0.0",
+				Port:        443,
+				Scheme:      "https",
+			},
+			fakestorage.Options{
+				StorageRoot: "",
+				PublicHost:  "127.0.0.1.nip.io:8443",
+				ExternalURL: "https://myhost.example.com:8443",
+				Host:        "0.0.0.0",
+				Port:        443,
+				Scheme:      "https",
+				NoListener:  true,
+			},
+		},
 	}
 
 	for _, test := range tests {

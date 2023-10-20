@@ -226,7 +226,7 @@ func (c *Config) ToFakeGcsOptions(logger *slog.Logger, scheme string) fakestorag
 		Host:                c.Host,
 		Port:                uint16(port),
 		PublicHost:          c.publicHost,
-		ExternalURL:         c.externalURL,
+		ExternalURL:         strings.TrimRight(c.externalURL, "/"),
 		AllowedCORSHeaders:  c.allowedCORSHeaders,
 		Writer:              &slogWriter{logger: logger, level: slog.LevelInfo},
 		EventOptions:        eventOptions,
