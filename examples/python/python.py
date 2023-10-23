@@ -12,17 +12,28 @@
 # 6 - Install requirements: "pip install -r requirements.txt" and "pip install -r requirements.in"
 # 7 - Run this script
 
+# For additional info on how to run this example or setup the docker container check the
+# run script "ci/run-python-example.sh"
+
 import tempfile
+import os
 
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import storage
 
+# This endpoint assumes that you are using the default port 4443 from the container.
+# If you are using a different port you need to update this endpoint
+os.environ["STORAGE_EMULATOR_HOST"] = os.environ.get(
+    "STORAGE_EMULATOR_HOST", "http://localhost:4443"
+)
+
+
 client = storage.Client(
     credentials=AnonymousCredentials(),
     project="test",
-    # This endpoint assumes that you are using the default port 4443 from the container.
-    # If you are using a different port you need to update this endpoint
-    client_options={"api_endpoint": "http://localhost:4443"},
+    # Alternatively instead of using the global env STORAGE_EMULATOR_HOST. You can define it here.
+    # This will set this client object to point to the local google cloud storage.
+    # client_options={"api_endpoint": "http://localhost:4443"},
 )
 
 # List the Buckets
