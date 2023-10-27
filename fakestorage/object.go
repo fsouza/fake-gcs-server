@@ -325,6 +325,7 @@ type ListOptions struct {
 	EndOffset                string
 	IncludeTrailingDelimiter bool
 	MaxResults               int
+	StartExclusive           bool
 }
 
 // ListObjects returns a sorted list of objects that match the given criteria,
@@ -352,6 +353,9 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 	prefixes := make(map[string]bool)
 	for _, obj := range objects {
 		if !strings.HasPrefix(obj.Name, options.Prefix) {
+			continue
+		}
+		if options.StartExclusive && obj.Name == options.StartOffset {
 			continue
 		}
 		objName := strings.Replace(obj.Name, options.Prefix, "", 1)
@@ -605,9 +609,11 @@ func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
 
 	opts := ListOptions{
-		Prefix:    r.URL.Query().Get("prefix"),
-		Delimiter: r.URL.Query().Get("delimiter"),
-		Versions:  r.URL.Query().Get("versions") == "true",
+		Prefix:         r.URL.Query().Get("prefix"),
+		Delimiter:      r.URL.Query().Get("delimiter"),
+		Versions:       r.URL.Query().Get("versions") == "true",
+		StartOffset:    r.URL.Query().Get("start-after"),
+		StartExclusive: true,
 	}
 
 	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, opts)
