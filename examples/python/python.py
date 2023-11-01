@@ -9,7 +9,7 @@
 # 4 - Create a python virtual enviroment (Ex: python -m .venv venv)
 # 5 - Source the env (source .venv/bin/activate)
 # 7 - Go to the following directory examples/python: (cd examples/python)
-# 6 - Install requirements: "pip install -r requirements.txt" and "pip install -r requirements.in"
+# 6 - Install requirements: "pip install -r requirements.txt"
 # 7 - Run this script
 
 # For additional info on how to run this example or setup the docker container check the
