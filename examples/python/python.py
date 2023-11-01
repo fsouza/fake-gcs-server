@@ -22,10 +22,8 @@ from google.auth.credentials import AnonymousCredentials
 from google.cloud import storage
 
 # This endpoint assumes that you are using the default port 4443 from the container.
-# If you are using a different port you need to update this endpoint
-os.environ["STORAGE_EMULATOR_HOST"] = os.environ.get(
-    "STORAGE_EMULATOR_HOST", "http://localhost:4443"
-)
+# If you are using a different port, please set the environment variable STORAGE_EMULATOR_HOST.
+os.environ.setdefault("STORAGE_EMULATOR_HOST", "http://localhost:4443")
 
 
 client = storage.Client(
