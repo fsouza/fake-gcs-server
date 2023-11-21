@@ -7,7 +7,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
-	github.com/minio/minio-go/v7 v7.0.63
+	github.com/minio/minio-go/v7 v7.0.64
 	github.com/pkg/xattr v0.4.9
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
