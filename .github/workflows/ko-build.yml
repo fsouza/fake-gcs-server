@@ -7,7 +7,7 @@ on:
       - "*"
 
 jobs:
-  build-and-push:
+  ko-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.1.1
