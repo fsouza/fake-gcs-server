@@ -1,0 +1,39 @@
+name: ko-test
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.1
+
+      - name: docker meta
+        id: meta
+        uses: docker/metadata-action@v5.0.0
+        with:
+          images: fsouza/fake-gcs-server
+          sep-tags: ","
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - uses: actions/setup-go@v4.1.0
+        id: setup-go
+        with:
+          go-version: "1.21"
+
+      - uses: ko-build/setup-ko@v0.6
+
+      - name: ko build
+        run: |
+          ko build --platform=all --bare --tags="$(echo "${RAW_TAGS}" | sed -e 's;fsouza/fake-gcs-server:;;g')"
+        env:
+          KO_DEFAULTBASEIMAGE: fsouza/alpine-base
+          KO_DOCKER_REPO: ko.local/fsouza/fake-gcs-server
+          RAW_TAGS: ${{ steps.meta.outputs.tags }}

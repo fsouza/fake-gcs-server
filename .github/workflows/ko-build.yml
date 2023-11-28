@@ -1,10 +1,10 @@
-name: docker-push
+name: ko-build
 on:
   push:
     branches:
       - main
     tags:
-      - "v*"
+      - "*"
 
 jobs:
   build-and-push:
@@ -17,6 +17,7 @@ jobs:
         uses: docker/metadata-action@v5.0.0
         with:
           images: fsouza/fake-gcs-server
+          sep-tags: ","
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -24,26 +25,23 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
 
-      - name: setup qemu
-        uses: docker/setup-qemu-action@v3.0.0
-
-      - name: setup buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v3.0.0
-
       - name: login to docker hub
         uses: docker/login-action@v3.0.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: build and push
-        uses: docker/build-push-action@v5.1.0
+      - uses: actions/setup-go@v4.1.0
+        id: setup-go
         with:
-          cache-from: fsouzaci/gha-cache:fake-gcs-server
-          cache-to: fsouzaci/gha-cache:fake-gcs-server
-          context: .
-          push: ${{ github.ref_type == 'tag' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
+          go-version: "1.21"
+
+      - uses: ko-build/setup-ko@v0.6
+
+      - name: ko build
+        run: |
+          ko build --platform=all --bare --tags="$(echo "${RAW_TAGS}" | sed -e 's;fsouza/fake-gcs-server:;;g')"
+        env:
+          KO_DEFAULTBASEIMAGE: fsouza/alpine-base
+          KO_DOCKER_REPO: fsouza/fake-gcs-server
+          RAW_TAGS: ${{ steps.meta.outputs.tags }}
