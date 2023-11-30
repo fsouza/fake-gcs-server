@@ -14,7 +14,7 @@ jobs:
 
       - name: docker meta
         id: meta
-        uses: docker/metadata-action@v5.0.0
+        uses: docker/metadata-action@v5.2.0
         with:
           images: fsouza/fake-gcs-server
           tags: |
