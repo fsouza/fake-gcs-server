@@ -1010,9 +1010,11 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	}
 
 	var payload struct {
-		Metadata   map[string]string `json:"metadata"`
-		CustomTime string
-		Acl        []acls
+		ContentType     string
+		ContentEncoding string
+		Metadata        map[string]string `json:"metadata"`
+		CustomTime      string
+		Acl             []acls
 	}
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -1024,6 +1026,8 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 
 	var attrsToUpdate backend.ObjectAttrs
 
+	attrsToUpdate.ContentType = payload.ContentType
+	attrsToUpdate.ContentEncoding = payload.ContentEncoding
 	attrsToUpdate.Metadata = payload.Metadata
 	attrsToUpdate.CustomTime = payload.CustomTime
 
