@@ -134,6 +134,9 @@ jobs:
           - lang: dotnet
             docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
             entrypoint: /bin/sh
+          - lang: ruby
+            docker-image: ruby:3.2-alpine
+            entrypoint: /bin/sh
           - lang: scala
             docker-image: mozilla/sbt:8u292_1.5.7
             entrypoint: /bin/sh
