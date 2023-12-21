@@ -31,6 +31,11 @@ updates:
     schedule:
       interval: daily
     open-pull-requests-limit: 99
+  - package-ecosystem: bundler
+    directory: "/examples/ruby"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 99
   - package-ecosystem: docker
     directory: "/"
     schedule:
