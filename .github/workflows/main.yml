@@ -77,7 +77,7 @@ jobs:
 
       - name: staticcheck cache
         id: staticcheck-cache
-        uses: actions/cache@v3.3.2
+        uses: actions/cache@v3.3.3
         with:
           path: ~/.cache/staticcheck
           key: "${{ steps.get-staticcheck-version.outputs.version }}"
