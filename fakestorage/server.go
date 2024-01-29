@@ -291,6 +291,9 @@ func (s *Server) buildMuxer() {
 	for _, r := range xmlApiRouters {
 		r.Path("/").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
 		r.Path("").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
+		r.Path("/{objectName:.+}").Methods(http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.xmlPutObject))
+		r.Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+		r.Path("/{objectName:.+}").Methods(http.MethodDelete).HandlerFunc(xmlToHTTPHandler(s.xmlDeleteObject))
 	}
 
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
@@ -312,12 +315,6 @@ func (s *Server) buildMuxer() {
 	// Form Uploads
 	handler.Host(s.publicHost).Path("/{bucketName}").MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
 	handler.Host(bucketHost).MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
-
-	// Signed URLs (upload and download)
-	handler.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	handler.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.getObject)
-	handler.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	handler.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodPost, http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 
 	s.handler = handler
 }

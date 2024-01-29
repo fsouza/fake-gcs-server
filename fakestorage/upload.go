@@ -28,6 +28,8 @@ import (
 
 const contentTypeHeader = "Content-Type"
 
+const contentEncodingHeader = "Content-Encoding"
+
 const (
 	uploadTypeMedia     = "media"
 	uploadTypeMultipart = "multipart"
