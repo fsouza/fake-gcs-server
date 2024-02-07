@@ -129,7 +129,7 @@ jobs:
             docker-image: node:20-alpine
             entrypoint: /bin/sh
           - lang: go
-            docker-image: golang:alpine
+            docker-image: golang:1.22-alpine
             entrypoint: /bin/sh
           - lang: dotnet
             docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
