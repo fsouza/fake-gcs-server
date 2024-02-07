@@ -5,6 +5,7 @@
 package config
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
@@ -12,7 +13,6 @@ import (
 	"github.com/fsouza/slognil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"golang.org/x/exp/slog"
 )
 
 func TestLoadConfig(t *testing.T) {

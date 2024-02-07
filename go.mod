@@ -3,14 +3,13 @@ module github.com/fsouza/fake-gcs-server
 require (
 	cloud.google.com/go/pubsub v1.36.1
 	cloud.google.com/go/storage v1.37.0
-	github.com/fsouza/slognil v0.3.1
+	github.com/fsouza/slognil v0.4.0
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/minio/minio-go/v7 v7.0.66
 	github.com/pkg/xattr v0.4.9
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
 	golang.org/x/oauth2 v0.16.0
 	google.golang.org/api v0.162.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240125205218-1f4bbc51befe
@@ -67,4 +66,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-go 1.20
+go 1.21

@@ -9,12 +9,12 @@ package config
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/notification"
-	"golang.org/x/exp/slog"
 )
 
 const (
