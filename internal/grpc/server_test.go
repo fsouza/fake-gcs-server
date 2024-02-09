@@ -191,7 +191,6 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 				Metadata: newMetadata,
 			},
 		})
-
 		if err != nil {
 			t.Fatal(err)
 		}
