@@ -11,7 +11,7 @@ require (
 	github.com/pkg/xattr v0.4.9
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/oauth2 v0.17.0
-	google.golang.org/api v0.164.0
+	google.golang.org/api v0.165.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240205150955-31a09d347014
 )
 
