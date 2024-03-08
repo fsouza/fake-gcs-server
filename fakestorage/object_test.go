@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -1839,6 +1840,116 @@ func TestServerClientObjectUpdateContentType(t *testing.T) {
 		if updatedContentType != expectedContentType {
 			t.Errorf("unexpected content type time\nwant %q\ngot  %q", expectedContentType, updatedContentType)
 		}
+	})
+}
+
+func TestServerClientObjectProjection(t *testing.T) {
+	const (
+		bucketName = "some-bucket"
+		objectName = "data.txt"
+	)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName: bucketName,
+				Name:       objectName,
+				ACL: []storage.ACLRule{
+					{Entity: "user-1", Role: "OWNER"},
+					{Entity: "user-2", Role: "READER"},
+				},
+			},
+		},
+	}
+
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		assertProjection := func(url string, wantStatusCode int, wantACL []objectAccessControl) {
+			// Perform request
+			client := server.HTTPClient()
+			req, err := http.NewRequest(http.MethodGet, url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			data, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Assert status code
+			if resp.StatusCode != wantStatusCode {
+				t.Errorf("wrong status returned\nwant %d\ngot  %d\nbody: %s", wantStatusCode, resp.StatusCode, data)
+			}
+
+			// Assert ACL
+			var respJsonBody objectResponse
+			err = json.Unmarshal(data, &respJsonBody)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var gotACL []objectAccessControl
+			if respJsonBody.ACL != nil {
+				gotACL = make([]objectAccessControl, len(respJsonBody.ACL))
+				for i, acl := range respJsonBody.ACL {
+					gotACL[i] = *acl
+				}
+			}
+			if !reflect.DeepEqual(gotACL, wantACL) {
+				t.Errorf("unexpected ACL\nwant %+v\ngot  %+v", wantACL, gotACL)
+			}
+
+			// Assert error (if "400 Bad Request")
+			if resp.StatusCode == http.StatusBadRequest {
+				var respJsonErrorBody errorResponse
+				err = json.Unmarshal(data, &respJsonErrorBody)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if respJsonErrorBody.Error.Code != http.StatusBadRequest {
+					t.Errorf("wrong error code\nwant %d\ngot  %d", http.StatusBadRequest, respJsonErrorBody.Error.Code)
+				}
+				if !strings.Contains(respJsonErrorBody.Error.Message, "invalid projection") {
+					t.Errorf("wrong error message\nwant %q\ngot  %q", ".*invalid projection.*", respJsonErrorBody.Error.Message)
+				}
+			}
+		}
+
+		url := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o/%s", bucketName, objectName)
+		fullACL := []objectAccessControl{
+			{Bucket: bucketName, Object: objectName, Entity: "user-1", Role: "OWNER"},
+			{Bucket: bucketName, Object: objectName, Entity: "user-2", Role: "READER"},
+		}
+
+		t.Run("full projection", func(t *testing.T) {
+			projectionParamValues := []string{"full", "Full", "FULL", "fUlL"}
+			for _, value := range projectionParamValues {
+				url := fmt.Sprintf("%s?projection=%s", url, value)
+				assertProjection(url, http.StatusOK, fullACL)
+			}
+		})
+
+		t.Run("noAcl projection", func(t *testing.T) {
+			projectionParamValues := []string{"noAcl", "NoAcl", "NOACL", "nOaCl"}
+			for _, value := range projectionParamValues {
+				url := fmt.Sprintf("%s?projection=%s", url, value)
+				assertProjection(url, http.StatusOK, nil)
+			}
+		})
+
+		t.Run("invalid projection", func(t *testing.T) {
+			projectParamValues := []string{"invalid", "", "ful"}
+			for _, value := range projectParamValues {
+				url := fmt.Sprintf("%s?projection=%s", url, value)
+				assertProjection(url, http.StatusBadRequest, nil)
+			}
+		})
+
+		t.Run("default projection", func(t *testing.T) {
+			assertProjection(url, http.StatusOK, nil)
+		})
 	})
 }
 

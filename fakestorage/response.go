@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
@@ -122,6 +123,14 @@ type objectResponse struct {
 	SelfLink        string                 `json:"selfLink,omitempty"`
 	MediaLink       string                 `json:"mediaLink,omitempty"`
 	Metageneration  string                 `json:"metageneration,omitempty"`
+}
+
+func newProjectedObjectResponse(obj ObjectAttrs, externalURL string, projection storage.Projection) objectResponse {
+	objResponse := newObjectResponse(obj, externalURL)
+	if projection == storage.ProjectionNoACL {
+		objResponse.ACL = nil
+	}
+	return objResponse
 }
 
 func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
