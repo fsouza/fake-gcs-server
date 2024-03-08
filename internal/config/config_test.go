@@ -5,6 +5,7 @@
 package config
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
@@ -12,7 +13,6 @@ import (
 	"github.com/fsouza/slognil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"golang.org/x/exp/slog"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -402,6 +402,27 @@ func TestToFakeGcsOptions(t *testing.T) {
 				fsRoot:      "/tmp/something",
 				publicHost:  "127.0.0.1.nip.io:8443",
 				externalURL: "https://myhost.example.com:8443",
+				Host:        "0.0.0.0",
+				Port:        443,
+				Scheme:      "https",
+			},
+			fakestorage.Options{
+				StorageRoot: "",
+				PublicHost:  "127.0.0.1.nip.io:8443",
+				ExternalURL: "https://myhost.example.com:8443",
+				Host:        "0.0.0.0",
+				Port:        443,
+				Scheme:      "https",
+				NoListener:  true,
+			},
+		},
+		{
+			"external-url with trailing slashes",
+			Config{
+				backend:     "memory",
+				fsRoot:      "/tmp/something",
+				publicHost:  "127.0.0.1.nip.io:8443",
+				externalURL: "https://myhost.example.com:8443/",
 				Host:        "0.0.0.0",
 				Port:        443,
 				Scheme:      "https",

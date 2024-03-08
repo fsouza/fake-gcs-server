@@ -44,7 +44,6 @@ func (g *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.B
 		TimeCreated:           timestamppb.New(bucket.TimeCreated),
 	}
 	return grpc_bucket, nil
-	///return GetBucketFromBackend(g.backend, req.Bucket)
 }
 
 func (g *Server) DeleteBucket(ctx context.Context, req *pb.DeleteBucketRequest) (*pb.Empty, error) {
@@ -148,7 +147,9 @@ func (g *Server) UpdateObject(ctx context.Context, req *pb.UpdateObjectRequest) 
 
 func (g *Server) PatchObject(ctx context.Context, req *pb.PatchObjectRequest) (*pb.Empty, error) {
 	attrs := backend.ObjectAttrs{
-		Metadata: req.Metadata.Metadata,
+		Metadata:        req.Metadata.Metadata,
+		ContentType:     req.Metadata.ContentType,
+		ContentEncoding: req.Metadata.ContentEncoding,
 	}
 	_, err := g.backend.PatchObject(req.Bucket, req.Object, attrs)
 	return &pb.Empty{}, err

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -241,21 +242,6 @@ func (team *projectTeam) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type objectAttrsList []ObjectAttrs
-
-func (o objectAttrsList) Len() int {
-	return len(o)
-}
-
-func (o objectAttrsList) Less(i int, j int) bool {
-	return o[i].Name < o[j].Name
-}
-
-func (o *objectAttrsList) Swap(i int, j int) {
-	d := *o
-	d[i], d[j] = d[j], d[i]
-}
-
 // CreateObject is the non-streaming version of CreateObjectStreaming.
 //
 // In addition to streaming, CreateObjectStreaming returns an error instead of
@@ -344,11 +330,12 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 		return nil, nil, err
 	}
 	objects := fromBackendObjectsAttrs(backendObjects)
-	olist := objectAttrsList(objects)
-	sort.Sort(&olist)
+	slices.SortFunc(objects, func(left, right ObjectAttrs) int {
+		return strings.Compare(left.Name, right.Name)
+	})
 	var respObjects []ObjectAttrs
 	prefixes := make(map[string]bool)
-	for _, obj := range olist {
+	for _, obj := range objects {
 		if !strings.HasPrefix(obj.Name, options.Prefix) {
 			continue
 		}
@@ -1010,9 +997,11 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	}
 
 	var payload struct {
-		Metadata   map[string]string `json:"metadata"`
-		CustomTime string
-		Acl        []acls
+		ContentType     string
+		ContentEncoding string
+		Metadata        map[string]string `json:"metadata"`
+		CustomTime      string
+		Acl             []acls
 	}
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -1024,6 +1013,8 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 
 	var attrsToUpdate backend.ObjectAttrs
 
+	attrsToUpdate.ContentType = payload.ContentType
+	attrsToUpdate.ContentEncoding = payload.ContentEncoding
 	attrsToUpdate.Metadata = payload.Metadata
 	attrsToUpdate.CustomTime = payload.CustomTime
 

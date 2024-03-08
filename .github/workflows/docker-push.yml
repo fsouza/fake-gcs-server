@@ -10,11 +10,11 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.0
+      - uses: actions/checkout@v4.1.1
 
       - name: docker meta
         id: meta
-        uses: docker/metadata-action@v5.0.0
+        uses: docker/metadata-action@v5.5.1
         with:
           images: fsouza/fake-gcs-server
           tags: |
@@ -29,7 +29,7 @@ jobs:
 
       - name: setup buildx
         id: buildx
-        uses: docker/setup-buildx-action@v3.0.0
+        uses: docker/setup-buildx-action@v3.1.0
 
       - name: login to docker hub
         uses: docker/login-action@v3.0.0
@@ -38,7 +38,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: build and push
-        uses: docker/build-push-action@v5.0.0
+        uses: docker/build-push-action@v5.1.0
         with:
           cache-from: fsouzaci/gha-cache:fake-gcs-server
           cache-to: fsouzaci/gha-cache:fake-gcs-server

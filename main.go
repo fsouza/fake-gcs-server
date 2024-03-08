@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"mime"
 	"net"
 	"net/http"
@@ -21,7 +22,6 @@ import (
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/config"
 	"github.com/fsouza/fake-gcs-server/internal/grpc"
-	"golang.org/x/exp/slog"
 )
 
 func createListener(logger *slog.Logger, cfg *config.Config, scheme string) (net.Listener, *fakestorage.Options) {
