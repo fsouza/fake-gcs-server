@@ -66,14 +66,14 @@ func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 	}
 }
 
-func newListObjectsResponse(objs []ObjectAttrs, prefixes []string) listResponse {
+func newListObjectsResponse(objs []ObjectAttrs, prefixes []string, externalUrl string) listResponse {
 	resp := listResponse{
 		Kind:     "storage#objects",
 		Items:    make([]any, len(objs)),
 		Prefixes: prefixes,
 	}
 	for i, obj := range objs {
-		resp.Items[i] = newObjectResponse(obj)
+		resp.Items[i] = newObjectResponse(obj, externalUrl)
 	}
 	return resp
 }
@@ -117,9 +117,12 @@ type objectResponse struct {
 	Generation      int64                  `json:"generation,string"`
 	CustomTime      string                 `json:"customTime,omitempty"`
 	Metadata        map[string]string      `json:"metadata,omitempty"`
+	SelfLink        string                 `json:"selfLink,omitempty"`
+	MediaLink       string                 `json:"mediaLink,omitempty"`
+	Metageneration  string                 `json:"metageneration,omitempty"`
 }
 
-func newObjectResponse(obj ObjectAttrs) objectResponse {
+func newObjectResponse(obj ObjectAttrs, externalUrl string) objectResponse {
 	acl := getAccessControlsListFromObject(obj)
 
 	return objectResponse{
@@ -140,6 +143,9 @@ func newObjectResponse(obj ObjectAttrs) objectResponse {
 		Updated:         formatTime(obj.Updated),
 		CustomTime:      formatTime(obj.CustomTime),
 		Generation:      obj.Generation,
+		SelfLink:        externalUrl + "/storage/v1/b/" + obj.BucketName + "/o/" + obj.Name,
+		MediaLink:       externalUrl + "/download/storage/v1/b/" + obj.BucketName + "/o/" + obj.Name + "?alt=media",
+		Metageneration:  "1",
 	}
 }
 
@@ -176,14 +182,14 @@ type rewriteResponse struct {
 	Resource            objectResponse `json:"resource"`
 }
 
-func newObjectRewriteResponse(obj ObjectAttrs) rewriteResponse {
+func newObjectRewriteResponse(obj ObjectAttrs, externalUrl string) rewriteResponse {
 	return rewriteResponse{
 		Kind:                "storage#rewriteResponse",
 		TotalBytesRewritten: obj.Size,
 		ObjectSize:          obj.Size,
 		Done:                true,
 		RewriteToken:        "",
-		Resource:            newObjectResponse(obj),
+		Resource:            newObjectResponse(obj, externalUrl),
 	}
 }
 

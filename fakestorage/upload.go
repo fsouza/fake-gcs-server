@@ -249,7 +249,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		return errToJsonResponse(err)
 	}
 	obj.Close()
-	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs)}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, s.externalURL)}
 }
 
 type notImplementedSeeker struct {
@@ -297,7 +297,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		return errToJsonResponse(err)
 	}
 	obj.Close()
-	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs)}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, s.externalURL)}
 }
 
 func getObjectACL(predefinedACL string) []storage.ACLRule {
@@ -386,7 +386,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		return errToJsonResponse(err)
 	}
 	defer obj.Close()
-	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs)}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, s.externalURL)}
 }
 
 func parseContentTypeParams(requestContentType string) (map[string]string, error) {
@@ -446,7 +446,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 		header.Set("X-Goog-Upload-Status", "active")
 	}
 	return jsonResponse{
-		data:   newObjectResponse(obj.ObjectAttrs),
+		data:   newObjectResponse(obj.ObjectAttrs, s.externalURL),
 		header: header,
 	}
 }
@@ -553,7 +553,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	}
 	return jsonResponse{
 		status: status,
-		data:   newObjectResponse(obj.ObjectAttrs),
+		data:   newObjectResponse(obj.ObjectAttrs, s.externalURL),
 		header: responseHeader,
 	}
 }
