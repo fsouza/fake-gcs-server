@@ -294,7 +294,6 @@ func TestBucketAttrsStoreRetrieveUpdate(t *testing.T) {
 }
 
 func TestBucketCreateGetListDelete(t *testing.T) {
-	startTime := time.Now()
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		buckets, err := storage.ListBuckets()
 		if err != nil {
@@ -312,12 +311,9 @@ func TestBucketCreateGetListDelete(t *testing.T) {
 			if err == nil {
 				t.Fatalf("bucket %s, exists before being created", bucket.Name)
 			}
-			// The FS backend uses filesystem timestamps to store bucket creation time.
-			// Use a large +/- 5 second window to allow for an imperfectly synchronized
-			// clock generating the filesystem timestamp and to reduce test flakes.
-			timeBeforeCreation := time.Now().Add(-5 * time.Second)
+			timeBeforeCreation := time.Now()
 			err = storage.CreateBucket(bucket.Name, BucketAttrs{VersioningEnabled: bucket.VersioningEnabled})
-			timeAfterCreation := time.Now().Add(5 * time.Second)
+			timeAfterCreation := time.Now()
 			if reflect.TypeOf(storage) == reflect.TypeOf(&storageFS{}) && bucket.VersioningEnabled {
 				if err == nil {
 					t.Fatal("fs storage should not accept creating buckets with versioning, but it's not failing")
@@ -332,7 +328,7 @@ func TestBucketCreateGetListDelete(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !isBucketEquivalentTo(bucketFromStorage, bucket, timeBeforeCreation, timeAfterCreation) {
-				t.Errorf("bucket %v does not have the expected props after retrieving. Expected %v and time between %v and %v",
+				t.Errorf("bucket %v does not have the expected props after retrieving. Expected %v and time roughly between %v and %v",
 					bucketFromStorage, bucket, timeBeforeCreation, timeAfterCreation)
 			}
 			buckets, err = storage.ListBuckets()
@@ -345,8 +341,8 @@ func TestBucketCreateGetListDelete(t *testing.T) {
 			if buckets[0].Name != bucket.Name {
 				t.Errorf("listed bucket has unexpected name. Expected %s, actual: %v", bucket.Name, buckets[0].Name)
 			}
-			if buckets[0].TimeCreated.Before(startTime.Truncate(time.Second)) || time.Now().Before(buckets[0].TimeCreated) {
-				t.Errorf("listed bucket has unexpected creation time. Expected between test start time %v and now %v, actual: %v", startTime, time.Now(), buckets[0].TimeCreated)
+			if !isTimeRoughlyInRange(buckets[0].TimeCreated, timeBeforeCreation, timeAfterCreation) {
+				t.Errorf("listed bucket has unexpected creation time. Expected roughly between %v and %v, actual: %v", timeBeforeCreation, timeAfterCreation, buckets[0].TimeCreated)
 			}
 			err = storage.DeleteBucket(bucket.Name)
 			if err != nil {
@@ -356,10 +352,19 @@ func TestBucketCreateGetListDelete(t *testing.T) {
 	})
 }
 
-func isBucketEquivalentTo(a, b Bucket, earliest, latest time.Time) bool {
+func isBucketEquivalentTo(a, b Bucket, before, after time.Time) bool {
 	return a.Name == b.Name &&
 		a.VersioningEnabled == b.VersioningEnabled &&
-		a.TimeCreated.After(earliest) && a.TimeCreated.Before(latest)
+		isTimeRoughlyInRange(a.TimeCreated, before, after)
+}
+
+func isTimeRoughlyInRange(t, before, after time.Time) bool {
+	// The FS backend uses filesystem timestamps to store bucket creation time.
+	// Use a large +/- 5 second window to allow for an imperfectly synchronized
+	// clock generating the filesystem timestamp and to reduce test flakes.
+	earliest := before.Add(-5 * time.Second)
+	latest := after.Add(5 * time.Second)
+	return t.After(earliest) && t.Before(latest)
 }
 
 func TestBucketDuplication(t *testing.T) {
