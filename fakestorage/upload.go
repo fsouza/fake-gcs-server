@@ -504,7 +504,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	obj.Content = append(obj.Content, content...)
 	obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
 	obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
-	obj.Etag = fmt.Sprintf("%q", obj.Md5Hash)
+	obj.Etag = obj.Md5Hash
 	contentTypeHeader := r.Header.Get(contentTypeHeader)
 	if contentTypeHeader != "" {
 		obj.ContentType = contentTypeHeader
