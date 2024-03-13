@@ -224,7 +224,7 @@ func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected overwriting existing object to fail, but received no error")
 		}
-		if err.Error() != "googleapi: Error 412: Precondition failed" {
+		if err.Error() != "googleapi: Error 412: Precondition failed, Precondition Failed" {
 			t.Errorf("expected HTTP 412 precondition failed error, but got %v", err)
 		}
 
@@ -346,7 +346,7 @@ func TestServerClientObjectOperationsWithIfGenerationNotMatchPrecondition(t *tes
 		if err == nil {
 			t.Fatal("expected overwriting existing object to fail, but received no error")
 		}
-		if err.Error() != "googleapi: Error 412: Precondition failed" {
+		if err.Error() != "googleapi: Error 412: Precondition failed, Precondition Failed" {
 			t.Errorf("expected HTTP 412 precondition failed error, but got %v", err)
 		}
 
