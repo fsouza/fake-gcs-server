@@ -186,8 +186,8 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 			t.Errorf("wrong MetaHeader returned\nwant %s\ngot %v", testObj.Metadata["MetaHeader"], val)
 		}
 	}
-	externalUrl := "" // We don't set any `externalURL` value during tests.
-	expectedMediaLink := fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalUrl, testObj.BucketName, testObj.Name)
+	externalURL := "" // We don't set any `externalURL` value during tests.
+	expectedMediaLink := fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, testObj.BucketName, testObj.Name)
 	if attrs.MediaLink != expectedMediaLink {
 		t.Errorf("wrong MediaLink returned\nwant %s\ngot  %s", expectedMediaLink, attrs.MediaLink)
 	}
