@@ -38,7 +38,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: build and push
-        uses: docker/build-push-action@v5.2.0
+        uses: docker/build-push-action@v5.3.0
         with:
           cache-from: fsouzaci/gha-cache:fake-gcs-server
           cache-to: fsouzaci/gha-cache:fake-gcs-server
