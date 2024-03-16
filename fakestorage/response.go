@@ -5,6 +5,8 @@
 package fakestorage
 
 import (
+	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -143,8 +145,8 @@ func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
 		Updated:         formatTime(obj.Updated),
 		CustomTime:      formatTime(obj.CustomTime),
 		Generation:      obj.Generation,
-		SelfLink:        externalURL + "/storage/v1/b/" + obj.BucketName + "/o/" + obj.Name,
-		MediaLink:       externalURL + "/download/storage/v1/b/" + obj.BucketName + "/o/" + obj.Name + "?alt=media",
+		SelfLink:        fmt.Sprintf("%s/storage/v1/b/%s/o/%s", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
+		MediaLink:       fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
 		Metageneration:  "1",
 	}
 }

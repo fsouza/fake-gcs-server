@@ -15,6 +15,7 @@ import (
 	"hash/crc32"
 	"io"
 	"net/http"
+	"net/url"
 	"reflect"
 	"testing"
 	"time"
@@ -187,7 +188,7 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 		}
 	}
 	externalURL := "" // We don't set any `externalURL` value during tests.
-	expectedMediaLink := fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, testObj.BucketName, testObj.Name)
+	expectedMediaLink := fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, url.PathEscape(testObj.BucketName), url.PathEscape(testObj.Name))
 	if attrs.MediaLink != expectedMediaLink {
 		t.Errorf("wrong MediaLink returned\nwant %s\ngot  %s", expectedMediaLink, attrs.MediaLink)
 	}
