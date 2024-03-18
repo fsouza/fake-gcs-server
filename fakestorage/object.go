@@ -622,6 +622,21 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	handler := jsonToHTTPHandler(func(r *http.Request) jsonResponse {
 		vars := unescapeMuxVars(mux.Vars(r))
 
+		projection := storage.ProjectionNoACL
+		if r.URL.Query().Has("projection") {
+			switch value := strings.ToLower(r.URL.Query().Get("projection")); value {
+			case "full":
+				projection = storage.ProjectionFull
+			case "noacl":
+				projection = storage.ProjectionNoACL
+			default:
+				return jsonResponse{
+					status:       http.StatusBadRequest,
+					errorMessage: fmt.Sprintf("invalid projection: %q", value),
+				}
+			}
+		}
+
 		obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
 		// Calling Close before checking err is okay on objects, and the object
 		// may need to be closed whether or not there's an error.
@@ -642,7 +657,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		header.Set("Accept-Ranges", "bytes")
 		return jsonResponse{
 			header: header,
-			data:   newObjectResponse(obj.ObjectAttrs, s.externalURL),
+			data:   newProjectedObjectResponse(obj.ObjectAttrs, s.externalURL, projection),
 		}
 	})
 
