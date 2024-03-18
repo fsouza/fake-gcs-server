@@ -5,6 +5,8 @@
 package fakestorage
 
 import (
+	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -66,14 +68,14 @@ func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 	}
 }
 
-func newListObjectsResponse(objs []ObjectAttrs, prefixes []string) listResponse {
+func newListObjectsResponse(objs []ObjectAttrs, prefixes []string, externalURL string) listResponse {
 	resp := listResponse{
 		Kind:     "storage#objects",
 		Items:    make([]any, len(objs)),
 		Prefixes: prefixes,
 	}
 	for i, obj := range objs {
-		resp.Items[i] = newObjectResponse(obj)
+		resp.Items[i] = newObjectResponse(obj, externalURL)
 	}
 	return resp
 }
@@ -117,9 +119,12 @@ type objectResponse struct {
 	Generation      int64                  `json:"generation,string"`
 	CustomTime      string                 `json:"customTime,omitempty"`
 	Metadata        map[string]string      `json:"metadata,omitempty"`
+	SelfLink        string                 `json:"selfLink,omitempty"`
+	MediaLink       string                 `json:"mediaLink,omitempty"`
+	Metageneration  string                 `json:"metageneration,omitempty"`
 }
 
-func newObjectResponse(obj ObjectAttrs) objectResponse {
+func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
 	acl := getAccessControlsListFromObject(obj)
 
 	return objectResponse{
@@ -140,6 +145,9 @@ func newObjectResponse(obj ObjectAttrs) objectResponse {
 		Updated:         formatTime(obj.Updated),
 		CustomTime:      formatTime(obj.CustomTime),
 		Generation:      obj.Generation,
+		SelfLink:        fmt.Sprintf("%s/storage/v1/b/%s/o/%s", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
+		MediaLink:       fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
+		Metageneration:  "1",
 	}
 }
 
@@ -176,14 +184,14 @@ type rewriteResponse struct {
 	Resource            objectResponse `json:"resource"`
 }
 
-func newObjectRewriteResponse(obj ObjectAttrs) rewriteResponse {
+func newObjectRewriteResponse(obj ObjectAttrs, externalURL string) rewriteResponse {
 	return rewriteResponse{
 		Kind:                "storage#rewriteResponse",
 		TotalBytesRewritten: obj.Size,
 		ObjectSize:          obj.Size,
 		Done:                true,
 		RewriteToken:        "",
-		Resource:            newObjectResponse(obj),
+		Resource:            newObjectResponse(obj, externalURL),
 	}
 }
 

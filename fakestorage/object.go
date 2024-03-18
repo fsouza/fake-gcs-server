@@ -556,7 +556,7 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	return jsonResponse{data: newListObjectsResponse(objs, prefixes)}
+	return jsonResponse{data: newListObjectsResponse(objs, prefixes, s.externalURL)}
 }
 
 func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
@@ -642,7 +642,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		header.Set("Accept-Ranges", "bytes")
 		return jsonResponse{
 			header: header,
-			data:   newObjectResponse(obj.ObjectAttrs),
+			data:   newObjectResponse(obj.ObjectAttrs, s.externalURL),
 		}
 	})
 
@@ -774,9 +774,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	defer created.Close()
 
 	if vars["copyType"] == "copyTo" {
-		return jsonResponse{data: newObjectResponse(created.ObjectAttrs)}
+		return jsonResponse{data: newObjectResponse(created.ObjectAttrs, s.externalURL)}
 	}
-	return jsonResponse{data: newObjectRewriteResponse(created.ObjectAttrs)}
+	return jsonResponse{data: newObjectRewriteResponse(created.ObjectAttrs, s.externalURL)}
 }
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
@@ -1139,5 +1139,5 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 
 	s.eventManager.Trigger(&backendObj, notification.EventFinalize, nil)
 
-	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs)}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, s.externalURL)}
 }

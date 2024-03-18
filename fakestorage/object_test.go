@@ -15,6 +15,7 @@ import (
 	"hash/crc32"
 	"io"
 	"net/http"
+	"net/url"
 	"reflect"
 	"testing"
 	"time"
@@ -185,6 +186,14 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 		if val, err := getMetadataHeaderFromAttrs(attrs, "MetaHeader"); err != nil || val != testObj.Metadata["MetaHeader"] {
 			t.Errorf("wrong MetaHeader returned\nwant %s\ngot %v", testObj.Metadata["MetaHeader"], val)
 		}
+	}
+	externalURL := "" // We don't set any `externalURL` value during tests.
+	expectedMediaLink := fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, url.PathEscape(testObj.BucketName), url.PathEscape(testObj.Name))
+	if attrs.MediaLink != expectedMediaLink {
+		t.Errorf("wrong MediaLink returned\nwant %s\ngot  %s", expectedMediaLink, attrs.MediaLink)
+	}
+	if attrs.Metageneration != 1 {
+		t.Errorf("wrong metageneration\nwant 1\ngot  %d", attrs.Metageneration)
 	}
 }
 
