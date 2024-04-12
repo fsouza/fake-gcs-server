@@ -31,7 +31,7 @@ google-resumable-media==2.6.0
     # via google-cloud-storage
 googleapis-common-protos==1.62.0
     # via google-api-core
-idna==3.2
+idna==3.7
     # via requests
 protobuf==4.25.3
     # via
