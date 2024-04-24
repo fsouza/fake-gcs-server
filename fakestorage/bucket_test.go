@@ -130,6 +130,18 @@ func TestServerClientBucketAttrs(t *testing.T) {
 		if attrs.StorageClass != "STANDARD" {
 			t.Errorf("wrong bucket storage class returned\nwant %q\ngot  %q", "STANDARD", attrs.StorageClass)
 		}
+		if attrs.ProjectNumber != 0 {
+			t.Errorf("wrong bucket project number returned\nwant %q\ngot  %q", "0", attrs.ProjectNumber)
+		}
+		if attrs.MetaGeneration != 1 {
+			t.Errorf("wrong bucket metageneration returned\nwant %q\ngot  %q", "1", attrs.MetaGeneration)
+		}
+		if attrs.Etag != "RVRhZw==" {
+			t.Errorf("wrong bucket etag returned\nwant %q\ngot  %q", "RVRhZw==", attrs.Etag)
+		}
+		if attrs.LocationType != "region" {
+			t.Errorf("wrong bucket location type returned\nwant %q\ngot  %q", "region", attrs.LocationType)
+		}
 	})
 }
 
