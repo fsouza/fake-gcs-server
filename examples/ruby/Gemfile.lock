@@ -29,7 +29,7 @@ GEM
     google-cloud-env (2.1.1)
       faraday (>= 1.0, < 3.a)
     google-cloud-errors (1.4.0)
-    google-cloud-storage (1.50.0)
+    google-cloud-storage (1.51.0)
       addressable (~> 2.8)
       digest-crc (~> 0.4)
       google-apis-core (~> 0.13)
