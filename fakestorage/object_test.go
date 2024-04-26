@@ -1919,8 +1919,8 @@ func TestServerClientObjectProjection(t *testing.T) {
 
 		url := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o/%s", bucketName, objectName)
 		fullACL := []objectAccessControl{
-			{Bucket: bucketName, Object: objectName, Entity: "user-1", Role: "OWNER"},
-			{Bucket: bucketName, Object: objectName, Entity: "user-2", Role: "READER"},
+			{Bucket: bucketName, Object: objectName, Entity: "user-1", Role: "OWNER", Etag: "RVRhZw==", Kind: "storage#objectAccessControl"},
+			{Bucket: bucketName, Object: objectName, Entity: "user-2", Role: "READER", Etag: "RVRhZw==", Kind: "storage#objectAccessControl"},
 		}
 
 		t.Run("full projection", func(t *testing.T) {
