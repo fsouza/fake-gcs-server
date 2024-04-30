@@ -17,13 +17,18 @@ async function run() {
   });
   // [END storage_list_buckets]
 
-  const [content] = await storage.bucket('sample-bucket')
-    .file('some_file.txt')
+  const [content] = await storage
+    .bucket("sample-bucket")
+    .file("some_file.txt")
     .download();
-  console.log("Contents:")
-  console.log(content.toString())
-}
+  console.log("Contents:");
+  console.log(content.toString());
 
+  console.log("Exists:");
+  console.log(
+    await storage.bucket("sample-bucket").file("some_file.txt").exists(),
+  );
+}
 
 run().catch((err) => {
   console.error(err);
