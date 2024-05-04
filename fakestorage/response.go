@@ -52,7 +52,7 @@ type bucketResponse struct {
 }
 
 type bucketVersioning struct {
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 }
 
 func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
