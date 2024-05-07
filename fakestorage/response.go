@@ -179,6 +179,8 @@ func getAccessControlsListFromObject(obj ObjectAttrs) []*objectAccessControl {
 			Entity: string(aclRule.Entity),
 			Object: obj.Name,
 			Role:   string(aclRule.Role),
+			Etag:   "RVRhZw==",
+			Kind:   "storage#objectAccessControl",
 		}
 	}
 	return aclItems
