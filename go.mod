@@ -2,7 +2,7 @@ module github.com/fsouza/fake-gcs-server
 
 require (
 	cloud.google.com/go/pubsub v1.38.0
-	cloud.google.com/go/storage v1.40.0
+	cloud.google.com/go/storage v1.41.0
 	github.com/fsouza/slognil v0.4.0
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/handlers v1.5.2
@@ -12,7 +12,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/oauth2 v0.20.0
 	google.golang.org/api v0.180.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20240429193739-8cf5692501f6
+	google.golang.org/genproto/googleapis/api v0.0.0-20240506185236-b8a5c65736ae
 )
 
 require (
