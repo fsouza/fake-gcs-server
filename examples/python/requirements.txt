@@ -43,7 +43,7 @@ pyasn1==0.4.8
     #   rsa
 pyasn1-modules==0.2.8
     # via google-auth
-requests==2.31.0
+requests==2.32.0
     # via
     #   google-api-core
     #   google-cloud-storage
