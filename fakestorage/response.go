@@ -111,26 +111,28 @@ type objectAccessControl struct {
 }
 
 type objectResponse struct {
-	Kind            string                 `json:"kind"`
-	Name            string                 `json:"name"`
-	ID              string                 `json:"id"`
-	Bucket          string                 `json:"bucket"`
-	Size            int64                  `json:"size,string"`
-	ContentType     string                 `json:"contentType,omitempty"`
-	ContentEncoding string                 `json:"contentEncoding,omitempty"`
-	Crc32c          string                 `json:"crc32c,omitempty"`
-	ACL             []*objectAccessControl `json:"acl,omitempty"`
-	Md5Hash         string                 `json:"md5Hash,omitempty"`
-	Etag            string                 `json:"etag,omitempty"`
-	TimeCreated     string                 `json:"timeCreated,omitempty"`
-	TimeDeleted     string                 `json:"timeDeleted,omitempty"`
-	Updated         string                 `json:"updated,omitempty"`
-	Generation      int64                  `json:"generation,string"`
-	CustomTime      string                 `json:"customTime,omitempty"`
-	Metadata        map[string]string      `json:"metadata,omitempty"`
-	SelfLink        string                 `json:"selfLink,omitempty"`
-	MediaLink       string                 `json:"mediaLink,omitempty"`
-	Metageneration  string                 `json:"metageneration,omitempty"`
+	Kind                    string                 `json:"kind"`
+	Name                    string                 `json:"name"`
+	ID                      string                 `json:"id"`
+	Bucket                  string                 `json:"bucket"`
+	Size                    int64                  `json:"size,string"`
+	ContentType             string                 `json:"contentType,omitempty"`
+	ContentEncoding         string                 `json:"contentEncoding,omitempty"`
+	Crc32c                  string                 `json:"crc32c,omitempty"`
+	ACL                     []*objectAccessControl `json:"acl,omitempty"`
+	Md5Hash                 string                 `json:"md5Hash,omitempty"`
+	Etag                    string                 `json:"etag,omitempty"`
+	StorageClass            string                 `json:"storageClass"`
+	TimeCreated             string                 `json:"timeCreated,omitempty"`
+	TimeDeleted             string                 `json:"timeDeleted,omitempty"`
+	TimeStorageClassUpdated string                 `json:"timeStorageClassUpdated"`
+	Updated                 string                 `json:"updated,omitempty"`
+	Generation              int64                  `json:"generation,string"`
+	CustomTime              string                 `json:"customTime,omitempty"`
+	Metadata                map[string]string      `json:"metadata,omitempty"`
+	SelfLink                string                 `json:"selfLink,omitempty"`
+	MediaLink               string                 `json:"mediaLink,omitempty"`
+	Metageneration          string                 `json:"metageneration,omitempty"`
 }
 
 func newProjectedObjectResponse(obj ObjectAttrs, externalURL string, projection storage.Projection) objectResponse {
@@ -145,26 +147,28 @@ func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
 	acl := getAccessControlsListFromObject(obj)
 
 	return objectResponse{
-		Kind:            "storage#object",
-		ID:              obj.id(),
-		Bucket:          obj.BucketName,
-		Name:            obj.Name,
-		Size:            obj.Size,
-		ContentType:     obj.ContentType,
-		ContentEncoding: obj.ContentEncoding,
-		Crc32c:          obj.Crc32c,
-		Md5Hash:         obj.Md5Hash,
-		Etag:            obj.Etag,
-		ACL:             acl,
-		Metadata:        obj.Metadata,
-		TimeCreated:     formatTime(obj.Created),
-		TimeDeleted:     formatTime(obj.Deleted),
-		Updated:         formatTime(obj.Updated),
-		CustomTime:      formatTime(obj.CustomTime),
-		Generation:      obj.Generation,
-		SelfLink:        fmt.Sprintf("%s/storage/v1/b/%s/o/%s", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
-		MediaLink:       fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
-		Metageneration:  "1",
+		Kind:                    "storage#object",
+		ID:                      obj.id(),
+		Bucket:                  obj.BucketName,
+		Name:                    obj.Name,
+		Size:                    obj.Size,
+		ContentType:             obj.ContentType,
+		ContentEncoding:         obj.ContentEncoding,
+		Crc32c:                  obj.Crc32c,
+		Md5Hash:                 obj.Md5Hash,
+		Etag:                    obj.Etag,
+		ACL:                     acl,
+		StorageClass:            "STANDARD",
+		Metadata:                obj.Metadata,
+		TimeCreated:             formatTime(obj.Created),
+		TimeDeleted:             formatTime(obj.Deleted),
+		TimeStorageClassUpdated: formatTime(obj.Updated),
+		Updated:                 formatTime(obj.Updated),
+		CustomTime:              formatTime(obj.CustomTime),
+		Generation:              obj.Generation,
+		SelfLink:                fmt.Sprintf("%s/storage/v1/b/%s/o/%s", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
+		MediaLink:               fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
+		Metageneration:          "1",
 	}
 }
 
