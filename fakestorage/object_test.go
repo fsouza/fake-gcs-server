@@ -46,11 +46,12 @@ type objectTestCases []struct {
 
 func getObjectTestCases() objectTestCases {
 	const (
-		bucketName      = "some-bucket"
-		content         = "some nice content"
-		contentType     = "text/plain; charset=utf-8"
-		contentEncoding = "gzip"
-		metaValue       = "MetaValue"
+		bucketName         = "some-bucket"
+		content            = "some nice content"
+		contentType        = "text/plain; charset=utf-8"
+		contentEncoding    = "gzip"
+		contentDisposition = "attachment; filename=\"replaced.txt\""
+		metaValue          = "MetaValue"
 	)
 	testInitExecTime := time.Now().Truncate(time.Microsecond)
 	u32Checksum := uint32Checksum([]byte(content))
@@ -107,13 +108,14 @@ func getObjectTestCases() objectTestCases {
 			Object{
 				Content: []byte(content),
 				ObjectAttrs: ObjectAttrs{
-					BucketName:      bucketName,
-					Name:            "img/location/meta.jpg",
-					ContentType:     contentType,
-					ContentEncoding: contentEncoding,
-					Crc32c:          checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-					Md5Hash:         checksum.EncodedHash(hash),
-					Metadata:        map[string]string{"MetaHeader": metaValue},
+					BucketName:         bucketName,
+					Name:               "img/location/meta.jpg",
+					ContentType:        contentType,
+					ContentEncoding:    contentEncoding,
+					ContentDisposition: contentDisposition,
+					Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+					Md5Hash:            checksum.EncodedHash(hash),
+					Metadata:           map[string]string{"MetaHeader": metaValue},
 				},
 			},
 		},
@@ -169,6 +171,9 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	}
 	if attrs.ContentEncoding != testObj.ContentEncoding {
 		t.Errorf("wrong content encoding\nwant %q\ngot  %q", testObj.ContentEncoding, attrs.ContentEncoding)
+	}
+	if attrs.ContentDisposition != testObj.ContentDisposition {
+		t.Errorf("wrong content disposition\nwant %q\ngot  %q", testObj.ContentDisposition, attrs.ContentDisposition)
 	}
 	if testObj.Content != nil && attrs.Size != int64(len(testObj.Content)) {
 		t.Errorf("wrong size returned\nwant %d\ngot  %d", len(testObj.Content), attrs.Size)
