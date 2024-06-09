@@ -125,7 +125,7 @@ type objectResponse struct {
 	StorageClass            string                 `json:"storageClass"`
 	TimeCreated             string                 `json:"timeCreated,omitempty"`
 	TimeDeleted             string                 `json:"timeDeleted,omitempty"`
-	TimeStorageClassUpdated string                 `json:"timeStorageClassUpdated"`
+	TimeStorageClassUpdated string                 `json:"timeStorageClassUpdated,omitempty"`
 	Updated                 string                 `json:"updated,omitempty"`
 	Generation              int64                  `json:"generation,string"`
 	CustomTime              string                 `json:"customTime,omitempty"`
