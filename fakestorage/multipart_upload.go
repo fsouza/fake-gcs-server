@@ -2,10 +2,22 @@ package fakestorage
 
 import (
 	"encoding/xml"
+	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
+
+type objectPart struct {
+	Content []byte
+}
+
+type multipartUpload struct {
+	ObjectAttrs
+	parts map[int]objectPart
+}
 
 type initiateMultipartUploadResult struct {
 	XMLName  xml.Name `xml:"InitiateMultipartUploadResult"`
@@ -23,7 +35,13 @@ func (s *Server) initiateMultipartUpload(r *http.Request) xmlResponse {
 		return xmlResponse{errorMessage: err.Error()}
 	}
 
-	s.mpus.Store(uploadID, nil)
+	s.mpus.Store(uploadID, &multipartUpload{
+		ObjectAttrs: ObjectAttrs{
+			BucketName: bucketName,
+			Name:       objectName,
+		},
+		parts: make(map[int]objectPart),
+	})
 	respBody := initiateMultipartUploadResult{
 		Bucket:   bucketName,
 		Key:      objectName,
@@ -36,8 +54,39 @@ func (s *Server) initiateMultipartUpload(r *http.Request) xmlResponse {
 }
 
 func (s *Server) uploadObjectPart(r *http.Request) xmlResponse {
+	vars := unescapeMuxVars(mux.Vars(r))
+	uploadID := vars["uploadId"]
+	partNumber, err := strconv.Atoi(vars["partNumber"])
+	if err != nil {
+		return xmlResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: fmt.Sprintf("bad partNumber: %v", partNumber),
+		}
+	}
+
+	// Save the part upload to the server.
+	val, ok := s.mpus.Load(uploadID)
+	if !ok {
+		return xmlResponse{
+			status:       http.StatusNotFound,
+			errorMessage: "upload id not found",
+		}
+	}
+	mpu := val.(*multipartUpload)
+	partBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		return xmlResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: fmt.Sprintf("failed to read request body: %s", err),
+		}
+	}
+	part := objectPart{
+		Content: partBody,
+	}
+	mpu.parts[partNumber] = part
+
 	return xmlResponse{
-		status: 501,
+		status: http.StatusOK,
 	}
 }
 

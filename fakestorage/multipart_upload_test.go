@@ -2,6 +2,7 @@ package fakestorage
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -19,11 +20,6 @@ func TestUnimplementedHandlers(t *testing.T) {
 		method string
 		url    string
 	}{
-		{
-			name:   "Upload object parts",
-			method: "PUT",
-			url:    "/obj.txt?partNumber=1&uploadId=my-upload-id",
-		},
 		{
 			name:   "Complete Multipart Upload",
 			method: "POST",
@@ -136,6 +132,52 @@ func TestInitiateMultipartUpload(t *testing.T) {
 	})
 	if uploadCount != len(tests) {
 		t.Errorf("unexpected upload count, got %v, want %v", uploadCount, len(tests))
+	}
+}
+
+func strToReadCloser(str string) io.ReadCloser {
+	return io.NopCloser(strings.NewReader(str))
+}
+
+func TestUploadObjectPart(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	// Create an upload to use.
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "object.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadId := resp.UploadID
+
+	// Upload a part.
+	err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "object.txt",
+		UploadID:   uploadId,
+		PartNumber: 1,
+		Body:       strToReadCloser("my content"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify the part is in the server.
+	val, ok := server.mpus.Load(uploadId)
+	if !ok {
+		t.Fatalf("upload id not found in server")
+	}
+
+	mpu := val.(*multipartUpload)
+	_, ok = mpu.parts[1]
+	if !ok {
+		t.Fatalf("part not found in upload")
 	}
 }
 
