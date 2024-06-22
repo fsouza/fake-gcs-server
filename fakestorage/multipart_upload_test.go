@@ -30,11 +30,6 @@ func TestUnimplementedHandlers(t *testing.T) {
 			url:    "/obj.txt?uploadId=my-upload-id",
 		},
 		{
-			name:   "List Multipart Uploads",
-			method: "GET",
-			url:    "/?uploads",
-		},
-		{
 			name:   "List Object Parts",
 			method: "GET",
 			url:    "/obj.txt?uploadId=my-upload-id",
@@ -174,5 +169,38 @@ func TestAbortMultipartUpload(t *testing.T) {
 	err = mpuc.AbortMultipartUpload(ctx, abortReq)
 	if err == nil || !strings.Contains(err.Error(), "Not Found") {
 		t.Fatalf("Abort should fail if the upload id does not exist")
+	}
+}
+
+func TestListMultipartUploads(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	// Create uploads to use.
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	initCount := 3
+	for i := 0; i < initCount; i++ {
+		_, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+			Bucket: "test-bucket",
+			Key:    "object.txt",
+		})
+		if err != nil {
+			t.Fatal(err)
+
+		}
+	}
+
+	// List uploads
+	resp, err := mpuc.ListMultipartUploads(ctx, &multipartclient.ListMultipartUploadsRequest{
+		Bucket: "test-bucket",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Uploads) != initCount {
+		t.Errorf("unexpected number of uploads: got %v, want %v", len(resp.Uploads), initCount)
+
 	}
 }

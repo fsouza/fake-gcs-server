@@ -62,9 +62,36 @@ func (s *Server) abortMultipartUpload(r *http.Request) xmlResponse {
 	}
 }
 
+type listUpload struct {
+	XMLName  xml.Name `xml:"Upload"`
+	UploadID string   `xml:"UploadId"`
+}
+
+type listMultipartUploadsResult struct {
+	XMLName xml.Name     `xml:"ListMultipartUploadsResult"`
+	Bucket  string       `xml:"Bucket"`
+	Uploads []listUpload `xml:"Upload"`
+}
+
 func (s *Server) listMultipartUploads(r *http.Request) xmlResponse {
+	vars := unescapeMuxVars(mux.Vars(r))
+	bucketName := vars["bucketName"]
+
+	uploads := []listUpload{}
+	s.mpus.Range(func(key, _ any) bool {
+		uploads = append(uploads, listUpload{
+			UploadID: key.(string),
+		})
+		return true
+	})
+
+	result := listMultipartUploadsResult{
+		Bucket:  bucketName,
+		Uploads: uploads,
+	}
 	return xmlResponse{
-		status: 501,
+		status: 200,
+		data:   result,
 	}
 }
 
