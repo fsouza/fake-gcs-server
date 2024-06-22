@@ -120,11 +120,12 @@ func (g *Server) GetObject(ctx context.Context, req *pb.GetObjectRequest) (*pb.G
 		Content: content,
 	}
 	metadata := &pb.Object{
-		Name:        obj.ObjectAttrs.Name,
-		Bucket:      obj.ObjectAttrs.BucketName,
-		Md5Hash:     obj.ObjectAttrs.Md5Hash,
-		Generation:  obj.ObjectAttrs.Generation,
-		ContentType: obj.ObjectAttrs.ContentType,
+		Name:               obj.ObjectAttrs.Name,
+		Bucket:             obj.ObjectAttrs.BucketName,
+		Md5Hash:            obj.ObjectAttrs.Md5Hash,
+		Generation:         obj.ObjectAttrs.Generation,
+		ContentType:        obj.ObjectAttrs.ContentType,
+		ContentDisposition: obj.ObjectAttrs.ContentDisposition,
 	}
 	return &pb.GetObjectMediaResponse{
 		ChecksummedData: checksummed_data,
@@ -147,9 +148,10 @@ func (g *Server) UpdateObject(ctx context.Context, req *pb.UpdateObjectRequest) 
 
 func (g *Server) PatchObject(ctx context.Context, req *pb.PatchObjectRequest) (*pb.Empty, error) {
 	attrs := backend.ObjectAttrs{
-		Metadata:        req.Metadata.Metadata,
-		ContentType:     req.Metadata.ContentType,
-		ContentEncoding: req.Metadata.ContentEncoding,
+		Metadata:           req.Metadata.Metadata,
+		ContentType:        req.Metadata.ContentType,
+		ContentEncoding:    req.Metadata.ContentEncoding,
+		ContentDisposition: req.Metadata.ContentDisposition,
 	}
 	_, err := g.backend.PatchObject(req.Bucket, req.Object, attrs)
 	return &pb.Empty{}, err
