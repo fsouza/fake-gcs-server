@@ -1,11 +1,18 @@
 package fakestorage
 
 import (
+	"encoding/xml"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/jonmseaman/gcs-xml-multipart-client/multipartclient"
 )
+
+type initiateMultipartUploadResult struct {
+	XMLName  xml.Name `xml:"InitiateMultipartUploadResult"`
+	Bucket   string   `xml:"Bucket"`
+	Key      string   `xml:"Key"`
+	UploadID string   `xml:"UploadId"`
+}
 
 func (s *Server) initiateMultipartUpload(r *http.Request) xmlResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
@@ -17,13 +24,14 @@ func (s *Server) initiateMultipartUpload(r *http.Request) xmlResponse {
 	}
 
 	s.mpus.Store(uploadID, nil)
+	respBody := initiateMultipartUploadResult{
+		Bucket:   bucketName,
+		Key:      objectName,
+		UploadID: uploadID,
+	}
 	return xmlResponse{
 		status: http.StatusOK,
-		data: multipartclient.InitiateMultipartUploadResult{
-			Bucket:   bucketName,
-			Key:      objectName,
-			UploadID: uploadID,
-		},
+		data:   respBody,
 	}
 }
 
@@ -40,8 +48,17 @@ func (s *Server) completeMultipartUpload(r *http.Request) xmlResponse {
 }
 
 func (s *Server) abortMultipartUpload(r *http.Request) xmlResponse {
+	vars := unescapeMuxVars(mux.Vars(r))
+	uploadID := vars["uploadId"]
+
+	_, ok := s.mpus.LoadAndDelete(uploadID)
+	if !ok {
+		return xmlResponse{
+			status: http.StatusNotFound,
+		}
+	}
 	return xmlResponse{
-		status: 501,
+		status: http.StatusNoContent,
 	}
 }
 

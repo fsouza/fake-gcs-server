@@ -3,9 +3,10 @@ package fakestorage
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
-	"github.com/jonmseaman/gcs-xml-multipart-client/multipartclient"
+	"jonmseaman/gcs-xml-multipart-client/multipartclient"
 )
 
 func TestUnimplementedHandlers(t *testing.T) {
@@ -36,11 +37,6 @@ func TestUnimplementedHandlers(t *testing.T) {
 		{
 			name:   "List Object Parts",
 			method: "GET",
-			url:    "/obj.txt?uploadId=my-upload-id",
-		},
-		{
-			name:   "Abort Multipart Uploads",
-			method: "DELETE",
 			url:    "/obj.txt?uploadId=my-upload-id",
 		},
 	}
@@ -145,5 +141,38 @@ func TestInitiateMultipartUpload(t *testing.T) {
 	})
 	if uploadCount != len(tests) {
 		t.Errorf("unexpected upload count, got %v, want %v", uploadCount, len(tests))
+	}
+}
+
+func TestAbortMultipartUpload(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	// Create an upload to use.
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "object.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	uploadId := resp.UploadID
+	abortReq := &multipartclient.AbortMultipartUploadRequest{
+		Bucket:   "test-bucket",
+		Key:      "object.txt",
+		UploadID: uploadId,
+	}
+	err = mpuc.AbortMultipartUpload(ctx, abortReq)
+	if err != nil {
+		t.Fatalf("Failed to abort the upload: %v", err)
+	}
+
+	err = mpuc.AbortMultipartUpload(ctx, abortReq)
+	if err == nil || !strings.Contains(err.Error(), "Not Found") {
+		t.Fatalf("Abort should fail if the upload id does not exist")
 	}
 }
