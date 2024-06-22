@@ -1,8 +1,11 @@
 package fakestorage
 
 import (
+	"context"
 	"net/http"
 	"testing"
+
+	"github.com/jonmseaman/gcs-xml-multipart-client/multipartclient"
 )
 
 func TestUnimplementedHandlers(t *testing.T) {
@@ -15,11 +18,6 @@ func TestUnimplementedHandlers(t *testing.T) {
 		method string
 		url    string
 	}{
-		{
-			name:   "Inititiate Multipart Upload",
-			method: "POST",
-			url:    "/obj.txt?uploads",
-		},
 		{
 			name:   "Upload object parts",
 			method: "PUT",
@@ -78,5 +76,74 @@ func TestUnimplementedHandlers(t *testing.T) {
 				t.Errorf("Unexpected status with storage.googleapis.com: got %v, want %v", resp.StatusCode, http.StatusNotImplemented)
 			}
 		})
+	}
+}
+
+func TestInitiateMultipartUpload(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	tests := []struct {
+		req      *multipartclient.InitiateMultipartUploadRequest
+		wantResp *multipartclient.InitiateMultipartUploadResult
+	}{
+		{
+			req: &multipartclient.InitiateMultipartUploadRequest{
+				Bucket: "test-bucket",
+				Key:    "file1.txt",
+			},
+			wantResp: &multipartclient.InitiateMultipartUploadResult{
+				Bucket:   "test-bucket",
+				Key:      "file1.txt",
+				UploadID: "*",
+			},
+		},
+		{
+			req: &multipartclient.InitiateMultipartUploadRequest{
+				Bucket: "test-bucket",
+				Key:    "file2.txt",
+			},
+		},
+		{
+			req: &multipartclient.InitiateMultipartUploadRequest{
+				Bucket: "test-bucket",
+				Key:    "filee.txt",
+			},
+		},
+		{
+			// Repeating an object should still work.
+			req: &multipartclient.InitiateMultipartUploadRequest{
+				Bucket: "test-bucket",
+				Key:    "filee.txt",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		mpuc := multipartclient.New(client)
+		ctx := context.Background()
+		resp, err := mpuc.InitiateMultipartUpload(ctx, tc.req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("Response: %+v", resp)
+		if resp.Bucket != tc.req.Bucket {
+			t.Errorf("unexpected bucket: got %v, want %v", resp.Bucket, tc.req.Bucket)
+		}
+		if resp.Key != tc.req.Key {
+			t.Errorf("unexpected object key: got %v, want %v", resp.Key, tc.req.Key)
+		}
+	}
+
+	// Verify uploads stored in server:
+	uploadCount := 0
+	server.mpus.Range(func(key, value any) bool {
+		uploadCount++
+		return true
+	})
+	if uploadCount != len(tests) {
+		t.Errorf("unexpected upload count, got %v, want %v", uploadCount, len(tests))
 	}
 }
