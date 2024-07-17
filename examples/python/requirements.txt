@@ -6,7 +6,7 @@
 #
 cachetools==4.2.4
     # via google-auth
-certifi==2023.7.22
+certifi==2024.7.4
     # via requests
 charset-normalizer==2.0.6
     # via requests
