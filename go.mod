@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/minio/minio-go/v7 v7.0.74
-	github.com/pkg/xattr v0.4.9
+	github.com/pkg/xattr v0.4.10
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/oauth2 v0.21.0
 	google.golang.org/api v0.189.0
