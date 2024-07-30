@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.7
 
-      - uses: golangci/golangci-lint-action@v6.0.1
+      - uses: golangci/golangci-lint-action@v6.1.0
 
   staticcheck:
     name: staticcheck
