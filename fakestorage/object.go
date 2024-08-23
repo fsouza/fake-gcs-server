@@ -34,6 +34,7 @@ type ObjectAttrs struct {
 	Size            int64
 	ContentType     string
 	ContentEncoding string
+	CacheControl    string
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string
 	Md5Hash string
@@ -391,6 +392,7 @@ func toBackendObjects(objects []StreamingObject) []backend.StreamingObject {
 				Name:            o.Name,
 				ContentType:     o.ContentType,
 				ContentEncoding: o.ContentEncoding,
+				CacheControl:    o.CacheControl,
 				ACL:             o.ACL,
 				Created:         getCurrentIfZero(o.Created).Format(timestampFormat),
 				Deleted:         o.Deleted.Format(timestampFormat),
@@ -443,6 +445,7 @@ func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 				Size:            o.Size,
 				ContentType:     o.ContentType,
 				ContentEncoding: o.ContentEncoding,
+				CacheControl:    o.CacheControl,
 				Crc32c:          o.Crc32c,
 				Md5Hash:         o.Md5Hash,
 				Etag:            o.Etag,
@@ -469,6 +472,7 @@ func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 			Size:            o.Size,
 			ContentType:     o.ContentType,
 			ContentEncoding: o.ContentEncoding,
+			CacheControl:    o.CacheControl,
 			Crc32c:          o.Crc32c,
 			Md5Hash:         o.Md5Hash,
 			Etag:            o.Etag,

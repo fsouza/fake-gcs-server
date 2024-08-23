@@ -70,6 +70,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				const contentType = "text/plain; charset=utf-8"
+				cacheControl := "public, max-age=3600"
 				server.CreateBucketWithOpts(CreateBucketOpts{Name: test.bucketName})
 				client := server.Client()
 
@@ -82,6 +83,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 				w.Metadata = map[string]string{
 					"foo": "bar",
 				}
+				w.CacheControl = cacheControl
 				w.Write([]byte(content))
 				err := w.Close()
 				if err != nil {
@@ -123,6 +125,9 @@ func TestServerClientObjectWriter(t *testing.T) {
 				if !customTime.Equal(obj.CustomTime) {
 					t.Errorf("wrong custom time\nwant %q\ngot  %q", customTime.String(), obj.CustomTime.String())
 				}
+				if obj.CacheControl != cacheControl {
+					t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
+				}
 
 				reader, err := client.Bucket(test.bucketName).Object(test.objectName).NewReader(context.Background())
 				if err != nil {
@@ -154,6 +159,7 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const content = "other content"
 		const contentType = "text/plain"
+		const cacheControl = "no-cache"
 		server.CreateObject(Object{
 			ObjectAttrs: ObjectAttrs{
 				BucketName:  "some-bucket",
@@ -165,6 +171,7 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 		objHandle := server.Client().Bucket("some-bucket").Object("some-object.txt")
 		w := objHandle.NewWriter(context.Background())
 		w.ContentType = contentType
+		w.CacheControl = cacheControl
 		w.Write([]byte(content))
 		err := w.Close()
 		if err != nil {
@@ -180,6 +187,9 @@ func TestServerClientObjectWriterOverwrite(t *testing.T) {
 		checkChecksum(t, []byte(content), obj)
 		if obj.ContentType != contentType {
 			t.Errorf("wrong content-type\nwsant %q\ngot  %q", contentType, obj.ContentType)
+		}
+		if obj.CacheControl != cacheControl {
+			t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
 		}
 	})
 }

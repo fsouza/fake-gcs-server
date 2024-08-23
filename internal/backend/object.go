@@ -20,6 +20,7 @@ type ObjectAttrs struct {
 	Size            int64  `json:"-"`
 	ContentType     string
 	ContentEncoding string
+	CacheControl    string
 	Crc32c          string
 	Md5Hash         string
 	Etag            string
