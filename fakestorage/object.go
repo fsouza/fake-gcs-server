@@ -35,6 +35,7 @@ type ObjectAttrs struct {
 	ContentType        string
 	ContentEncoding    string
 	ContentDisposition string
+	CacheControl       string
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string
 	Md5Hash string
@@ -396,6 +397,7 @@ func toBackendObjects(objects []StreamingObject) []backend.StreamingObject {
 				ContentType:        o.ContentType,
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
+				CacheControl:       o.CacheControl,
 				ACL:                o.ACL,
 				Created:            getCurrentIfZero(o.Created).Format(timestampFormat),
 				Deleted:            o.Deleted.Format(timestampFormat),
@@ -450,6 +452,7 @@ func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 				ContentType:        o.ContentType,
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
+				CacheControl:       o.CacheControl,
 				Crc32c:             o.Crc32c,
 				Md5Hash:            o.Md5Hash,
 				Etag:               o.Etag,
@@ -477,6 +480,7 @@ func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 			ContentType:        o.ContentType,
 			ContentEncoding:    o.ContentEncoding,
 			ContentDisposition: o.ContentDisposition,
+			CacheControl:       o.CacheControl,
 			Crc32c:             o.Crc32c,
 			Md5Hash:            o.Md5Hash,
 			Etag:               o.Etag,
@@ -897,6 +901,9 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	} else {
 		if obj.ContentType != "" {
 			w.Header().Set(contentTypeHeader, obj.ContentType)
+		}
+		if obj.CacheControl != "" {
+			w.Header().Set(cacheControlHeader, obj.CacheControl)
 		}
 		// If content was transcoded, the underlying encoding was removed so we shouldn't report it.
 		if obj.ContentEncoding != "" && !transcoded {

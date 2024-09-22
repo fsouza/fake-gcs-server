@@ -21,6 +21,7 @@ type ObjectAttrs struct {
 	ContentType        string
 	ContentEncoding    string
 	ContentDisposition string
+	CacheControl       string
 	Crc32c             string
 	Md5Hash            string
 	Etag               string

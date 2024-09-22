@@ -26,7 +26,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const contentTypeHeader = "Content-Type"
+const (
+	contentTypeHeader  = "Content-Type"
+	cacheControlHeader = "Cache-Control"
+)
 
 const (
 	uploadTypeMedia     = "media"
@@ -51,6 +54,7 @@ type multipartMetadata struct {
 	ContentType        string            `json:"contentType"`
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
+	CacheControl       string            `json:"cacheControl"`
 	CustomTime         time.Time         `json:"customTime,omitempty"`
 	Name               string            `json:"name"`
 	Metadata           map[string]string `json:"metadata"`
@@ -239,6 +243,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 			BucketName:      bucketName,
 			Name:            name,
 			ContentType:     r.Header.Get(contentTypeHeader),
+			CacheControl:    r.Header.Get(cacheControlHeader),
 			ContentEncoding: contentEncoding,
 			CustomTime:      convertTimeWithoutError(customTime),
 			ACL:             getObjectACL(predefinedACL),
@@ -374,6 +379,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 			BucketName:         bucketName,
 			Name:               objName,
 			ContentType:        contentType,
+			CacheControl:       metadata.CacheControl,
 			ContentEncoding:    metadata.ContentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
 			CustomTime:         metadata.CustomTime,
@@ -423,6 +429,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 			BucketName:      bucketName,
 			Name:            objName,
 			ContentType:     metadata.ContentType,
+			CacheControl:    metadata.CacheControl,
 			ContentEncoding: contentEncoding,
 			CustomTime:      metadata.CustomTime,
 			ACL:             getObjectACL(predefinedACL),
