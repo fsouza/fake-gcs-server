@@ -890,6 +890,9 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		if obj.ContentType != "" {
 			w.Header().Set(contentTypeHeader, obj.ContentType)
 		}
+		if obj.CacheControl != "" {
+			w.Header().Set(cacheControlHeader, obj.CacheControl)
+		}
 		// If content was transcoded, the underlying encoding was removed so we shouldn't report it.
 		if obj.ContentEncoding != "" && !transcoded {
 			w.Header().Set("Content-Encoding", obj.ContentEncoding)
