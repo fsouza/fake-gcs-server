@@ -27,5 +27,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           distribution: goreleaser
-          version: latest
+          version: '~> v2'
           args: release -f ci/.goreleaser.yml
