@@ -75,8 +75,6 @@ func NewServerWithHostPort(objects []Object, host string, port uint16) (*Server,
 
 type EventManagerOptions = notification.EventManagerOptions
 
-type EventNotificationOptions = notification.EventNotificationOptions
-
 // Options are used to configure the server on creation.
 type Options struct {
 	InitialObjects []Object
