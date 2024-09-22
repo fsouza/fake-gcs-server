@@ -9,6 +9,36 @@ on:
       - main
 
 jobs:
+  # Validates that we can compile on the targets below
+  compile:
+    strategy:
+      matrix:
+        go_version:
+          - "1.22"
+          - "1.23"
+        goos:
+          - darwin
+          - freebsd
+          - linux
+          - windows
+        goarch:
+          - amd64
+          - arm64
+
+    name: cross-compilation (GOOS=${{ matrix.goos }}, GOARCH=${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+
+      - uses: actions/setup-go@v5.0.2
+        with:
+          go-version: "1.x"
+
+      - run: go build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+
   test:
     strategy:
       matrix:
@@ -19,14 +49,8 @@ jobs:
           - macos
           - ubuntu
           - windows
-        arch:
-          - 386
-          - amd64
-        exclude:
-          - os: macos
-            arch: 386
 
-    name: tests (${{ matrix.os }}/go-${{ matrix.go_version }}-${{ matrix.arch }})
+    name: tests (${{ matrix.os }}/go-${{ matrix.go_version }}
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v4.1.7
@@ -37,16 +61,7 @@ jobs:
           go-version: ${{ matrix.go_version }}
 
       - name: run-tests-race
-        if: ${{ matrix.arch == 'amd64' }}
-        env:
-          GOARCH: "${{ matrix.arch }}"
         run: go test -race -vet all -mod readonly ./...
-
-      - name: run-tests
-        if: ${{ matrix.arch == '386' }}
-        env:
-          GOARCH: "${{ matrix.arch }}"
-        run: go test -vet all -mod readonly ./...
 
   lint:
     name: lint
@@ -109,7 +124,7 @@ jobs:
           args: -c "./fake-gcs-server -h"
 
       - name: upload binary
-        uses: actions/upload-artifact@v4.3.6
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: fake-gcs-server
           path: ./fake-gcs-server

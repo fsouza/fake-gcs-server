@@ -51,12 +51,13 @@ const (
 var gsutilBoundary = regexp.MustCompile(`boundary='([^']*[()<>@,;:"/\[\]?= ]+[^']*)'`)
 
 type multipartMetadata struct {
-	ContentType     string            `json:"contentType"`
-	ContentEncoding string            `json:"contentEncoding"`
-	CacheControl    string            `json:"cacheControl"`
-	CustomTime      time.Time         `json:"customTime,omitempty"`
-	Name            string            `json:"name"`
-	Metadata        map[string]string `json:"metadata"`
+	ContentType        string            `json:"contentType"`
+	ContentEncoding    string            `json:"contentEncoding"`
+	ContentDisposition string            `json:"contentDisposition"`
+	CacheControl       string            `json:"cacheControl"`
+	CustomTime         time.Time         `json:"customTime,omitempty"`
+	Name               string            `json:"name"`
+	Metadata           map[string]string `json:"metadata"`
 }
 
 type contentRange struct {
@@ -375,14 +376,15 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            objName,
-			ContentType:     contentType,
-			CacheControl:    metadata.CacheControl,
-			ContentEncoding: metadata.ContentEncoding,
-			CustomTime:      metadata.CustomTime,
-			ACL:             getObjectACL(predefinedACL),
-			Metadata:        metadata.Metadata,
+			BucketName:         bucketName,
+			Name:               objName,
+			ContentType:        contentType,
+			CacheControl:       metadata.CacheControl,
+			ContentEncoding:    metadata.ContentEncoding,
+			ContentDisposition: metadata.ContentDisposition,
+			CustomTime:         metadata.CustomTime,
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metadata.Metadata,
 		},
 		Content: notImplementedSeeker{io.NopCloser(io.MultiReader(partReaders...))},
 	}
