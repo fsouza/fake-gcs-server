@@ -28,7 +28,7 @@ jobs:
     name: cross-compilation (GOOS=${{ matrix.goos }}, GOARCH=${{ matrix.goarch }})
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.0
+      - uses: actions/checkout@v4.2.1
 
       - uses: actions/setup-go@v5.0.2
         with:
@@ -53,7 +53,7 @@ jobs:
     name: tests (${{ matrix.os }}/go-${{ matrix.go_version }}
     runs-on: ${{ matrix.os }}-latest
     steps:
-      - uses: actions/checkout@v4.2.0
+      - uses: actions/checkout@v4.2.1
 
       - uses: actions/setup-go@v5.0.2
         id: go
@@ -67,7 +67,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.0
+      - uses: actions/checkout@v4.2.1
 
       - uses: golangci/golangci-lint-action@v6.1.1
 
@@ -75,7 +75,7 @@ jobs:
     name: staticcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.0
+      - uses: actions/checkout@v4.2.1
 
       - uses: actions/setup-go@v5.0.2
         id: go
@@ -105,7 +105,7 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.0
+      - uses: actions/checkout@v4.2.1
 
       - uses: actions/setup-go@v5.0.2
         id: go
@@ -175,7 +175,7 @@ jobs:
       - lint
       - staticcheck
     steps:
-      - uses: actions/checkout@v4.2.0
+      - uses: actions/checkout@v4.2.1
 
       - name: download binary
         uses: actions/download-artifact@v4.1.8
