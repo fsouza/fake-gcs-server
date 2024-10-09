@@ -92,7 +92,7 @@ jobs:
 
       - name: staticcheck cache
         id: staticcheck-cache
-        uses: actions/cache@v4.1.0
+        uses: actions/cache@v4.1.1
         with:
           path: ~/.cache/staticcheck
           key: "${{ steps.get-staticcheck-version.outputs.version }}"
