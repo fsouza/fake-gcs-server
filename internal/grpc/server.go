@@ -2,17 +2,17 @@ package grpc
 
 import (
 	"context"
-	"io"
 
-	pb "github.com/fsouza/fake-gcs-server/genproto/googleapis/storage/v1"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
+	pb "google.golang.org/genproto/googleapis/storage/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Server struct {
-	pb.UnimplementedStorageServerServer // To satisfy the interface without having to implement every method
+	pb.UnimplementedStorageServer // To satisfy the interface without having to implement every method
 
 	backend backend.Storage // share the same backend as fakeserver does
 }
@@ -23,7 +23,7 @@ func InitServer(backend backend.Storage) *Server {
 
 func NewServerWithBackend(backend backend.Storage) *grpc.Server {
 	grpcServer := grpc.NewServer()
-	pb.RegisterStorageServerServer(grpcServer, InitServer(backend))
+	pb.RegisterStorageServer(grpcServer, InitServer(backend))
 	reflection.Register(grpcServer)
 	return grpcServer
 }
@@ -46,14 +46,14 @@ func (g *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.B
 	return grpc_bucket, nil
 }
 
-func (g *Server) DeleteBucket(ctx context.Context, req *pb.DeleteBucketRequest) (*pb.Empty, error) {
+func (g *Server) DeleteBucket(ctx context.Context, req *pb.DeleteBucketRequest) (*emptypb.Empty, error) {
 	err := g.backend.DeleteBucket(req.Bucket)
-	return &pb.Empty{}, err
+	return &emptypb.Empty{}, err
 }
 
-func (g *Server) InsertBucket(ctx context.Context, req *pb.InsertBucketRequest) (*pb.Empty, error) {
+func (g *Server) InsertBucket(ctx context.Context, req *pb.InsertBucketRequest) (*pb.Bucket, error) {
 	err := g.backend.CreateBucket(req.Bucket.Name, backend.BucketAttrs{DefaultEventBasedHold: req.Bucket.DefaultEventBasedHold})
-	return &pb.Empty{}, err
+	return &pb.Bucket{Name: req.Bucket.Name}, err
 }
 
 func (g *Server) UpdateBucket(ctx context.Context, req *pb.UpdateBucketRequest) (*pb.Bucket, error) {
@@ -64,33 +64,31 @@ func (g *Server) UpdateBucket(ctx context.Context, req *pb.UpdateBucketRequest) 
 	return &pb.Bucket{}, err
 }
 
-func (g *Server) ListBuckets(context.Context, *pb.ListBucketsRequest) (*pb.Buckets, error) {
+func (g *Server) ListBuckets(context.Context, *pb.ListBucketsRequest) (*pb.ListBucketsResponse, error) {
 	buckets, err := g.backend.ListBuckets()
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.Buckets{}
-
+	var resp pb.ListBucketsResponse
 	for _, bucket := range buckets {
-		// tc, err := ptypes.TimestampProto(bucket.TimeCreated)
-		tc := timestamppb.Now()
-		if err != nil {
-			return nil, err
-		}
-		resp.Bucket = append(resp.Bucket, &pb.Bucket{
+		resp.Items = append(resp.Items, &pb.Bucket{
 			Name:        bucket.Name,
-			TimeCreated: tc,
+			TimeCreated: timestamppb.New(bucket.TimeCreated),
 			Versioning: &pb.Bucket_Versioning{
 				Enabled: bucket.VersioningEnabled,
 			},
 		})
 	}
 
-	return resp, nil
+	return &resp, nil
 }
 
-func (g *Server) InsertObject(ctx context.Context, req *pb.InsertObjectRequest) (*pb.Empty, error) {
+func (g *Server) InsertObject(server pb.Storage_InsertObjectServer) error {
+	req, err := server.Recv()
+	if err != nil {
+		return err
+	}
 	insert_obj_req := *(req.GetFirstMessage().(*pb.InsertObjectRequest_InsertObjectSpec))
 	validObject := backend.Object{
 		ObjectAttrs: backend.ObjectAttrs{
@@ -99,83 +97,69 @@ func (g *Server) InsertObject(ctx context.Context, req *pb.InsertObjectRequest) 
 		},
 		Content: req.GetChecksummedData().Content,
 	}
-	_, err := g.backend.CreateObject(validObject.StreamingObject(), backend.NoConditions{})
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Empty{}, nil
+	_, err = g.backend.CreateObject(validObject.StreamingObject(), backend.NoConditions{})
+	return err
 }
 
-func (g *Server) GetObject(ctx context.Context, req *pb.GetObjectRequest) (*pb.GetObjectMediaResponse, error) {
+func (g *Server) GetObject(ctx context.Context, req *pb.GetObjectRequest) (*pb.Object, error) {
 	obj, err := g.backend.GetObject(req.Bucket, req.Object)
 	if err != nil {
 		return nil, err
 	}
-	content, err := io.ReadAll(obj.Content)
-	if err != nil {
-		return nil, err
-	}
 
-	checksummed_data := &pb.ChecksummedData{
-		Content: content,
-	}
-	metadata := &pb.Object{
+	return &pb.Object{
 		Name:               obj.ObjectAttrs.Name,
 		Bucket:             obj.ObjectAttrs.BucketName,
 		Md5Hash:            obj.ObjectAttrs.Md5Hash,
 		Generation:         obj.ObjectAttrs.Generation,
 		ContentType:        obj.ObjectAttrs.ContentType,
 		ContentDisposition: obj.ObjectAttrs.ContentDisposition,
-	}
-	return &pb.GetObjectMediaResponse{
-		ChecksummedData: checksummed_data,
-		Metadata:        metadata,
 	}, nil
 }
 
-func (g *Server) DeleteObject(ctx context.Context, req *pb.DeleteObjectRequest) (*pb.Empty, error) {
+func (g *Server) DeleteObject(ctx context.Context, req *pb.DeleteObjectRequest) (*emptypb.Empty, error) {
 	err := g.backend.DeleteObject(req.Bucket, req.Object)
-	return &pb.Empty{}, err
+	return &emptypb.Empty{}, err
 }
 
-func (g *Server) UpdateObject(ctx context.Context, req *pb.UpdateObjectRequest) (*pb.Empty, error) {
+func (g *Server) UpdateObject(ctx context.Context, req *pb.UpdateObjectRequest) (*pb.Object, error) {
 	attrs := backend.ObjectAttrs{
 		Metadata: req.Metadata.Metadata,
 	}
-	_, err := g.backend.UpdateObject(req.Bucket, req.Object, attrs)
-	return &pb.Empty{}, err
+	obj, err := g.backend.UpdateObject(req.Bucket, req.Object, attrs)
+	return makeObject(obj), err
 }
 
-func (g *Server) PatchObject(ctx context.Context, req *pb.PatchObjectRequest) (*pb.Empty, error) {
+func (g *Server) PatchObject(ctx context.Context, req *pb.PatchObjectRequest) (*pb.Object, error) {
 	attrs := backend.ObjectAttrs{
 		Metadata:           req.Metadata.Metadata,
 		ContentType:        req.Metadata.ContentType,
 		ContentEncoding:    req.Metadata.ContentEncoding,
 		ContentDisposition: req.Metadata.ContentDisposition,
 	}
-	_, err := g.backend.PatchObject(req.Bucket, req.Object, attrs)
-	return &pb.Empty{}, err
+	obj, err := g.backend.PatchObject(req.Bucket, req.Object, attrs)
+	return makeObject(obj), err
 }
 
 // ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string)
-func (g *Server) ComposeObject(ctx context.Context, req *pb.ComposeObjectRequest) (*pb.Empty, error) {
+func (g *Server) ComposeObject(ctx context.Context, req *pb.ComposeObjectRequest) (*pb.Object, error) {
 	sourceObjNames := make([]string, 2)
 	for i := 0; i < len(req.SourceObjects); i++ {
 		sourceObjNames[i] = req.SourceObjects[i].Name
 	}
-	_, err := g.backend.ComposeObject(req.DestinationBucket, sourceObjNames, req.DestinationObject, map[string]string{}, "")
-	return &pb.Empty{}, err
+	obj, err := g.backend.ComposeObject(req.DestinationBucket, sourceObjNames, req.DestinationObject, map[string]string{}, "")
+	return makeObject(obj), err
 }
 
-func (g *Server) ListObjects(ctx context.Context, req *pb.ListObjectsRequest) (*pb.Objects, error) {
+func (g *Server) ListObjects(ctx context.Context, req *pb.ListObjectsRequest) (*pb.ListObjectsResponse, error) {
 	objs, err := g.backend.ListObjects(req.Bucket, req.Prefix, req.Versions)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.Objects{}
+	var resp pb.ListObjectsResponse
 	for _, obj := range objs {
-		resp.Object = append(resp.Object, &pb.Object{
+		resp.Items = append(resp.Items, &pb.Object{
 			Name:        obj.Name,
 			Bucket:      obj.BucketName,
 			Md5Hash:     obj.Md5Hash,
@@ -184,5 +168,15 @@ func (g *Server) ListObjects(ctx context.Context, req *pb.ListObjectsRequest) (*
 		})
 	}
 
-	return resp, nil
+	return &resp, nil
+}
+
+func makeObject(obj backend.StreamingObject) *pb.Object {
+	return &pb.Object{
+		Name:        obj.Name,
+		Bucket:      obj.BucketName,
+		Md5Hash:     obj.Md5Hash,
+		Generation:  obj.Generation,
+		ContentType: obj.ContentType,
+	}
 }

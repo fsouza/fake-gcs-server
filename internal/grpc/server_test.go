@@ -10,9 +10,9 @@ import (
 	"runtime"
 	"testing"
 
-	pb "github.com/fsouza/fake-gcs-server/genproto/googleapis/storage/v1"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
+	pb "google.golang.org/genproto/googleapis/storage/v1"
 )
 
 func tempDir() string {
@@ -125,7 +125,7 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 			Metadata:   origMetadata,
 		}
 		// Test Insert Object
-		_, err := grpcServer.InsertObject(ctx, &pb.InsertObjectRequest{
+		req := &pb.InsertObjectRequest{
 			FirstMessage: &pb.InsertObjectRequest_InsertObjectSpec{
 				InsertObjectSpec: &pb.InsertObjectSpec{
 					Resource: &pb.Object{
@@ -140,7 +140,8 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 					Content: content,
 				},
 			},
-		})
+		}
+		err := grpcServer.InsertObject(&fakeInsertObjectServer{req: req})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -153,17 +154,14 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 		contentEqual(t, obj.Content, content)
 
 		// Test Get Object
-		grpc_get_obj_resp, err := grpcServer.GetObject(ctx, &pb.GetObjectRequest{
+		grpc_obj, err := grpcServer.GetObject(ctx, &pb.GetObjectRequest{
 			Bucket: bucketName,
 			Object: obj1Name,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		compareGrpcObjAttrs(t, grpc_get_obj_resp.Metadata, obj.ObjectAttrs)
-		if !bytes.Equal(grpc_get_obj_resp.ChecksummedData.Content, content) {
-			t.Errorf("Wrong object content. Expected '%q', Got '%q'", grpc_get_obj_resp.ChecksummedData.Content, content)
-		}
+		compareGrpcObjAttrs(t, grpc_obj, obj.ObjectAttrs)
 
 		// Test List Objects
 		objs, err := grpcServer.ListObjects(ctx, &pb.ListObjectsRequest{
@@ -174,10 +172,10 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(objs.Object) != 1 {
-			t.Errorf("Wrong object length. Expected 1, got %q", len(objs.Object))
+		if len(objs.Items) != 1 {
+			t.Errorf("Wrong object length. Expected 1, got %q", len(objs.Items))
 		}
-		compareGrpcObjAttrs(t, objs.Object[0], obj.ObjectAttrs)
+		compareGrpcObjAttrs(t, objs.Items[0], obj.ObjectAttrs)
 
 		// Test Patch Object
 		newMetadata := map[string]string{
@@ -199,14 +197,14 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(obj.ObjectAttrs.Metadata, newMetadata) {
+		if !reflect.DeepEqual(obj.Metadata, newMetadata) {
 			t.Errorf("Wrong object metadata. Expected '%q', Got '%q'", obj.ObjectAttrs.Metadata, newMetadata)
 		}
 
 		// Insert another object
 		obj2Name := "object2"
 		obj2Content := []byte("object2-content")
-		_, err = grpcServer.InsertObject(ctx, &pb.InsertObjectRequest{
+		req = &pb.InsertObjectRequest{
 			FirstMessage: &pb.InsertObjectRequest_InsertObjectSpec{
 				InsertObjectSpec: &pb.InsertObjectSpec{
 					Resource: &pb.Object{
@@ -221,7 +219,8 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 					Content: obj2Content,
 				},
 			},
-		})
+		}
+		err = grpcServer.InsertObject(&fakeInsertObjectServer{req: req})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -291,14 +290,14 @@ func TestBucketInsertGetListUpdateDelete(t *testing.T) {
 		}
 
 		// Test GRPC ListBucket endpoint
-		grpc_buckets, list_err := grpcServer.ListBuckets(ctx, &pb.ListBucketsRequest{})
-		if list_err != nil {
+		grpcBuckets, listErr := grpcServer.ListBuckets(ctx, &pb.ListBucketsRequest{})
+		if listErr != nil {
 			t.Errorf("List bucket error")
 		}
-		if len(grpc_buckets.Bucket) != 1 {
+		if len(grpcBuckets.Items) != 1 {
 			t.Fatal("List buckets wrong length")
 		}
-		if grpc_buckets.Bucket[0].Name != bucketName {
+		if grpcBuckets.Items[0].Name != bucketName {
 			t.Errorf("Wrong bucket name")
 		}
 
