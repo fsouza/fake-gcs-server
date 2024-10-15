@@ -4,7 +4,6 @@ require (
 	cloud.google.com/go/pubsub v1.44.0
 	cloud.google.com/go/storage v1.44.0
 	github.com/fsouza/slognil v0.4.1
-	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
@@ -73,7 +72,7 @@ require (
 	golang.org/x/text v0.19.0 // indirect
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1
 	google.golang.org/grpc v1.67.1
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.35.1
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
