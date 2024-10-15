@@ -154,14 +154,14 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 		contentEqual(t, obj.Content, content)
 
 		// Test Get Object
-		grpc_obj, err := grpcServer.GetObject(ctx, &pb.GetObjectRequest{
+		grpcObj, err := grpcServer.GetObject(ctx, &pb.GetObjectRequest{
 			Bucket: bucketName,
 			Object: obj1Name,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		compareGrpcObjAttrs(t, grpc_obj, obj.ObjectAttrs)
+		compareGrpcObjAttrs(t, grpcObj, obj.ObjectAttrs)
 
 		// Test List Objects
 		objs, err := grpcServer.ListObjects(ctx, &pb.ListObjectsRequest{
@@ -246,8 +246,8 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		expected_content := []byte("object1-contentobject2-content")
-		contentEqual(t, obj.Content, expected_content)
+		expectedContent := []byte("object1-contentobject2-content")
+		contentEqual(t, obj.Content, expectedContent)
 	})
 }
 
@@ -267,26 +267,26 @@ func TestBucketInsertGetListUpdateDelete(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error while inserting bucket: %v", err)
 		}
-		bucket, storage_err := storage.GetBucket(bucketName)
-		if storage_err != nil {
-			t.Errorf("Error while getting bucket from backend: %v", storage_err)
+		bucket, storageErr := storage.GetBucket(bucketName)
+		if storageErr != nil {
+			t.Errorf("Error while getting bucket from backend: %v", storageErr)
 		}
 		if bucket.Name != bucketName {
 			t.Errorf("Expected '%s', got '%s'", bucketName, bucket.Name)
 		}
 
 		// Test GRPC GetBucket endpoint
-		grpc_bucket, get_err := grpcServer.GetBucket(ctx, &pb.GetBucketRequest{
+		grpcBucket, getErr := grpcServer.GetBucket(ctx, &pb.GetBucketRequest{
 			Bucket: bucketName,
 		})
-		if get_err != nil {
+		if getErr != nil {
 			t.Errorf("Error while getting bucket from grpc: %v", err)
 		}
-		if grpc_bucket.Name != bucketName {
-			t.Errorf("Expected '%s', got '%s'", bucketName, grpc_bucket.Name)
+		if grpcBucket.Name != bucketName {
+			t.Errorf("Expected '%s', got '%s'", bucketName, grpcBucket.Name)
 		}
-		if !grpc_bucket.DefaultEventBasedHold {
-			t.Errorf("Expected true, got '%v'", grpc_bucket.DefaultEventBasedHold)
+		if !grpcBucket.DefaultEventBasedHold {
+			t.Errorf("Expected true, got '%v'", grpcBucket.DefaultEventBasedHold)
 		}
 
 		// Test GRPC ListBucket endpoint
@@ -302,34 +302,34 @@ func TestBucketInsertGetListUpdateDelete(t *testing.T) {
 		}
 
 		// Test GRPC UpdateBucket endpoint
-		_, update_err := grpcServer.UpdateBucket(ctx, &pb.UpdateBucketRequest{
+		_, updateErr := grpcServer.UpdateBucket(ctx, &pb.UpdateBucketRequest{
 			Bucket: bucketName,
 			Metadata: &pb.Bucket{
 				DefaultEventBasedHold: false,
 			},
 		})
-		if update_err != nil {
-			t.Fatal(update_err)
+		if updateErr != nil {
+			t.Fatal(updateErr)
 		}
-		grpc_bucket, err = grpcServer.GetBucket(ctx, &pb.GetBucketRequest{
+		grpcBucket, err = grpcServer.GetBucket(ctx, &pb.GetBucketRequest{
 			Bucket: bucketName,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if grpc_bucket.DefaultEventBasedHold {
-			t.Errorf("After update, expected false, got '%v'", grpc_bucket.DefaultEventBasedHold)
+		if grpcBucket.DefaultEventBasedHold {
+			t.Errorf("After update, expected false, got '%v'", grpcBucket.DefaultEventBasedHold)
 		}
 
 		// Test GRPC DeleteBucket endpoint
-		_, delete_err := grpcServer.DeleteBucket(ctx, &pb.DeleteBucketRequest{
+		_, deleteErr := grpcServer.DeleteBucket(ctx, &pb.DeleteBucketRequest{
 			Bucket: bucketName,
 		})
-		if delete_err != nil {
-			t.Errorf("Got unexpected error when call 'DeleteBucket' endpoint of the GRPC server: %v", delete_err)
+		if deleteErr != nil {
+			t.Errorf("Got unexpected error when call 'DeleteBucket' endpoint of the GRPC server: %v", deleteErr)
 		}
-		_, storage_err = storage.GetBucket(bucketName)
-		if storage_err == nil {
+		_, storageErr = storage.GetBucket(bucketName)
+		if storageErr == nil {
 			t.Errorf("Expected to get err when getting '%s' from backend, but got none", bucketName)
 		}
 	})
