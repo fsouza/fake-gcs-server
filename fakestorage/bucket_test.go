@@ -252,6 +252,7 @@ func TestServerClientBucketCreateValidation(t *testing.T) {
 		"or spaces",
 		"don't even try",
 		"no/slashes/either",
+		"uppercaseNOTallowed",
 	}
 
 	for _, bucketName := range bucketNames {
