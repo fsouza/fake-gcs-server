@@ -119,6 +119,7 @@ type objectResponse struct {
 	ContentType             string                 `json:"contentType,omitempty"`
 	ContentEncoding         string                 `json:"contentEncoding,omitempty"`
 	ContentDisposition      string                 `json:"contentDisposition,omitempty"`
+	ContentLanguage         string                 `json:"contentLanguage,omitempty"`
 	Crc32c                  string                 `json:"crc32c,omitempty"`
 	ACL                     []*objectAccessControl `json:"acl,omitempty"`
 	Md5Hash                 string                 `json:"md5Hash,omitempty"`
@@ -156,6 +157,7 @@ func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
 		ContentType:             obj.ContentType,
 		ContentEncoding:         obj.ContentEncoding,
 		ContentDisposition:      obj.ContentDisposition,
+		ContentLanguage:         obj.ContentLanguage,
 		Crc32c:                  obj.Crc32c,
 		Md5Hash:                 obj.Md5Hash,
 		Etag:                    obj.Etag,
