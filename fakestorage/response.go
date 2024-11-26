@@ -146,6 +146,10 @@ func newProjectedObjectResponse(obj ObjectAttrs, externalURL string, projection 
 
 func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
 	acl := getAccessControlsListFromObject(obj)
+	storageClass := obj.StorageClass
+	if storageClass == "" {
+		storageClass = "STANDARD"
+	}
 
 	return objectResponse{
 		Kind:                    "storage#object",
@@ -160,7 +164,7 @@ func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
 		Md5Hash:                 obj.Md5Hash,
 		Etag:                    obj.Etag,
 		ACL:                     acl,
-		StorageClass:            "STANDARD",
+		StorageClass:            storageClass,
 		Metadata:                obj.Metadata,
 		TimeCreated:             formatTime(obj.Created),
 		TimeDeleted:             formatTime(obj.Deleted),

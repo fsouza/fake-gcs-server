@@ -32,6 +32,7 @@ type ObjectAttrs struct {
 	BucketName         string
 	Name               string
 	Size               int64
+	StorageClass       string
 	ContentType        string
 	ContentEncoding    string
 	ContentDisposition string
@@ -59,6 +60,7 @@ type jsonObject struct {
 	BucketName         string            `json:"bucket"`
 	Name               string            `json:"name"`
 	Size               int64             `json:"size,string"`
+	StorageClass       string            `json:"storageClass"`
 	ContentType        string            `json:"contentType"`
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
@@ -79,6 +81,7 @@ func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
 	temp := jsonObject{
 		BucketName:         o.BucketName,
 		Name:               o.Name,
+		StorageClass:       o.StorageClass,
 		ContentType:        o.ContentType,
 		ContentEncoding:    o.ContentEncoding,
 		ContentDisposition: o.ContentDisposition,
@@ -108,6 +111,7 @@ func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
 	}
 	o.BucketName = temp.BucketName
 	o.Name = temp.Name
+	o.StorageClass = temp.StorageClass
 	o.ContentType = temp.ContentType
 	o.ContentEncoding = temp.ContentEncoding
 	o.ContentDisposition = temp.ContentDisposition
@@ -394,6 +398,7 @@ func toBackendObjects(objects []StreamingObject) []backend.StreamingObject {
 			ObjectAttrs: backend.ObjectAttrs{
 				BucketName:         o.BucketName,
 				Name:               o.Name,
+				StorageClass:       o.StorageClass,
 				ContentType:        o.ContentType,
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
@@ -420,6 +425,7 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 			ObjectAttrs: backend.ObjectAttrs{
 				BucketName:         o.BucketName,
 				Name:               o.Name,
+				StorageClass:       o.StorageClass,
 				ContentType:        o.ContentType,
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
@@ -449,6 +455,7 @@ func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 				BucketName:         o.BucketName,
 				Name:               o.Name,
 				Size:               o.Size,
+				StorageClass:       o.StorageClass,
 				ContentType:        o.ContentType,
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
@@ -477,6 +484,7 @@ func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 			BucketName:         o.BucketName,
 			Name:               o.Name,
 			Size:               o.Size,
+			StorageClass:       o.StorageClass,
 			ContentType:        o.ContentType,
 			ContentEncoding:    o.ContentEncoding,
 			ContentDisposition: o.ContentDisposition,
