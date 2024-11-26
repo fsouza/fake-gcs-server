@@ -943,7 +943,7 @@ func (s *Server) handleRange(obj StreamingObject, r *http.Request) (ranged bool,
 	//   Length: 40, Range: bytes=50-
 	case start >= obj.Size:
 		// This IS a ranged request, but it ISN'T satisfiable.
-		return true, 0, 0, false
+		return true, 0, -1, false
 	// Negative range, ignore range and return all content.
 	// Examples:
 	//   Length: 40, Range: bytes=30-20
