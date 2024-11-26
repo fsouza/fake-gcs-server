@@ -47,6 +47,7 @@ type objectTestCases []struct {
 func getObjectTestCases() objectTestCases {
 	const (
 		bucketName         = "some-bucket"
+		storageClass       = "COLDLINE"
 		content            = "some nice content"
 		contentType        = "text/plain; charset=utf-8"
 		contentEncoding    = "gzip"
@@ -129,6 +130,17 @@ func getObjectTestCases() objectTestCases {
 				},
 			},
 		},
+		{
+			"object with no contents neither dates",
+			Object{
+				ObjectAttrs: ObjectAttrs{
+					BucketName:   bucketName,
+					Name:         "video/hi-res/best_video_1080p.mp4",
+					ContentType:  "text/html; charset=utf-8",
+					StorageClass: "COLDLINE",
+				},
+			},
+		},
 	}
 	return tests
 }
@@ -147,6 +159,9 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	}
 	if attrs.Name != testObj.Name {
 		t.Errorf("wrong object name\nwant %q\ngot  %q", testObj.Name, attrs.Name)
+	}
+	if testObj.StorageClass != "" && attrs.StorageClass != testObj.StorageClass {
+		t.Errorf("wrong object storage class\nwant %q\ngot  %q", testObj.StorageClass, attrs.StorageClass)
 	}
 	if !(testObj.Created.IsZero()) && !testObj.Created.Equal(attrs.Created) {
 		t.Errorf("wrong created date\nwant %v\ngot   %v\nname %v", testObj.Created, attrs.Created, attrs.Name)
