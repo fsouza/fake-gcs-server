@@ -710,6 +710,59 @@ func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs)}
 }
 
+func (s *Server) deleteObjectACL(r *http.Request) jsonResponse {
+	vars := unescapeMuxVars(mux.Vars(r))
+
+	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
+	if err != nil {
+		return jsonResponse{status: http.StatusNotFound}
+	}
+	defer obj.Close()
+	entity := vars["entity"]
+
+	var newAcls []storage.ACLRule
+	for _, aclRule := range obj.ObjectAttrs.ACL {
+		if entity != string(aclRule.Entity) {
+			newAcls = append(newAcls, aclRule)
+		}
+	}
+
+	obj.ACL = newAcls
+	obj, err = s.createObject(obj, backend.NoConditions{})
+	if err != nil {
+		return errToJsonResponse(err)
+	}
+	defer obj.Close()
+
+	return jsonResponse{status: http.StatusOK}
+}
+
+func (s *Server) getObjectACL(r *http.Request) jsonResponse {
+	vars := unescapeMuxVars(mux.Vars(r))
+
+	obj, err := s.backend.GetObject(vars["bucketName"], vars["objectName"])
+	if err != nil {
+		return jsonResponse{status: http.StatusNotFound}
+	}
+	defer obj.Close()
+	entity := vars["entity"]
+
+	for _, aclRule := range obj.ObjectAttrs.ACL {
+		if entity == string(aclRule.Entity) {
+			oac := &objectAccessControl{
+				Bucket: obj.BucketName,
+				Entity: string(aclRule.Entity),
+				Object: obj.Name,
+				Role:   string(aclRule.Role),
+				Etag:   "RVRhZw==",
+				Kind:   "storage#objectAccessControl",
+			}
+			return jsonResponse{data: oac}
+		}
+	}
+	return jsonResponse{status: http.StatusNotFound}
+}
+
 func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 

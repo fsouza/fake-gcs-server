@@ -273,6 +273,8 @@ func (s *Server) buildMuxer() {
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodPatch).HandlerFunc(jsonToHTTPHandler(s.patchObject))
 		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.listObjectACL))
 		r.Path("/b/{bucketName}/o/{objectName:.+}/acl").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.setObjectACL))
+		r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteObjectACL))
+		r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.getObjectACL))
 		r.Path("/b/{bucketName}/o/{objectName:.+}/acl/{entity}").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.setObjectACL))
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.getObject)
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteObject))

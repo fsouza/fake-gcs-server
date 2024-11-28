@@ -1676,6 +1676,23 @@ func TestServerClientObjectSetAclPrivate(t *testing.T) {
 				t.Fatal("acl role not set to RoleReader")
 				return
 			}
+
+			err = objHandle.ACL().Delete(ctx, storage.AllAuthenticatedUsers)
+			if err != nil {
+				t.Fatalf("unexpected error while deleting acl %+v", err)
+				return
+			}
+
+			rules, err = objHandle.ACL().List(ctx)
+			if err != nil {
+				t.Fatalf("unexpected error while getting acl %+v", err)
+				return
+			}
+
+			if len(rules) != 0 {
+				t.Fatalf("acl has unexpected rules: %+v", rules)
+				return
+			}
 		})
 	})
 }
