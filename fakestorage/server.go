@@ -386,9 +386,9 @@ func (s *Server) deleteAllFiles(r *http.Request) jsonResponse {
 	}
 
 	return jsonResponse{
-        status: http.StatusOK,
-        data:   map[string]string{"message": fmt.Sprintf("All files deleted successfully from %s", storageType)},
-    }
+		status: http.StatusOK,
+		data:   map[string]string{"message": fmt.Sprintf("All files deleted successfully from %s", storageType)},
+	}
 }
 
 func generateObjectsFromFiles(folder string) ([]Object, []string) {
