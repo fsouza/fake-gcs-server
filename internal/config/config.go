@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"os"
 	"strings"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
@@ -60,6 +61,13 @@ type EventConfig struct {
 	list            []string
 }
 
+func envVarOrDefault(key string, defaultValue string) string {
+	if val, ok := os.LookupEnv(key); ok {
+		return val
+	}
+	return defaultValue
+}
+
 // Load parses the given arguments list and return a config object (and/or an
 // error in case of failures).
 func Load(args []string) (Config, error) {
@@ -69,7 +77,7 @@ func Load(args []string) (Config, error) {
 	var logLevel string
 
 	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
-	fs.StringVar(&cfg.backend, "backend", filesystemBackend, "storage backend (memory or filesystem)")
+	fs.StringVar(&cfg.backend, "backend", envVarOrDefault("FAKE_GCS_BACKEND", filesystemBackend), "storage backend (memory or filesystem)")
 	fs.StringVar(&cfg.fsRoot, "filesystem-root", "/storage", "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
 	fs.StringVar(&cfg.publicHost, "public-host", "storage.googleapis.com", "Optional URL for public host")
 	fs.StringVar(&cfg.externalURL, "external-url", "", "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
