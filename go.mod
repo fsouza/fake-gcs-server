@@ -1,7 +1,7 @@
 module github.com/fsouza/fake-gcs-server
 
 require (
-	cloud.google.com/go/pubsub v1.45.1
+	cloud.google.com/go/pubsub v1.45.2
 	cloud.google.com/go/storage v1.47.0
 	github.com/fsouza/slognil v0.4.1
 	github.com/google/go-cmp v0.6.0
