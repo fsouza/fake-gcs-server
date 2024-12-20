@@ -110,6 +110,7 @@ func (g *Server) GetObject(ctx context.Context, req *pb.GetObjectRequest) (*pb.O
 	return &pb.Object{
 		Name:               obj.ObjectAttrs.Name,
 		Bucket:             obj.ObjectAttrs.BucketName,
+		StorageClass:       obj.ObjectAttrs.StorageClass,
 		Md5Hash:            obj.ObjectAttrs.Md5Hash,
 		Generation:         obj.ObjectAttrs.Generation,
 		ContentType:        obj.ObjectAttrs.ContentType,
