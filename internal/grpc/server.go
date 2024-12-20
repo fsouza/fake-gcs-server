@@ -114,6 +114,7 @@ func (g *Server) GetObject(ctx context.Context, req *pb.GetObjectRequest) (*pb.O
 		Generation:         obj.ObjectAttrs.Generation,
 		ContentType:        obj.ObjectAttrs.ContentType,
 		ContentDisposition: obj.ObjectAttrs.ContentDisposition,
+		ContentLanguage:    obj.ObjectAttrs.ContentLanguage,
 	}, nil
 }
 
@@ -136,6 +137,7 @@ func (g *Server) PatchObject(ctx context.Context, req *pb.PatchObjectRequest) (*
 		ContentType:        req.Metadata.ContentType,
 		ContentEncoding:    req.Metadata.ContentEncoding,
 		ContentDisposition: req.Metadata.ContentDisposition,
+		ContentLanguage:    req.Metadata.ContentLanguage,
 	}
 	obj, err := g.backend.PatchObject(req.Bucket, req.Object, attrs)
 	return makeObject(obj), err
