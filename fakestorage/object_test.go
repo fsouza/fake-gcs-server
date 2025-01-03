@@ -610,6 +610,34 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 	})
 }
 
+func TestServerClientObjectRangeReaderInvalid(t *testing.T) {
+	const (
+		bucketName  = "some-bucket"
+		objectName  = "items/data.txt"
+		content     = "some really nice but long content stored in my object"
+		contentType = "text/plain; charset=iso-8859"
+	)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+			},
+			Content: []byte(content),
+		},
+	}
+
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		objHandle := client.Bucket(bucketName).Object(objectName)
+		_, err := objHandle.NewRangeReader(context.TODO(), 500, 10)
+		if err == nil {
+			t.Fatal("unexpected <nil> error")
+		}
+	})
+}
+
 func TestServerClientObjectReaderAfterCreateObject(t *testing.T) {
 	const (
 		bucketName  = "staging-bucket"
