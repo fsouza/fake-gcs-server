@@ -54,6 +54,7 @@ type multipartMetadata struct {
 	ContentType        string            `json:"contentType"`
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
+	ContentLanguage    string            `json:"ContentLanguage"`
 	CacheControl       string            `json:"cacheControl"`
 	CustomTime         time.Time         `json:"customTime,omitempty"`
 	Name               string            `json:"name"`
@@ -384,6 +385,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 			CacheControl:       metadata.CacheControl,
 			ContentEncoding:    metadata.ContentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
+			ContentLanguage:    metadata.ContentLanguage,
 			CustomTime:         metadata.CustomTime,
 			ACL:                getObjectACL(predefinedACL),
 			Metadata:           metadata.Metadata,

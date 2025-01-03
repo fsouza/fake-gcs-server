@@ -52,6 +52,7 @@ func getObjectTestCases() objectTestCases {
 		contentType        = "text/plain; charset=utf-8"
 		contentEncoding    = "gzip"
 		contentDisposition = "attachment; filename=\"replaced.txt\""
+		contentLanguage    = "fr"
 		metaValue          = "MetaValue"
 	)
 	testInitExecTime := time.Now().Truncate(time.Microsecond)
@@ -114,6 +115,7 @@ func getObjectTestCases() objectTestCases {
 					ContentType:        contentType,
 					ContentEncoding:    contentEncoding,
 					ContentDisposition: contentDisposition,
+					ContentLanguage:    contentLanguage,
 					Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
 					Md5Hash:            checksum.EncodedHash(hash),
 					Metadata:           map[string]string{"MetaHeader": metaValue},
@@ -189,6 +191,9 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	}
 	if attrs.ContentDisposition != testObj.ContentDisposition {
 		t.Errorf("wrong content disposition\nwant %q\ngot  %q", testObj.ContentDisposition, attrs.ContentDisposition)
+	}
+	if attrs.ContentLanguage != testObj.ContentLanguage {
+		t.Errorf("wrong content language\nwant %q\ngot  %q", testObj.ContentLanguage, attrs.ContentLanguage)
 	}
 	if testObj.Content != nil && attrs.Size != int64(len(testObj.Content)) {
 		t.Errorf("wrong size returned\nwant %d\ngot  %d", len(testObj.Content), attrs.Size)

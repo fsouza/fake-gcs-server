@@ -36,6 +36,7 @@ type ObjectAttrs struct {
 	ContentType        string
 	ContentEncoding    string
 	ContentDisposition string
+	ContentLanguage    string
 	CacheControl       string
 	// Crc32c checksum of Content. calculated by server when it's upload methods are used.
 	Crc32c  string
@@ -64,6 +65,7 @@ type jsonObject struct {
 	ContentType        string            `json:"contentType"`
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
+	ContentLanguage    string            `json:"contentLanguage"`
 	Crc32c             string            `json:"crc32c,omitempty"`
 	Md5Hash            string            `json:"md5Hash,omitempty"`
 	Etag               string            `json:"etag,omitempty"`
@@ -85,6 +87,7 @@ func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
 		ContentType:        o.ContentType,
 		ContentEncoding:    o.ContentEncoding,
 		ContentDisposition: o.ContentDisposition,
+		ContentLanguage:    o.ContentLanguage,
 		Size:               o.Size,
 		Crc32c:             o.Crc32c,
 		Md5Hash:            o.Md5Hash,
@@ -115,6 +118,7 @@ func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
 	o.ContentType = temp.ContentType
 	o.ContentEncoding = temp.ContentEncoding
 	o.ContentDisposition = temp.ContentDisposition
+	o.ContentLanguage = temp.ContentLanguage
 	o.Size = temp.Size
 	o.Crc32c = temp.Crc32c
 	o.Md5Hash = temp.Md5Hash
@@ -402,6 +406,7 @@ func toBackendObjects(objects []StreamingObject) []backend.StreamingObject {
 				ContentType:        o.ContentType,
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
+				ContentLanguage:    o.ContentLanguage,
 				CacheControl:       o.CacheControl,
 				ACL:                o.ACL,
 				Created:            getCurrentIfZero(o.Created).Format(timestampFormat),
@@ -429,6 +434,7 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 				ContentType:        o.ContentType,
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
+				ContentLanguage:    o.ContentLanguage,
 				ACL:                o.ACL,
 				Created:            getCurrentIfZero(o.Created).Format(timestampFormat),
 				Deleted:            o.Deleted.Format(timestampFormat),
@@ -459,6 +465,7 @@ func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 				ContentType:        o.ContentType,
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
+				ContentLanguage:    o.ContentLanguage,
 				CacheControl:       o.CacheControl,
 				Crc32c:             o.Crc32c,
 				Md5Hash:            o.Md5Hash,
@@ -488,6 +495,7 @@ func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 			ContentType:        o.ContentType,
 			ContentEncoding:    o.ContentEncoding,
 			ContentDisposition: o.ContentDisposition,
+			ContentLanguage:    o.ContentLanguage,
 			CacheControl:       o.CacheControl,
 			Crc32c:             o.Crc32c,
 			Md5Hash:            o.Md5Hash,
@@ -844,6 +852,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	if metadata.ContentDisposition == "" {
 		metadata.ContentDisposition = obj.ContentDisposition
 	}
+	if metadata.ContentLanguage == "" {
+		metadata.ContentLanguage = obj.ContentLanguage
+	}
 
 	dstBucket := vars["destinationBucket"]
 	newObject := StreamingObject{
@@ -854,6 +865,7 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 			ContentType:        metadata.ContentType,
 			ContentEncoding:    metadata.ContentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
+			ContentLanguage:    metadata.ContentLanguage,
 			Metadata:           metadata.Metadata,
 		},
 		Content: obj.Content,
@@ -972,6 +984,9 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		}
 		if obj.ContentDisposition != "" {
 			w.Header().Set("Content-Disposition", obj.ContentDisposition)
+		}
+		if obj.ContentLanguage != "" {
+			w.Header().Set("Content-Language", obj.ContentLanguage)
 		}
 		// X-Goog-Stored-Content-Encoding must be set to the original encoding,
 		// defaulting to "identity" if no encoding was set.
@@ -1098,6 +1113,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		ContentType        string
 		ContentEncoding    string
 		ContentDisposition string
+		ContentLanguage    string
 		Metadata           map[string]string `json:"metadata"`
 		CustomTime         string
 		Acl                []acls
@@ -1115,6 +1131,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	attrsToUpdate.ContentType = payload.ContentType
 	attrsToUpdate.ContentEncoding = payload.ContentEncoding
 	attrsToUpdate.ContentDisposition = payload.ContentDisposition
+	attrsToUpdate.ContentLanguage = payload.ContentLanguage
 	attrsToUpdate.Metadata = payload.Metadata
 	attrsToUpdate.CustomTime = payload.CustomTime
 
@@ -1153,6 +1170,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 		Metadata           map[string]string `json:"metadata"`
 		ContentType        string            `json:"contentType"`
 		ContentDisposition string            `json:"contentDisposition"`
+		ContentLanguage    string            `json:"contentLanguage"`
 		CustomTime         string
 		Acl                []acls
 	}
@@ -1170,6 +1188,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	attrsToUpdate.CustomTime = payload.CustomTime
 	attrsToUpdate.ContentType = payload.ContentType
 	attrsToUpdate.ContentDisposition = payload.ContentDisposition
+	attrsToUpdate.ContentLanguage = payload.ContentLanguage
 	if len(payload.Acl) > 0 {
 		attrsToUpdate.ACL = []storage.ACLRule{}
 		for _, aclData := range payload.Acl {
@@ -1203,6 +1222,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 			Bucket             string
 			ContentType        string
 			ContentDisposition string
+			ContentLanguage    string
 			Metadata           map[string]string
 		}
 	}
