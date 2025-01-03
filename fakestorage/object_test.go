@@ -2082,6 +2082,7 @@ func TestServiceClientComposeObject(t *testing.T) {
 	)
 	u32Checksum := uint32Checksum([]byte(source1Content))
 	hash := checksum.MD5Hash([]byte(source1Content))
+	then := time.Now().Add(time.Duration(-1) * time.Minute)
 
 	objs := []Object{
 		{
@@ -2214,6 +2215,12 @@ func TestServiceClientComposeObject(t *testing.T) {
 				}
 				if attrs.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
+				}
+				if then.After(attrs.Created) {
+					t.Errorf("wrong created time\nwant > %v\ngot:   %v", then, attrs.Created)
+				}
+				if then.After(attrs.Updated) {
+					t.Errorf("wrong updated time\nwant > %v\ngot:   %v", then, attrs.Updated)
 				}
 				if !bytes.Equal(attrs.MD5, expectedHash) {
 					t.Errorf("wrong hash returned\nwant %d\ngot   %d", hash, attrs.MD5)
