@@ -20,6 +20,7 @@ jobs:
           - darwin
           - freebsd
           - linux
+          - openbsd
           - windows
         goarch:
           - amd64
