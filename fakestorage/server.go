@@ -308,6 +308,8 @@ func (s *Server) buildMuxer() {
 	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
 	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
+	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteResumableUpload))
+	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteResumableUpload))
 	handler.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
 	// Batch endpoint

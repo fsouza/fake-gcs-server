@@ -720,6 +720,30 @@ func TestServerClientSimpleUploadNoName(t *testing.T) {
 	}
 }
 
+func TestServerClientDeleteResumableUpload(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+
+	req, err := http.NewRequest("DELETE", server.URL()+"/upload/storage/v1/b/other-bucket/o?uploadType=media&name=some/nice/object.txt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	expectedStatus := 499
+	if resp.StatusCode != expectedStatus {
+		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
+	}
+}
+
 func TestServerInvalidUploadType(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()

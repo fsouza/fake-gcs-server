@@ -634,6 +634,10 @@ func parseContentRange(r string) (parsed contentRange, err error) {
 	return parsed, nil
 }
 
+func (s *Server) deleteResumableUpload(r *http.Request) jsonResponse {
+	return jsonResponse{status: 499}
+}
+
 func loadMetadata(rc io.ReadCloser) (*multipartMetadata, error) {
 	defer rc.Close()
 	var m multipartMetadata
