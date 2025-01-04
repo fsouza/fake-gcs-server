@@ -363,31 +363,16 @@ func (s *Server) reseedServer(r *http.Request) jsonResponse {
 }
 
 func (s *Server) deleteAllFiles(r *http.Request) jsonResponse {
-	storageRoot := s.options.StorageRoot
-	storageType := "filesystem"
-
-	if storageRoot != "" {
-		if err := os.RemoveAll(storageRoot); err != nil {
-			return jsonResponse{
-				status:       http.StatusInternalServerError,
-				errorMessage: err.Error(),
-			}
+	if err := s.backend.DeleteAllFiles(); err != nil {
+		return jsonResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: err.Error(),
 		}
-
-		if err := os.MkdirAll(filepath.Join(storageRoot), 0o700); err != nil {
-			return jsonResponse{
-				status:       http.StatusInternalServerError,
-				errorMessage: err.Error(),
-			}
-		}
-	} else {
-		storageType = "memory"
-		s.backend, _ = backend.NewStorageMemory(nil)
 	}
 
 	return jsonResponse{
 		status: http.StatusOK,
-		data:   map[string]string{"message": fmt.Sprintf("All files deleted successfully from %s", storageType)},
+		data:   map[string]string{"message": "All files deleted successfully"},
 	}
 }
 
