@@ -323,6 +323,7 @@ type ListOptions struct {
 	StartOffset              string
 	EndOffset                string
 	IncludeTrailingDelimiter bool
+	MaxResults               int
 }
 
 // ListObjects returns a sorted list of objects that match the given criteria,
@@ -373,6 +374,9 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 		respPrefixes = append(respPrefixes, p)
 	}
 	sort.Strings(respPrefixes)
+	if options.MaxResults != 0 && len(respObjects) > options.MaxResults {
+		respObjects = respObjects[:options.MaxResults]
+	}
 	return respObjects, respPrefixes, nil
 }
 
@@ -573,6 +577,14 @@ func (s *Server) objectWithGenerationOnValidGeneration(bucketName, objectName, g
 
 func (s *Server) listObjects(r *http.Request) jsonResponse {
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
+	var maxResults int
+	var err error
+	if maxResultsStr := r.URL.Query().Get("maxResults"); maxResultsStr != "" {
+		maxResults, err = strconv.Atoi(maxResultsStr)
+		if err != nil {
+			return jsonResponse{status: http.StatusBadRequest}
+		}
+	}
 	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, ListOptions{
 		Prefix:                   r.URL.Query().Get("prefix"),
 		Delimiter:                r.URL.Query().Get("delimiter"),
@@ -580,6 +592,7 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 		StartOffset:              r.URL.Query().Get("startOffset"),
 		EndOffset:                r.URL.Query().Get("endOffset"),
 		IncludeTrailingDelimiter: r.URL.Query().Get("includeTrailingDelimiter") == "true",
+		MaxResults:               maxResults,
 	})
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
