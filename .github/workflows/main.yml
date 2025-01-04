@@ -51,7 +51,7 @@ jobs:
           - ubuntu
           - windows
 
-    name: tests (${{ matrix.os }}/go-${{ matrix.go_version }}
+    name: tests (${{ matrix.os }}/go-${{ matrix.go_version }})
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v4.2.2
