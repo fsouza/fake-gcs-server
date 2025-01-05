@@ -289,6 +289,7 @@ func (s *Server) buildMuxer() {
 	handler.Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
 	handler.MatcherFunc(s.publicHostMatcher).Path("/_internal/config").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.updateServerConfig))
 	handler.Path("/_internal/reseed").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.reseedServer))
+	handler.Path("/_internal/delete_all").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.deleteAllFiles))
 	// Internal - end
 
 	// XML API
@@ -365,6 +366,20 @@ func (s *Server) reseedServer(r *http.Request) jsonResponse {
 	}
 
 	return jsonResponse{data: fromBackendObjects(backendObjects)}
+}
+
+func (s *Server) deleteAllFiles(r *http.Request) jsonResponse {
+	if err := s.backend.DeleteAllFiles(); err != nil {
+		return jsonResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: err.Error(),
+		}
+	}
+
+	return jsonResponse{
+		status: http.StatusOK,
+		data:   map[string]string{"message": "All files deleted successfully"},
+	}
 }
 
 func generateObjectsFromFiles(folder string) ([]Object, []string) {

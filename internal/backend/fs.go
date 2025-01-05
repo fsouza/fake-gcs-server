@@ -469,3 +469,12 @@ func (s *storageFS) ComposeObject(bucketName string, objectNames []string, desti
 
 	return result, nil
 }
+
+func (s *storageFS) DeleteAllFiles() error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	if err := os.RemoveAll(s.rootDir); err != nil {
+		return err
+	}
+	return os.MkdirAll(s.rootDir, 0o700)
+}

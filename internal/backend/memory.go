@@ -392,3 +392,10 @@ func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, d
 
 	return result, nil
 }
+
+func (s *storageMemory) DeleteAllFiles() error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.buckets = make(map[string]bucketInMemory)
+	return nil
+}
