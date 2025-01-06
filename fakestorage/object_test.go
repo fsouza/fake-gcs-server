@@ -2123,10 +2123,12 @@ func TestParseRangeRequest(t *testing.T) {
 
 func TestServiceClientComposeObject(t *testing.T) {
 	const (
-		source1Content = "some content"
-		source2Content = "other content"
-		source3Content = "third test"
-		contentType    = "text/plain; charset=utf-8"
+		source1Content     = "some content"
+		source2Content     = "other content"
+		source3Content     = "third test"
+		contentDisposition = "attachment; filename=\"replaced.txt\""
+		contentLanguage    = "fr"
+		contentType        = "text/plain; charset=utf-8"
 	)
 	u32Checksum := uint32Checksum([]byte(source1Content))
 	hash := checksum.MD5Hash([]byte(source1Content))
@@ -2135,45 +2137,53 @@ func TestServiceClientComposeObject(t *testing.T) {
 	objs := []Object{
 		{
 			ObjectAttrs: ObjectAttrs{
-				BucketName:  "first-bucket",
-				Name:        "files/source1.txt",
-				ContentType: contentType,
-				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-				Md5Hash:     checksum.EncodedHash(hash),
-				Metadata:    map[string]string{"foo": "bar"},
+				BucketName:         "first-bucket",
+				Name:               "files/source1.txt",
+				ContentDisposition: contentDisposition,
+				ContentLanguage:    contentLanguage,
+				ContentType:        contentType,
+				Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:            checksum.EncodedHash(hash),
+				Metadata:           map[string]string{"foo": "bar"},
 			},
 			Content: []byte(source1Content),
 		},
 		{
 			ObjectAttrs: ObjectAttrs{
-				BucketName:  "first-bucket",
-				Name:        "files/source2.txt",
-				ContentType: contentType,
-				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-				Md5Hash:     checksum.EncodedHash(hash),
-				Metadata:    map[string]string{"foo": "bar"},
+				BucketName:         "first-bucket",
+				Name:               "files/source2.txt",
+				ContentDisposition: contentDisposition,
+				ContentLanguage:    contentLanguage,
+				ContentType:        contentType,
+				Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:            checksum.EncodedHash(hash),
+				Metadata:           map[string]string{"foo": "bar"},
 			},
 			Content: []byte(source2Content),
 		},
 		{
 			ObjectAttrs: ObjectAttrs{
-				BucketName:  "first-bucket",
-				Name:        "files/source3.txt",
-				ContentType: contentType,
-				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-				Md5Hash:     checksum.EncodedHash(hash),
-				Metadata:    map[string]string{"foo": "bar"},
+				BucketName:         "first-bucket",
+				Name:               "files/source3.txt",
+				ContentDisposition: contentDisposition,
+				ContentLanguage:    contentLanguage,
+				ContentType:        contentType,
+				Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:            checksum.EncodedHash(hash),
+				Metadata:           map[string]string{"foo": "bar"},
 			},
 			Content: []byte(source3Content),
 		},
 		{
 			ObjectAttrs: ObjectAttrs{
-				BucketName:  "first-bucket",
-				Name:        "files/destination.txt",
-				ContentType: contentType,
-				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-				Md5Hash:     checksum.EncodedHash(hash),
-				Metadata:    map[string]string{"foo": "bar"},
+				BucketName:         "first-bucket",
+				Name:               "files/destination.txt",
+				ContentDisposition: contentDisposition,
+				ContentLanguage:    contentLanguage,
+				ContentType:        contentType,
+				Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:            checksum.EncodedHash(hash),
+				Metadata:           map[string]string{"foo": "bar"},
 			},
 			Content: []byte("test"),
 		},
@@ -2236,6 +2246,8 @@ func TestServiceClientComposeObject(t *testing.T) {
 				dstObject := client.Bucket(test.bucketName).Object(test.destObjectName)
 				composer := dstObject.ComposerFrom(sourceObjects...)
 
+				composer.ContentDisposition = contentDisposition
+				composer.ContentLanguage = contentLanguage
 				composer.ContentType = contentType
 				composer.Metadata = map[string]string{"baz": "qux"}
 				attrs, err := composer.Run(context.TODO())
@@ -2261,6 +2273,12 @@ func TestServiceClientComposeObject(t *testing.T) {
 				if attrs.CRC32C != expectedChecksum {
 					t.Errorf("wrong checksum in compose object attrs\nwant %d\ngot  %d", u32Checksum, attrs.CRC32C)
 				}
+				if attrs.ContentDisposition != contentDisposition {
+					t.Errorf("wrong content disposition\nwant %q\ngot  %q", contentDisposition, attrs.ContentDisposition)
+				}
+				if attrs.ContentLanguage != contentLanguage {
+					t.Errorf("wrong content language\nwant %q\ngot  %q", contentLanguage, attrs.ContentLanguage)
+				}
 				if attrs.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
 				}
@@ -2285,6 +2303,12 @@ func TestServiceClientComposeObject(t *testing.T) {
 				}
 				if expect := checksum.EncodedHash(expectedHash); expect != obj.Md5Hash {
 					t.Errorf("wrong hash on object\nwant %s\ngot  %s", expect, obj.Md5Hash)
+				}
+				if obj.ContentDisposition != contentDisposition {
+					t.Errorf("wrong content disposition\nwant %q\ngot  %q", contentDisposition, obj.ContentDisposition)
+				}
+				if obj.ContentLanguage != contentLanguage {
+					t.Errorf("wrong content language\nwant %q\ngot  %q", contentLanguage, obj.ContentLanguage)
 				}
 				if obj.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
