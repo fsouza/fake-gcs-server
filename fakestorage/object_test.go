@@ -47,7 +47,6 @@ type objectTestCases []struct {
 func getObjectTestCases() objectTestCases {
 	const (
 		bucketName         = "some-bucket"
-		storageClass       = "COLDLINE"
 		content            = "some nice content"
 		contentType        = "text/plain; charset=utf-8"
 		contentEncoding    = "gzip"
@@ -119,6 +118,7 @@ func getObjectTestCases() objectTestCases {
 					Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
 					Md5Hash:            checksum.EncodedHash(hash),
 					Metadata:           map[string]string{"MetaHeader": metaValue},
+					StorageClass:       "COLDLINE",
 				},
 			},
 		},
@@ -194,6 +194,13 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	}
 	if attrs.ContentLanguage != testObj.ContentLanguage {
 		t.Errorf("wrong content language\nwant %q\ngot  %q", testObj.ContentLanguage, attrs.ContentLanguage)
+	}
+	expectedStorageClass := testObj.StorageClass
+	if expectedStorageClass == "" {
+		expectedStorageClass = "STANDARD"
+	}
+	if attrs.StorageClass != expectedStorageClass {
+		t.Errorf("wrong storage class\nwant %q\ngot  %q", expectedStorageClass, attrs.StorageClass)
 	}
 	if testObj.Content != nil && attrs.Size != int64(len(testObj.Content)) {
 		t.Errorf("wrong size returned\nwant %d\ngot  %d", len(testObj.Content), attrs.Size)

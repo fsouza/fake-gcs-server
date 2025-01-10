@@ -253,6 +253,9 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 	if obj.Etag == "" {
 		obj.Etag = obj.Md5Hash
 	}
+	if obj.StorageClass == "" {
+		obj.StorageClass = "STANDARD"
+	}
 
 	// TODO: Handle if metadata is not present more gracefully?
 	encoded, err := json.Marshal(obj.ObjectAttrs)

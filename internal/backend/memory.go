@@ -49,6 +49,9 @@ func (bm *bucketInMemory) addObject(obj Object) Object {
 	if obj.Size == 0 {
 		obj.Size = int64(len(obj.Content))
 	}
+	if obj.StorageClass == "" {
+		obj.StorageClass = "STANDARD"
+	}
 	obj.Generation = getNewGenerationIfZero(obj.Generation)
 	index := findObject(obj, bm.activeObjects, false)
 	if index >= 0 {
