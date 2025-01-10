@@ -2,7 +2,7 @@ module github.com/fsouza/fake-gcs-server
 
 require (
 	cloud.google.com/go/pubsub v1.45.3
-	cloud.google.com/go/storage v1.49.0
+	cloud.google.com/go/storage v1.50.0
 	github.com/fsouza/slognil v0.4.1
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/handlers v1.5.2
@@ -26,8 +26,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20241223141626-cff3c89139a3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/envoyproxy/go-control-plane v0.13.3 // indirect
-	github.com/envoyproxy/go-control-plane/envoy v1.32.2 // indirect
+	github.com/envoyproxy/go-control-plane/envoy v1.32.3 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
