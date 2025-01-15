@@ -6,7 +6,7 @@
 # 1 - Build the docker image by running the command "docker build -t fsouza/fake-gcs-server ."
 # 2 - Start the docker container: "docker run -d --name fake-gcs-server -p 4443:4443 -v ${PWD}/examples/data:/data fsouza/fake-gcs-server -scheme http"
 # 3 - Check if it's working by running: "curl http://0.0.0.0:4443/storage/v1/b"
-# 4 - Create a python virtual enviroment (Ex: python -m .venv venv)
+# 4 - Create a python virtual environment (Ex: python -m .venv venv)
 # 5 - Source the env (source .venv/bin/activate)
 # 7 - Go to the following directory examples/python: (cd examples/python)
 # 6 - Install requirements: "pip install -r requirements.txt"

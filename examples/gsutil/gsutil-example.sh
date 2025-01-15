@@ -16,7 +16,7 @@ gsutil -o "Credentials:gs_json_host=127.0.0.1" -o "Credentials:gs_json_port=4443
 # list objects in the bucket (should be empty)
 gsutil -o "Credentials:gs_json_host=127.0.0.1" -o "Credentials:gs_json_port=4443" -o "Boto:https_validate_certificates=False" ls -p "${project_id}" "gs://${bucket_name}"
 
-# upload a couple of fileds
+# upload a couple of files
 gsutil -o "Credentials:gs_json_host=127.0.0.1" -o "Credentials:gs_json_port=4443" -o "Boto:https_validate_certificates=False" cp "${here}"/hello.txt "${here}"/image.png "gs://${bucket_name}/"
 
 # list objects in the bucket (should include the files that were just uploaded)

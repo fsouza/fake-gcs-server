@@ -122,7 +122,7 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 			},
 		},
 		{
-			name:   "should skip inexistent folder",
+			name:   "should skip nonexistent folder",
 			folder: "../testdata/i-dont-exist",
 		},
 		{
@@ -458,7 +458,7 @@ func TestDownloadPartialPublicHostMatch(t *testing.T) {
 	}
 }
 
-func TestDownloadPartialHostValidationShouldntValidatePortPartially(t *testing.T) {
+func TestDownloadPartialHostValidationShouldNotValidatePortPartially(t *testing.T) {
 	server, err := NewServerWithOptions(Options{PublicHost: "127.0.0.1", InitialObjects: []Object{
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-01.txt"}, Content: []byte("something")},
 	}})

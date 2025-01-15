@@ -414,7 +414,7 @@ func TestServerClientObjectTranscoding(t *testing.T) {
 	const (
 		bucketName      = "some-bucket"
 		objectName      = "items/data.txt"
-		content         = "some nice content, which will be gziped"
+		content         = "some nice content, which will be gzipped"
 		contentType     = "text/plain; charset=utf-8"
 		contentEncoding = "gzip"
 	)
@@ -471,7 +471,7 @@ func TestServerClientObjectSkipTranscoding(t *testing.T) {
 	const (
 		bucketName      = "some-bucket"
 		objectName      = "items/data.txt"
-		content         = "some nice content, which will be gziped"
+		content         = "some nice content, which will be gzipped"
 		contentType     = "text/plain; charset=utf-8"
 		contentEncoding = "gzip"
 	)
