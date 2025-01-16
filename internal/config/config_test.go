@@ -6,6 +6,8 @@ package config
 
 import (
 	"log/slog"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
@@ -18,10 +20,11 @@ import (
 func TestLoadConfig(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name           string
-		args           []string
-		expectedConfig Config
-		expectErr      bool
+		name                 string
+		args                 []string
+		environmentVariables map[string]string
+		expectedConfig       Config
+		expectErr            bool
 	}{
 		{
 			name: "all parameters",
@@ -275,6 +278,56 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "using environment variables",
+			args: []string{},
+			environmentVariables: map[string]string{
+				"FAKE_GCS_BACKEND": "memory",
+			},
+			expectedConfig: Config{
+				Seed:               "",
+				backend:            "memory",
+				fsRoot:             "/storage",
+				publicHost:         "storage.googleapis.com",
+				externalURL:        "https://0.0.0.0:4443",
+				allowedCORSHeaders: nil,
+				Host:               "0.0.0.0",
+				Port:               4443,
+				PortHTTP:           0,
+				Scheme:             "https",
+				event: EventConfig{
+					list: []string{"finalize"},
+				},
+				bucketLocation: "US-CENTRAL1",
+				LogLevel:       slog.LevelInfo,
+			},
+		},
+		{
+			name: "args have precedence over environment variables",
+			args: []string{
+				"-backend", "filesystem",
+			},
+			environmentVariables: map[string]string{
+				"FAKE_GCS_BACKEND": "memory",
+			},
+			expectedConfig: Config{
+				Seed:               "",
+				backend:            "filesystem",
+				fsRoot:             "/storage",
+				publicHost:         "storage.googleapis.com",
+				externalURL:        "https://0.0.0.0:4443",
+				allowedCORSHeaders: nil,
+				Host:               "0.0.0.0",
+				Port:               4443,
+				PortHTTP:           0,
+				Scheme:             "https",
+				event: EventConfig{
+					list: []string{"finalize"},
+				},
+				bucketLocation: "US-CENTRAL1",
+				LogLevel:       slog.LevelInfo,
+			},
+		},
+		{
 			name:      "invalid port value type",
 			args:      []string{"-port", "not-a-number"},
 			expectErr: true,
@@ -333,7 +386,20 @@ func TestLoadConfig(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+			// Set up environment
+			beforeEnv := os.Environ()
+			os.Clearenv()
+			for k, v := range test.environmentVariables {
+				os.Setenv(k, v)
+			}
+			t.Cleanup(func() {
+				os.Clearenv()
+				for _, envVar := range beforeEnv {
+					parts := strings.SplitN(envVar, "=", 2)
+					os.Setenv(parts[0], parts[1])
+				}
+			})
+
 			cfg, err := Load(test.args)
 			if err != nil && !test.expectErr {
 				t.Fatalf("unexpected non-nil error: %v", err)
