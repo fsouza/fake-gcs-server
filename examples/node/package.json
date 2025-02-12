@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google-cloud/storage": "^7.15.0"
+    "@google-cloud/storage": "^7.15.1"
   }
 }
