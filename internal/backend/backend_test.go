@@ -17,16 +17,8 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 )
 
-func tempDir() string {
-	if runtime.GOOS == "linux" {
-		return "/var/tmp"
-	} else {
-		return os.TempDir()
-	}
-}
-
 func makeStorageBackends(t *testing.T) (map[string]Storage, func()) {
-	tempDir, err := os.MkdirTemp(tempDir(), "fakegcstest")
+	tempDir, err := os.MkdirTemp("", "fakegcstest")
 	if err != nil {
 		t.Fatal(err)
 	}

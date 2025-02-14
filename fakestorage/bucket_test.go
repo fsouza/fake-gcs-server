@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"runtime"
 	"testing"
 	"time"
 
@@ -16,14 +15,6 @@ import (
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 )
-
-func tempDir() string {
-	if runtime.GOOS == "linux" {
-		return "/var/tmp"
-	} else {
-		return os.TempDir()
-	}
-}
 
 func TestServerClientUpdateBucketAttrs(t *testing.T) {
 	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
@@ -331,7 +322,7 @@ func TestServerClientListObjects(t *testing.T) {
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-02.jpg"}},
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/hi-res/party-03.jpg"}},
 	}
-	dir, err := os.MkdirTemp(tempDir(), "fakestorage-test-root-")
+	dir, err := os.MkdirTemp("", "fakestorage-test-root-")
 	if err != nil {
 		t.Fatal(err)
 	}
