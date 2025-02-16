@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"runtime"
 	"testing"
 
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -15,16 +14,8 @@ import (
 	pb "google.golang.org/genproto/googleapis/storage/v1"
 )
 
-func tempDir() string {
-	if runtime.GOOS == "linux" {
-		return "/var/tmp"
-	} else {
-		return os.TempDir()
-	}
-}
-
 func makeStorageBackends(t *testing.T) (map[string]backend.Storage, func()) {
-	tempDir, err := os.MkdirTemp(tempDir(), "fakegcstest-grpc")
+	tempDir, err := os.MkdirTemp("", "fakegcstest-grpc")
 	if err != nil {
 		t.Fatal(err)
 	}
