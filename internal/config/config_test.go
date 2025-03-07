@@ -606,7 +606,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 				os.Setenv(test.envKey, test.envValue)
 				defer os.Unsetenv(test.envKey)
 			}
-			got := envVarOrDefaultT(test.envKey, test.defaultValue, func(s string) (string, error) {
+			got := envVarOrDefault(test.envKey, test.defaultValue, func(s string) (string, error) {
 				return s, nil
 			})
 			if got != test.expected {

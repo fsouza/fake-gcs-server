@@ -62,9 +62,9 @@ type EventConfig struct {
 	list            []string
 }
 
-// envVarOrDefaultT retrieves an environment variable value and converts it to type T,
+// envVarOrDefault retrieves an environment variable value and converts it to type T,
 // or returns the default value if the environment variable is not set or cannot be converted.
-func envVarOrDefaultT[T string | uint](key string, defaultValue T, convert func(string) (T, error)) T {
+func envVarOrDefault[T string | uint](key string, defaultValue T, convert func(string) (T, error)) T {
 	if val, ok := os.LookupEnv(key); ok {
 		if converted, err := convert(val); err == nil {
 			return converted
@@ -81,67 +81,67 @@ func Load(args []string) (Config, error) {
 	var eventList string
 	var logLevel string
 
-	portHTTPS := envVarOrDefaultT("FAKE_GCS_PORT", defaultHTTPSPort, func(s string) (uint, error) {
+	portHTTPS := envVarOrDefault("FAKE_GCS_PORT", defaultHTTPSPort, func(s string) (uint, error) {
 		val, err := strconv.ParseUint(s, 10, 32)
 		return uint(val), err
 	})
-	portHTTP := envVarOrDefaultT("FAKE_GCS_PORT_HTTP", defaultHTTPPort, func(s string) (uint, error) {
+	portHTTP := envVarOrDefault("FAKE_GCS_PORT_HTTP", defaultHTTPPort, func(s string) (uint, error) {
 		val, err := strconv.ParseUint(s, 10, 32)
 		return uint(val), err
 	})
 
 	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
-	fs.StringVar(&cfg.backend, "backend", envVarOrDefaultT("FAKE_GCS_BACKEND", filesystemBackend, func(s string) (string, error) {
+	fs.StringVar(&cfg.backend, "backend", envVarOrDefault("FAKE_GCS_BACKEND", filesystemBackend, func(s string) (string, error) {
 		return s, nil
 	}), "storage backend (memory or filesystem)")
-	fs.StringVar(&cfg.fsRoot, "filesystem-root", envVarOrDefaultT("FAKE_GCS_FILESYSTEM_ROOT", "/storage", func(s string) (string, error) {
+	fs.StringVar(&cfg.fsRoot, "filesystem-root", envVarOrDefault("FAKE_GCS_FILESYSTEM_ROOT", "/storage", func(s string) (string, error) {
 		return s, nil
 	}), "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
-	fs.StringVar(&cfg.publicHost, "public-host", envVarOrDefaultT("FAKE_GCS_PUBLIC_HOST", "storage.googleapis.com", func(s string) (string, error) {
+	fs.StringVar(&cfg.publicHost, "public-host", envVarOrDefault("FAKE_GCS_PUBLIC_HOST", "storage.googleapis.com", func(s string) (string, error) {
 		return s, nil
 	}), "Optional URL for public host")
-	fs.StringVar(&cfg.externalURL, "external-url", envVarOrDefaultT("FAKE_GCS_EXTERNAL_URL", "", func(s string) (string, error) {
+	fs.StringVar(&cfg.externalURL, "external-url", envVarOrDefault("FAKE_GCS_EXTERNAL_URL", "", func(s string) (string, error) {
 		return s, nil
 	}), "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
-	fs.StringVar(&cfg.Scheme, "scheme", envVarOrDefaultT("FAKE_GCS_SCHEME", schemeHTTPS, func(s string) (string, error) {
+	fs.StringVar(&cfg.Scheme, "scheme", envVarOrDefault("FAKE_GCS_SCHEME", schemeHTTPS, func(s string) (string, error) {
 		return s, nil
 	}), "using 'http' or 'https' or 'both'")
-	fs.StringVar(&cfg.Host, "host", envVarOrDefaultT("FAKE_GCS_HOST", "0.0.0.0", func(s string) (string, error) {
+	fs.StringVar(&cfg.Host, "host", envVarOrDefault("FAKE_GCS_HOST", "0.0.0.0", func(s string) (string, error) {
 		return s, nil
 	}), "host to bind to")
-	fs.StringVar(&cfg.Seed, "data", envVarOrDefaultT("FAKE_GCS_DATA", "", func(s string) (string, error) {
+	fs.StringVar(&cfg.Seed, "data", envVarOrDefault("FAKE_GCS_DATA", "", func(s string) (string, error) {
 		return s, nil
 	}), "where to load data from (provided that the directory exists)")
-	fs.StringVar(&allowedCORSHeaders, "cors-headers", envVarOrDefaultT("FAKE_GCS_CORS_HEADERS", "", func(s string) (string, error) {
+	fs.StringVar(&allowedCORSHeaders, "cors-headers", envVarOrDefault("FAKE_GCS_CORS_HEADERS", "", func(s string) (string, error) {
 		return s, nil
 	}), "comma separated list of headers to add to the CORS allowlist")
 	fs.UintVar(&cfg.Port, "port", portHTTPS, "port to bind to")
 	fs.UintVar(&cfg.PortHTTP, "port-http", portHTTP, "used only when scheme is 'both' as the port to bind http to")
-	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", envVarOrDefaultT("FAKE_GCS_EVENT_PUBSUB_PROJECT_ID", "", func(s string) (string, error) {
+	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", envVarOrDefault("FAKE_GCS_EVENT_PUBSUB_PROJECT_ID", "", func(s string) (string, error) {
 		return s, nil
 	}), "project ID containing the pubsub topic")
-	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", envVarOrDefaultT("FAKE_GCS_EVENT_PUBSUB_TOPIC", "", func(s string) (string, error) {
+	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", envVarOrDefault("FAKE_GCS_EVENT_PUBSUB_TOPIC", "", func(s string) (string, error) {
 		return s, nil
 	}), "pubsub topic name to publish events on")
-	fs.StringVar(&cfg.event.bucket, "event.bucket", envVarOrDefaultT("FAKE_GCS_EVENT_BUCKET", "", func(s string) (string, error) {
+	fs.StringVar(&cfg.event.bucket, "event.bucket", envVarOrDefault("FAKE_GCS_EVENT_BUCKET", "", func(s string) (string, error) {
 		return s, nil
 	}), "if not empty, only objects in this bucket will generate trigger events")
-	fs.StringVar(&cfg.event.prefix, "event.object-prefix", envVarOrDefaultT("FAKE_GCS_EVENT_OBJECT_PREFIX", "", func(s string) (string, error) {
+	fs.StringVar(&cfg.event.prefix, "event.object-prefix", envVarOrDefault("FAKE_GCS_EVENT_OBJECT_PREFIX", "", func(s string) (string, error) {
 		return s, nil
 	}), "if not empty, only objects having this prefix will generate trigger events")
-	fs.StringVar(&eventList, "event.list", envVarOrDefaultT("FAKE_GCS_EVENT_LIST", eventFinalize, func(s string) (string, error) {
+	fs.StringVar(&eventList, "event.list", envVarOrDefault("FAKE_GCS_EVENT_LIST", eventFinalize, func(s string) (string, error) {
 		return s, nil
 	}), "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
-	fs.StringVar(&cfg.bucketLocation, "location", envVarOrDefaultT("FAKE_GCS_LOCATION", "US-CENTRAL1", func(s string) (string, error) {
+	fs.StringVar(&cfg.bucketLocation, "location", envVarOrDefault("FAKE_GCS_LOCATION", "US-CENTRAL1", func(s string) (string, error) {
 		return s, nil
 	}), "location for buckets")
-	fs.StringVar(&cfg.CertificateLocation, "cert-location", envVarOrDefaultT("FAKE_GCS_CERT_LOCATION", "", func(s string) (string, error) {
+	fs.StringVar(&cfg.CertificateLocation, "cert-location", envVarOrDefault("FAKE_GCS_CERT_LOCATION", "", func(s string) (string, error) {
 		return s, nil
 	}), "location for server certificate")
-	fs.StringVar(&cfg.PrivateKeyLocation, "private-key-location", envVarOrDefaultT("FAKE_GCS_PRIVATE_KEY_LOCATION", "", func(s string) (string, error) {
+	fs.StringVar(&cfg.PrivateKeyLocation, "private-key-location", envVarOrDefault("FAKE_GCS_PRIVATE_KEY_LOCATION", "", func(s string) (string, error) {
 		return s, nil
 	}), "location for private key")
-	fs.StringVar(&logLevel, "log-level", envVarOrDefaultT("FAKE_GCS_LOG_LEVEL", "info", func(s string) (string, error) {
+	fs.StringVar(&logLevel, "log-level", envVarOrDefault("FAKE_GCS_LOG_LEVEL", "info", func(s string) (string, error) {
 		return s, nil
 	}), "level for logging. Options same as for logrus: trace, debug, info, warn, error, fatal, and panic")
 
