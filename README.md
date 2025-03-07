@@ -119,7 +119,7 @@ All server flags can also be configured using environment variables. The environ
 Example using environment variables:
 
 ```shell
-docker run -d --name fake-gcs-server -e FAKE_GCS_SCHEME=http -p 4443:4443 -v ${PWD}/examples/data:/data fsouza/fake-gcs-server
+docker run -d --name fake-gcs-server -e FAKE_GCS_SCHEME=http -p 4443:4443
 ```
 
 Notes:
