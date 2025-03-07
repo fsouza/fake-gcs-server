@@ -56,8 +56,8 @@ This will result in one bucket called `sample-bucket` containing one object call
 ### Running with HTTP
 
 fake-gcs-server defaults to HTTPS, but it can also be used with HTTP. The flag
-`-scheme` can be used to specify the protocol.  
-The binding port will be `-port` (defaults to `4443`).  
+`-scheme` can be used to specify the protocol.
+The binding port will be `-port` (defaults to `4443`).
 For example, the previous example could be changed to pass `-scheme http`:
 
 ```shell
@@ -77,8 +77,8 @@ curl http://0.0.0.0:4443/storage/v1/b/sample-bucket/o
 
 ### Running with both HTTPS and HTTP
 
-To start both HTTPS and HTTP servers, pass `-scheme both`.  
-HTTPS will bind to `-port` (defaults to `4443`) and HTTP will bind to `-port-http` (defaults to `8000`).  
+To start both HTTPS and HTTP servers, pass `-scheme both`.
+HTTPS will bind to `-port` (defaults to `4443`) and HTTP will bind to `-port-http` (defaults to `8000`).
 For example, the previous example could be changed to pass `-scheme both`:
 
 ```shell
@@ -104,6 +104,28 @@ instructions
 ```shell
 docker run --rm fsouza/fake-gcs-server -help
 ```
+
+### Environment Variables
+
+All server flags can also be configured using environment variables. The environment variable names are prefixed with `FAKE_GCS_` and use uppercase with underscores. For example:
+
+- `-port`: `FAKE_GCS_PORT`
+- `-scheme`: `FAKE_GCS_SCHEME`
+- `-backend`: `FAKE_GCS_BACKEND`
+- `-filesystem-root`: `FAKE_GCS_FILESYSTEM_ROOT`
+- `-public-host`: `FAKE_GCS_PUBLIC_HOST`
+- `-external-url`: `FAKE_GCS_EXTERNAL_URL`
+
+Example using environment variables:
+
+```shell
+docker run -d --name fake-gcs-server -e FAKE_GCS_SCHEME=http -p 4443:4443 -v ${PWD}/examples/data:/data fsouza/fake-gcs-server
+```
+
+Notes:
+
+- Command line flags take precedence over environment variables
+- Default values are used for invalid inputs (e.g., non-numeric values for ports)
 
 ## Client library examples
 
