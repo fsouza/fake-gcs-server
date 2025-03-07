@@ -352,6 +352,30 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "using environment variables for invalid port value type",
+			args: []string{},
+			environmentVariables: map[string]string{
+				"FAKE_GCS_PORT": "not-a-number",
+			},
+			expectedConfig: Config{
+				Seed:               "",
+				backend:            "filesystem",
+				fsRoot:             "/storage",
+				publicHost:         "storage.googleapis.com",
+				externalURL:        "https://0.0.0.0:4443",
+				allowedCORSHeaders: nil,
+				Host:               "0.0.0.0",
+				Port:               4443,
+				PortHTTP:           0,
+				Scheme:             "https",
+				event: EventConfig{
+					list: []string{"finalize"},
+				},
+				bucketLocation: "US-CENTRAL1",
+				LogLevel:       slog.LevelInfo,
+			},
+		},
+		{
 			name:      "invalid port value type",
 			args:      []string{"-port", "not-a-number"},
 			expectErr: true,
