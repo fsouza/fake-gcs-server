@@ -646,7 +646,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 		},
 		{
 			name:         "environment variables are set",
-			envKey:       "FAKE_GCS_SCHEME",
+			envKey:       "FAKE_GCS_TEST_STRING",
 			defaultValue: "https",
 			envValue:     "both",
 			expected:     "both",
@@ -656,7 +656,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 		},
 		{
 			name:         "environment variables are empty",
-			envKey:       "FAKE_GCS_SCHEME",
+			envKey:       "FAKE_GCS_TEST_STRING",
 			defaultValue: "https",
 			envValue:     "",
 			expected:     "https",
@@ -666,7 +666,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 		},
 		{
 			name:         "uint value is set in environment",
-			envKey:       "FAKE_GCS_PORT",
+			envKey:       "FAKE_GCS_TEST_UINT",
 			defaultValue: "4443",
 			envValue:     "5553",
 			expected:     "5553",
@@ -680,7 +680,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 		},
 		{
 			name:         "invalid uint value in environment",
-			envKey:       "FAKE_GCS_PORT",
+			envKey:       "FAKE_GCS_TEST_UINT",
 			defaultValue: "4443",
 			envValue:     "not-a-number",
 			expected:     "4443",
@@ -694,7 +694,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 		},
 		{
 			name:         "uint value exceeds maximum",
-			envKey:       "FAKE_GCS_PORT",
+			envKey:       "FAKE_GCS_TEST_UINT",
 			defaultValue: "4443",
 			envValue:     "65536",
 			expected:     "4443",
@@ -712,10 +712,18 @@ func TestEnvVarOrDefault(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
+			// テストケース実行前の環境変数を保存
+			oldEnv := os.Getenv(test.envKey)
+			defer os.Setenv(test.envKey, oldEnv)
+
+			// テストケースの環境変数を設定
 			if test.envValue != "" {
 				os.Setenv(test.envKey, test.envValue)
-				defer os.Unsetenv(test.envKey)
+			} else {
+				os.Unsetenv(test.envKey)
 			}
+
 			got := envVarOrDefault(test.envKey, test.defaultValue, test.parser)
 			if got != test.expected {
 				t.Errorf("want %q, got %q", test.expected, got)
