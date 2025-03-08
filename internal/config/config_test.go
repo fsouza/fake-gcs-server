@@ -21,7 +21,6 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name           string
 		args           []string
@@ -520,7 +519,6 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestToFakeGcsOptions(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name     string
 		config   Config
@@ -625,7 +623,6 @@ func TestToFakeGcsOptions(t *testing.T) {
 }
 
 func TestEnvVarOrDefault(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name         string
 		envKey       string
