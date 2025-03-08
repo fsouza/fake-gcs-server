@@ -65,7 +65,7 @@ type EventConfig struct {
 // envVarOrDefault retrieves an environment variable value and converts it to type T,
 // or returns the default value if the environment variable is not set or cannot be converted.
 func envVarOrDefault[T string | uint](key string, defaultValue T, convert func(string) (T, error)) T {
-	if val, ok := os.LookupEnv(key); ok {
+	if val, ok := os.LookupEnv(key); ok && val != "" {
 		if converted, err := convert(val); err == nil {
 			return converted
 		}

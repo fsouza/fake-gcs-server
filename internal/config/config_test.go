@@ -331,7 +331,7 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "using environment variables for uint values",
+			name: "using environment variables for uint values and both scheme",
 			args: []string{},
 			envVars: map[string]string{
 				"FAKE_GCS_PORT":      "5553",
@@ -711,19 +711,17 @@ func TestEnvVarOrDefault(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			// テストケース実行前の環境変数を保存
-			oldEnv := os.Getenv(test.envKey)
-			defer os.Setenv(test.envKey, oldEnv)
-
-			// テストケースの環境変数を設定
-			if test.envValue != "" {
-				os.Setenv(test.envKey, test.envValue)
-			} else {
-				os.Unsetenv(test.envKey)
-			}
-
+			// Set up environment
+			beforeEnv := os.Environ()
+			os.Clearenv()
+			os.Setenv(test.envKey, test.envValue)
+			t.Cleanup(func() {
+				os.Clearenv()
+				for _, envVar := range beforeEnv {
+					parts := strings.SplitN(envVar, "=", 2)
+					os.Setenv(parts[0], parts[1])
+				}
+			})
 			got := envVarOrDefault(test.envKey, test.defaultValue, test.parser)
 			if got != test.expected {
 				t.Errorf("want %q, got %q", test.expected, got)
