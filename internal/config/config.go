@@ -81,11 +81,11 @@ func Load(args []string) (Config, error) {
 	var eventList string
 	var logLevel string
 
-	portHTTPS := envVarOrDefault("FAKE_GCS_PORT", defaultHTTPSPort, func(s string) (uint, error) {
+	envVarOrDefaultPort := envVarOrDefault("FAKE_GCS_PORT", defaultHTTPSPort, func(s string) (uint, error) {
 		val, err := strconv.ParseUint(s, 10, 32)
 		return uint(val), err
 	})
-	portHTTP := envVarOrDefault("FAKE_GCS_PORT_HTTP", defaultHTTPPort, func(s string) (uint, error) {
+	envVarOrDefaultPortHTTP := envVarOrDefault("FAKE_GCS_PORT_HTTP", defaultHTTPPort, func(s string) (uint, error) {
 		val, err := strconv.ParseUint(s, 10, 32)
 		return uint(val), err
 	})
@@ -115,8 +115,8 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&allowedCORSHeaders, "cors-headers", envVarOrDefault("FAKE_GCS_CORS_HEADERS", "", func(s string) (string, error) {
 		return s, nil
 	}), "comma separated list of headers to add to the CORS allowlist")
-	fs.UintVar(&cfg.Port, "port", portHTTPS, "port to bind to")
-	fs.UintVar(&cfg.PortHTTP, "port-http", portHTTP, "used only when scheme is 'both' as the port to bind http to")
+	fs.UintVar(&cfg.Port, "port", envVarOrDefaultPort, "port to bind to")
+	fs.UintVar(&cfg.PortHTTP, flagPortHTTP, envVarOrDefaultPortHTTP, "used only when scheme is 'both' as the port to bind http to")
 	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", envVarOrDefault("FAKE_GCS_EVENT_PUBSUB_PROJECT_ID", "", func(s string) (string, error) {
 		return s, nil
 	}), "project ID containing the pubsub topic")
@@ -160,12 +160,12 @@ func Load(args []string) (Config, error) {
 
 	// setting default values, if not provided, for port - mind that the default port is 4443 regardless of the scheme
 	if _, ok := setFlags[flagPort]; !ok {
-		cfg.Port = portHTTPS
+		cfg.Port = envVarOrDefaultPort
 	}
 
 	if _, ok := setFlags[flagPortHTTP]; !ok {
 		if cfg.Scheme == schemeBoth {
-			cfg.PortHTTP = portHTTP
+			cfg.PortHTTP = envVarOrDefaultPortHTTP
 		} else {
 			cfg.PortHTTP = 0
 		}

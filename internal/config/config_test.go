@@ -23,11 +23,11 @@ import (
 func TestLoadConfig(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name                 string
-		args                 []string
-		environmentVariables map[string]string
-		expectedConfig       Config
-		expectErr            bool
+		name           string
+		args           []string
+		envVars        map[string]string
+		expectedConfig Config
+		expectErr      bool
 	}{
 		{
 			name: "all parameters",
@@ -283,7 +283,7 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name: "using environment variables",
 			args: []string{},
-			environmentVariables: map[string]string{
+			envVars: map[string]string{
 				"FAKE_GCS_BACKEND": "memory",
 			},
 			expectedConfig: Config{
@@ -309,7 +309,7 @@ func TestLoadConfig(t *testing.T) {
 			args: []string{
 				"-backend", "filesystem",
 			},
-			environmentVariables: map[string]string{
+			envVars: map[string]string{
 				"FAKE_GCS_BACKEND": "memory",
 			},
 			expectedConfig: Config{
@@ -333,7 +333,62 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name: "using environment variables for uint values",
 			args: []string{},
-			environmentVariables: map[string]string{
+			envVars: map[string]string{
+				"FAKE_GCS_PORT":      "5553",
+				"FAKE_GCS_PORT_HTTP": "9000",
+				"FAKE_GCS_SCHEME":    "both",
+			},
+			expectedConfig: Config{
+				Seed:               "",
+				backend:            "filesystem",
+				fsRoot:             "/storage",
+				publicHost:         "storage.googleapis.com",
+				externalURL:        "https://0.0.0.0:5553",
+				allowedCORSHeaders: nil,
+				Host:               "0.0.0.0",
+				Port:               5553,
+				PortHTTP:           9000,
+				Scheme:             "both",
+				event: EventConfig{
+					list: []string{"finalize"},
+				},
+				bucketLocation: "US-CENTRAL1",
+				LogLevel:       slog.LevelInfo,
+			},
+		},
+		{
+			name: "using environment variables for uint values with flag port and http scheme",
+			args: []string{
+				"-port", "5553",
+				"-scheme", "http",
+			},
+			envVars: map[string]string{
+				"FAKE_GCS_PORT":      "3333",
+				"FAKE_GCS_PORT_HTTP": "9000",
+				"FAKE_GCS_SCHEME":    "both",
+			},
+			expectedConfig: Config{
+				Seed:               "",
+				backend:            "filesystem",
+				fsRoot:             "/storage",
+				publicHost:         "storage.googleapis.com",
+				externalURL:        "http://0.0.0.0:5553",
+				allowedCORSHeaders: nil,
+				Host:               "0.0.0.0",
+				Port:               5553,
+				PortHTTP:           0,
+				Scheme:             "http",
+				event: EventConfig{
+					list: []string{"finalize"},
+				},
+				bucketLocation: "US-CENTRAL1",
+				LogLevel:       slog.LevelInfo,
+			},
+		},
+		{
+			name: "using environment variables for uint values",
+			args: []string{},
+			envVars: map[string]string{
 				"FAKE_GCS_PORT": "5553",
 			},
 			expectedConfig: Config{
@@ -357,7 +412,7 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name: "using environment variables for invalid port value type",
 			args: []string{},
-			environmentVariables: map[string]string{
+			envVars: map[string]string{
 				"FAKE_GCS_PORT": "not-a-number",
 			},
 			expectedConfig: Config{
@@ -440,7 +495,7 @@ func TestLoadConfig(t *testing.T) {
 			// Set up environment
 			beforeEnv := os.Environ()
 			os.Clearenv()
-			for k, v := range test.environmentVariables {
+			for k, v := range test.envVars {
 				os.Setenv(k, v)
 			}
 			t.Cleanup(func() {
