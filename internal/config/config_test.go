@@ -5,8 +5,11 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
+	"math"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -574,6 +577,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 		defaultValue string
 		envValue     string
 		expected     string
+		parser       func(string) (string, error)
 	}{
 		{
 			name:         "environment variables are not set",
@@ -581,20 +585,71 @@ func TestEnvVarOrDefault(t *testing.T) {
 			defaultValue: "default",
 			envValue:     "",
 			expected:     "default",
+			parser: func(s string) (string, error) {
+				return s, nil
+			},
 		},
 		{
 			name:         "environment variables are set",
-			envKey:       "FAKE_GCS_TEST_VAR",
-			defaultValue: "default",
-			envValue:     "custom",
-			expected:     "custom",
+			envKey:       "FAKE_GCS_SCHEME",
+			defaultValue: "https",
+			envValue:     "both",
+			expected:     "both",
+			parser: func(s string) (string, error) {
+				return s, nil
+			},
 		},
 		{
 			name:         "environment variables are empty",
-			envKey:       "FAKE_GCS_TEST_VAR",
-			defaultValue: "default",
+			envKey:       "FAKE_GCS_SCHEME",
+			defaultValue: "https",
 			envValue:     "",
-			expected:     "default",
+			expected:     "https",
+			parser: func(s string) (string, error) {
+				return s, nil
+			},
+		},
+		{
+			name:         "uint value is set in environment",
+			envKey:       "FAKE_GCS_PORT",
+			defaultValue: "4443",
+			envValue:     "5553",
+			expected:     "5553",
+			parser: func(s string) (string, error) {
+				_, err := strconv.ParseUint(s, 10, 16)
+				if err != nil {
+					return "", err
+				}
+				return s, nil
+			},
+		},
+		{
+			name:         "invalid uint value in environment",
+			envKey:       "FAKE_GCS_PORT",
+			defaultValue: "4443",
+			envValue:     "not-a-number",
+			expected:     "4443",
+			parser: func(s string) (string, error) {
+				_, err := strconv.ParseUint(s, 10, 16)
+				if err != nil {
+					return "", err
+				}
+				return s, nil
+			},
+		},
+		{
+			name:         "uint value exceeds maximum",
+			envKey:       "FAKE_GCS_PORT",
+			defaultValue: "4443",
+			envValue:     "65536",
+			expected:     "4443",
+			parser: func(s string) (string, error) {
+				val, err := strconv.ParseUint(s, 10, 16)
+				if err != nil || val > math.MaxUint16 {
+					return "", fmt.Errorf("value must be between 0 and %d", math.MaxUint16)
+				}
+				return s, nil
+			},
 		},
 	}
 
@@ -606,9 +661,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 				os.Setenv(test.envKey, test.envValue)
 				defer os.Unsetenv(test.envKey)
 			}
-			got := envVarOrDefault(test.envKey, test.defaultValue, func(s string) (string, error) {
-				return s, nil
-			})
+			got := envVarOrDefault(test.envKey, test.defaultValue, test.parser)
 			if got != test.expected {
 				t.Errorf("want %q, got %q", test.expected, got)
 			}
