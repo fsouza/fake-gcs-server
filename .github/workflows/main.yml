@@ -70,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.2
 
-      - uses: golangci/golangci-lint-action@v6.5.0
+      - uses: golangci/golangci-lint-action@v6.5.1
 
   staticcheck:
     name: staticcheck
