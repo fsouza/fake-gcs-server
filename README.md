@@ -105,6 +105,12 @@ instructions
 docker run --rm fsouza/fake-gcs-server -help
 ```
 
+### Using within docker compose
+
+To be able to upload files within the docker-compose bridge network, you need to specify service own URL using the `-external-url http://<your docker compose service name>:<port>` option.
+
+The explanation is that for resumable uploads, the GCS client first initiates the resumable upload with the server, and in the response the server includes a URL for future requests to go to but the service doesn't know it's own url if not provided with `-external-url`.
+
 ## Client library examples
 
 For examples using SDK from multiple languages, check out the
