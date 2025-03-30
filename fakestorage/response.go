@@ -28,13 +28,13 @@ type listResponse struct {
 	Prefixes []string `json:"prefixes,omitempty"`
 }
 
-func newListBucketsResponse(buckets []backend.Bucket, location string) listResponse {
+func newListBucketsResponse(buckets []backend.Bucket, location string, externalURL string) listResponse {
 	resp := listResponse{
 		Kind:  "storage#buckets",
 		Items: make([]any, len(buckets)),
 	}
 	for i, bucket := range buckets {
-		resp.Items[i] = newBucketResponse(bucket, location)
+		resp.Items[i] = newBucketResponse(bucket, location, externalURL)
 	}
 	return resp
 }
@@ -53,13 +53,14 @@ type bucketResponse struct {
 	Metageneration        string            `json:"metageneration"`
 	Etag                  string            `json:"etag"`
 	LocationType          string            `json:"locationType"`
+	SelfLink              string            `json:"selfLink,omitempty"`
 }
 
 type bucketVersioning struct {
 	Enabled bool `json:"enabled"`
 }
 
-func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
+func newBucketResponse(bucket backend.Bucket, location string, externalURL string) bucketResponse {
 	return bucketResponse{
 		Kind:                  "storage#bucket",
 		ID:                    bucket.Name,
@@ -74,6 +75,7 @@ func newBucketResponse(bucket backend.Bucket, location string) bucketResponse {
 		Metageneration:        "1",
 		Etag:                  "RVRhZw==",
 		LocationType:          "region",
+		SelfLink:              fmt.Sprintf("%s/storage/v1/b/%s", externalURL, url.PathEscape(bucket.Name)),
 	}
 }
 
