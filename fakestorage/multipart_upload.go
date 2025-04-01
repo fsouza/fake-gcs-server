@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -40,10 +41,26 @@ func (s *Server) initiateMultipartUpload(r *http.Request) xmlResponse {
 		return xmlResponse{errorMessage: err.Error()}
 	}
 
+	metadata := make(map[string]string)
+	for key, value := range r.Header {
+		if !strings.HasPrefix(key, "X-Goog-Meta-") {
+			continue
+		}
+		metakey := strings.TrimPrefix(key, "X-Goog-Meta-")
+		if len(r.Header[key]) != 1 {
+			return xmlResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: fmt.Sprintf("unexpected number of metadata values for key: %s", metakey),
+			}
+		}
+		metadata[metakey] = value[0]
+	}
+
 	s.mpus.Store(uploadID, &multipartUpload{
 		ObjectAttrs: ObjectAttrs{
 			BucketName: bucketName,
 			Name:       objectName,
+			Metadata:   metadata,
 		},
 		parts: make(map[int]objectPart),
 	})

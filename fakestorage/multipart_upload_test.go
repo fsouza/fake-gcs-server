@@ -38,14 +38,14 @@ func TestInitiateMultipartUpload(t *testing.T) {
 		{
 			req: &multipartclient.InitiateMultipartUploadRequest{
 				Bucket: "test-bucket",
-				Key:    "filee.txt",
+				Key:    "file.txt",
 			},
 		},
 		{
 			// Repeating an object should still work.
 			req: &multipartclient.InitiateMultipartUploadRequest{
 				Bucket: "test-bucket",
-				Key:    "filee.txt",
+				Key:    "file.txt",
 			},
 		},
 	}
@@ -75,6 +75,67 @@ func TestInitiateMultipartUpload(t *testing.T) {
 	})
 	if uploadCount != len(tests) {
 		t.Errorf("unexpected upload count, got %v, want %v", uploadCount, len(tests))
+	}
+}
+
+func TestInitiateMultipartUploadSameObject(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	req := &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "file.txt",
+	}
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp1, err := mpuc.InitiateMultipartUpload(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp2, err := mpuc.InitiateMultipartUpload(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp1.UploadID == resp2.UploadID {
+		t.Errorf("expected different upload IDs for the same object, got %v and %v", resp1.UploadID, resp2.UploadID)
+	}
+}
+
+func TestInitiateMultipartUploadCustomMetadata(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	req := &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "file.txt",
+		CustomMetadata: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+	}
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp, err := mpuc.InitiateMultipartUpload(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val, ok := server.mpus.Load(resp.UploadID)
+	if !ok {
+		t.Fatalf("upload id not found in server")
+	}
+	mpu := val.(*multipartUpload)
+	if mpu.Metadata["Key1"] != "value1" {
+		t.Errorf("expected custom metadata key1 to be value1, got %v", mpu.Metadata["key1"])
+	}
+	if mpu.Metadata["Key2"] != "value2" {
+		t.Errorf("expected custom metadata key2 to be value2, got %v", mpu.Metadata["key2"])
 	}
 }
 
