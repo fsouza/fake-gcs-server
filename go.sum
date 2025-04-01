@@ -112,6 +112,10 @@ github.com/gorilla/handlers v1.5.2 h1:cLTUSsNkgcwhgRqvCNmdbRWG0A3N4F+M2nWKdScwyE
 github.com/gorilla/handlers v1.5.2/go.mod h1:dX+xVpaxdSw+q0Qek8SSsl3dfMk3jNddUkMzo0GtH0w=
 github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
 github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
+github.com/jonmseaman/gcs-xml-multipart-client v0.6.0 h1:rPN89lDYP8xE9DFYjTLV29+St4+lBQotEVBJhi/Fn6E=
+github.com/jonmseaman/gcs-xml-multipart-client v0.6.0/go.mod h1:jd5oH61LJAaI9n0/cqULEmFHt2FMd5k6m6iJArWY/mA=
+github.com/jonmseaman/gcs-xml-multipart-client v0.6.5 h1:5UdxI989JqC5yCGUb5CI1cooZ+20uOeNL65CElQUcVA=
+github.com/jonmseaman/gcs-xml-multipart-client v0.6.5/go.mod h1:jd5oH61LJAaI9n0/cqULEmFHt2FMd5k6m6iJArWY/mA=
 github.com/klauspost/compress v1.17.11 h1:In6xLpyWOi1+C7tXUUWv2ot1QvBjxevKAaI6IXrJmUc=
 github.com/klauspost/compress v1.17.11/go.mod h1:pMDklpSncoRMuLFrf1W9Ss9KT+0rH90U12bZKk7uwG0=
 github.com/klauspost/cpuid/v2 v2.0.1/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
