@@ -1,8 +1,12 @@
 package fakestorage
 
 import (
+	"crypto/md5"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/xml"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"net/http"
 	"strconv"
@@ -12,12 +16,18 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Multipart Upload
+//
+// Potential Follow Ups:
+// - [ ] Store in-progress multipart upload part content in Storage.
+
 type objectPart struct {
 	PartNumber   int
 	LastModified time.Time
 	Etag         string
 	Size         int64
 	Content      []byte
+	CRC32C       uint32
 }
 
 type multipartUpload struct {
@@ -75,6 +85,55 @@ func (s *Server) initiateMultipartUpload(r *http.Request) xmlResponse {
 	}
 }
 
+func formatCRC32C(crc32c uint32) string {
+	crc32Bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(crc32Bytes, crc32c)
+	crc32Str := base64.StdEncoding.EncodeToString(crc32Bytes)
+
+	return crc32Str
+}
+
+func timeFromRequest(r *http.Request) (time.Time, error) {
+	dateStr := r.Header.Get("Date")
+	date, err := time.Parse(time.RFC1123, dateStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return date, nil
+}
+
+func validateUploadObjectPartHashes(r *http.Request, crc32c string, md5 string) *xmlResponse {
+	if r.Header.Get("Content-MD5") != "" && r.Header.Get("Content-MD5") != md5 {
+		return &xmlResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: "BadDigest",
+		}
+	}
+	hashes := r.Header["X-Goog-Hash"]
+	for _, hash := range hashes {
+		if !strings.HasPrefix(hash, "md5=") && !strings.HasPrefix(hash, "crc32c=") {
+			return &xmlResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: "InvalidDigest",
+			}
+		}
+		if strings.HasPrefix(hash, "md5=") && strings.TrimPrefix(hash, "md5=") == md5 {
+			continue
+		}
+		if strings.HasPrefix(hash, "crc32c=") && strings.TrimPrefix(hash, "crc32c") == crc32c {
+			continue
+		}
+		return &xmlResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: "BadDigest",
+		}
+	}
+
+	return nil
+}
+
+// TODO: Common error codes more than 5GiB part = 400 bad request
 func (s *Server) uploadObjectPart(r *http.Request) xmlResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 	uploadID := vars["uploadId"]
@@ -91,25 +150,59 @@ func (s *Server) uploadObjectPart(r *http.Request) xmlResponse {
 	if !ok {
 		return xmlResponse{
 			status:       http.StatusNotFound,
-			errorMessage: "upload id not found",
+			errorMessage: "NoSuchUpload",
 		}
 	}
 	mpu := val.(*multipartUpload)
-	partBody, err := io.ReadAll(r.Body)
+	md5Writer := md5.New()
+	crcWriter := crc32.New(crc32.MakeTable(crc32.Castagnoli))
+	wrappedReader := io.TeeReader(r.Body, io.MultiWriter(md5Writer, crcWriter))
+	partBody, err := io.ReadAll(wrappedReader)
 	if err != nil {
 		return xmlResponse{
 			status:       http.StatusInternalServerError,
 			errorMessage: fmt.Sprintf("failed to read request body: %s", err),
 		}
 	}
+	partMD5 := md5Writer.Sum(nil)
+	partMD5Str := base64.StdEncoding.EncodeToString(partMD5[:])
+	etag := fmt.Sprintf("\"%s\"", partMD5Str)
+	crc32c := crcWriter.Sum32()
+	crc32Str := formatCRC32C(crc32c)
+
+	hashResp := validateUploadObjectPartHashes(r, crc32Str, partMD5Str)
+	if hashResp != nil {
+		return *hashResp
+	}
+
+	lastModified, err := timeFromRequest(r)
+	if err != nil {
+		return xmlResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: fmt.Sprintf("failed to parse date: %s", err),
+		}
+	}
+
 	part := objectPart{
-		PartNumber: partNumber,
-		Content:    partBody,
+		PartNumber:   partNumber,
+		Content:      partBody,
+		Etag:         etag,
+		Size:         int64(len(partBody)),
+		CRC32C:       crc32c,
+		LastModified: lastModified,
 	}
 	mpu.parts[partNumber] = part
 
 	return xmlResponse{
 		status: http.StatusOK,
+		header: http.Header{
+			"ETag": []string{etag},
+			"X-Goog-Hash": []string{
+				fmt.Sprintf("md5=%s", partMD5Str),
+				fmt.Sprintf("crc32c=%s", crc32Str)},
+		},
+		// Upload Object Part does not include a response body.
+		data: nil,
 	}
 }
 

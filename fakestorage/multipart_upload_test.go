@@ -2,6 +2,7 @@ package fakestorage
 
 import (
 	"context"
+	"hash/crc32"
 	"io"
 	"strings"
 	"testing"
@@ -182,6 +183,13 @@ func TestUploadObjectPart(t *testing.T) {
 	_, ok = mpu.parts[1]
 	if !ok {
 		t.Fatalf("part not found in upload")
+	}
+	part := mpu.parts[1]
+
+	table := crc32.MakeTable(crc32.Castagnoli)
+	crc32c := crc32.Checksum(part.Content, table)
+	if crc32c != part.CRC32C {
+		t.Errorf("expected crc32c to be %v, got %v", part.CRC32C, crc32c)
 	}
 }
 
