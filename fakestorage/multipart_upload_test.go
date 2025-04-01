@@ -3,68 +3,11 @@ package fakestorage
 import (
 	"context"
 	"io"
-	"net/http"
 	"strings"
 	"testing"
 
-	"jonmseaman/gcs-xml-multipart-client/multipartclient"
+	"github.com/jonmseaman/gcs-xml-multipart-client/multipartclient"
 )
-
-func TestUnimplementedHandlers(t *testing.T) {
-	server := NewServer(nil)
-	defer server.Stop()
-	client := server.HTTPClient()
-
-	tests := []struct {
-		name   string
-		method string
-		url    string
-	}{
-		{
-			name:   "Complete Multipart Upload",
-			method: "POST",
-			url:    "/obj.txt?uploadId=my-upload-id",
-		},
-		{
-			name:   "List Object Parts",
-			method: "GET",
-			url:    "/obj.txt?uploadId=my-upload-id",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			// Test with bucket host:
-			req, err := http.NewRequest(tc.method, tc.url, http.NoBody)
-			if err != nil {
-				t.Fatal(err)
-			}
-			req.Host = "test-bucket.storage.googleapis.com"
-			resp, err := client.Do(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if resp.StatusCode != http.StatusNotImplemented {
-				t.Errorf("Unexpected status with bucket host: got %v, want %v", resp.StatusCode, http.StatusNotImplemented)
-			}
-
-			// Test with storage.googleapis.com/bucketName/
-			url := "/test-buckets" + tc.url
-			req, err = http.NewRequest(tc.method, url, http.NoBody)
-			req.Host = "storage.googleapis.com"
-			if err != nil {
-				t.Fatal(err)
-			}
-			resp, err = client.Do(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if resp.StatusCode != http.StatusNotImplemented {
-				t.Errorf("Unexpected status with storage.googleapis.com: got %v, want %v", resp.StatusCode, http.StatusNotImplemented)
-			}
-		})
-	}
-}
 
 func TestInitiateMultipartUpload(t *testing.T) {
 	server := NewServer(nil)
@@ -244,5 +187,97 @@ func TestListMultipartUploads(t *testing.T) {
 	if len(resp.Uploads) != initCount {
 		t.Errorf("unexpected number of uploads: got %v, want %v", len(resp.Uploads), initCount)
 
+	}
+}
+
+func TestListObjectParts(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "object.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadId := resp.UploadID
+	// Upload a part.
+	err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "object.txt",
+		UploadID:   uploadId,
+		PartNumber: 1,
+		Body:       strToReadCloser("my content"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// List object parts
+	listResp, err := mpuc.ListObjectParts(ctx, &multipartclient.ListObjectPartsRequest{
+		Bucket:   "test-bucket",
+		Key:      "object.txt",
+		UploadID: uploadId,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listResp.Parts) != 1 {
+		t.Errorf("unexpected number of parts: got %v, want %v", len(listResp.Parts), 1)
+	}
+}
+
+func TestCompleteMultipartUpload(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "object.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadId := resp.UploadID
+	// Upload a part.
+	err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "object.txt",
+		UploadID:   uploadId,
+		PartNumber: 1,
+		Body:       strToReadCloser("my content"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Complete the upload.
+	completeResp, err := mpuc.CompleteMultipartUpload(ctx, &multipartclient.CompleteMultipartUploadRequest{
+		Bucket:   "test-bucket",
+		Key:      "object.txt",
+		UploadID: uploadId,
+		Body: multipartclient.CompleteMultipartUploadBody{
+			Parts: []multipartclient.CompletePart{
+				{
+					PartNumber: 1,
+					Etag:       "*",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to complete the upload: %v", err)
+	}
+	if completeResp.Bucket != "test-bucket" {
+		t.Errorf("unexpected bucket: got %v, want %v", completeResp.Bucket, "test-bucket")
+	}
+	if completeResp.Key != "object.txt" {
+		t.Errorf("unexpected object key: got %v, want %v", completeResp.Key, "object.txt")
 	}
 }
