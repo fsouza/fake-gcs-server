@@ -544,7 +544,9 @@ func testDownloadObject(t *testing.T, server *Server) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+			// The tests cannot be run in parallel, because if one of them
+			// fails early, the parent test will close the server, failing the
+			// remaining ones.
 			client := server.HTTPClient()
 			url := server.scheme() + test.url
 			req, err := http.NewRequest(test.method, url, nil)
@@ -1258,7 +1260,6 @@ func runServersTest(t *testing.T, runOpts runServersOptions, fn func(*testing.T,
 		)
 	}
 	for _, test := range testScenarios {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			server, err := NewServerWithOptions(test.options)
@@ -1269,4 +1270,22 @@ func runServersTest(t *testing.T, runOpts runServersOptions, fn func(*testing.T,
 			fn(t, server)
 		})
 	}
+}
+
+func TestServerStartStop(t *testing.T) {
+	ctx := context.Background()
+
+	server, err := NewServerWithOptions(Options{InitialObjects: []Object{
+		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "text-01.txt"}, Content: []byte("something")},
+	}})
+	assert.NoError(t, err)
+	client := server.Client()
+
+	_, err = client.Bucket("some-bucket").Object("text-01.txt").NewReader(ctx)
+	assert.NoError(t, err)
+
+	server.Stop()
+
+	_, err = client.Bucket("some-bucket").Object("text-01.txt").NewReader(ctx)
+	assert.EqualError(t, err, `Get "https://storage.googleapis.com/some-bucket/text-01.txt": server closed`)
 }
