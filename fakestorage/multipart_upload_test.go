@@ -162,7 +162,7 @@ func TestUploadObjectPart(t *testing.T) {
 	uploadId := resp.UploadID
 
 	// Upload a part.
-	err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+	_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
 		Bucket:     "test-bucket",
 		Key:        "object.txt",
 		UploadID:   uploadId,
@@ -275,7 +275,7 @@ func TestListObjectParts(t *testing.T) {
 	}
 	uploadId := resp.UploadID
 	// Upload a part.
-	err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+	_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
 		Bucket:     "test-bucket",
 		Key:        "object.txt",
 		UploadID:   uploadId,
@@ -316,7 +316,7 @@ func TestCompleteMultipartUpload(t *testing.T) {
 	}
 	uploadId := resp.UploadID
 	// Upload a part.
-	err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+	_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
 		Bucket:     "test-bucket",
 		Key:        "object.txt",
 		UploadID:   uploadId,
