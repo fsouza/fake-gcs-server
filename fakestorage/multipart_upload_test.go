@@ -787,3 +787,337 @@ func TestLargeMultipartUploadAndDownload(t *testing.T) {
 
 	t.Logf("Successfully uploaded and downloaded %d byte object via multipart upload", totalSize)
 }
+
+func TestListMultipartUploadsQueryParameters(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+
+	// Create multiple uploads in different "directories" to test filtering
+	uploads := []struct {
+		bucket string
+		key    string
+	}{
+		{"test-bucket", "folder1/file1.txt"},
+		{"test-bucket", "folder1/file2.txt"},
+		{"test-bucket", "folder2/file1.txt"},
+		{"test-bucket", "folder2/subfolder/file1.txt"},
+		{"test-bucket", "root-file.txt"},
+		{"other-bucket", "other-file.txt"}, // Different bucket
+	}
+
+	var uploadIDs []string
+	for _, upload := range uploads {
+		resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+			Bucket: upload.bucket,
+			Key:    upload.key,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		uploadIDs = append(uploadIDs, resp.UploadID)
+	}
+
+	// Test 1: List all uploads in test-bucket (should get 5, not 6)
+	resp, err := mpuc.ListMultipartUploads(ctx, &multipartclient.ListMultipartUploadsRequest{
+		Bucket: "test-bucket",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Uploads) != 5 {
+		t.Errorf("Expected 5 uploads in test-bucket, got %d", len(resp.Uploads))
+	}
+	if resp.MaxUploads != 1000 {
+		t.Errorf("Expected MaxUploads to be 1000, got %d", resp.MaxUploads)
+	}
+	if resp.IsTruncated {
+		t.Error("Expected IsTruncated to be false")
+	}
+
+	// Verify uploads have all required fields and are sorted
+	for i, upload := range resp.Uploads {
+		if upload.Key == "" {
+			t.Errorf("Upload %d missing Key field", i)
+		}
+		if upload.UploadID == "" {
+			t.Errorf("Upload %d missing UploadID field", i)
+		}
+		if upload.StorageClass == "" {
+			t.Errorf("Upload %d missing StorageClass field", i)
+		}
+		if upload.Initiated.IsZero() {
+			t.Errorf("Upload %d missing Initiated field", i)
+		}
+
+		// Check sorting (lexicographically by key)
+		if i > 0 && upload.Key < resp.Uploads[i-1].Key {
+			t.Errorf("Uploads not sorted: %s should come before %s", resp.Uploads[i-1].Key, upload.Key)
+		}
+	}
+
+	// Test 2: Filter by prefix
+	resp, err = mpuc.ListMultipartUploads(ctx, &multipartclient.ListMultipartUploadsRequest{
+		Bucket: "test-bucket",
+		Prefix: "folder1/",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Uploads) != 2 {
+		t.Errorf("Expected 2 uploads with prefix 'folder1/', got %d", len(resp.Uploads))
+	}
+	for _, upload := range resp.Uploads {
+		if !strings.HasPrefix(upload.Key, "folder1/") {
+			t.Errorf("Upload key '%s' doesn't match prefix 'folder1/'", upload.Key)
+		}
+	}
+
+	// Test 3: Limit results with max-uploads
+	resp, err = mpuc.ListMultipartUploads(ctx, &multipartclient.ListMultipartUploadsRequest{
+		Bucket:     "test-bucket",
+		MaxUploads: 2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Uploads) > 2 {
+		t.Errorf("Expected at most 2 uploads with MaxUploads=2, got %d", len(resp.Uploads))
+	}
+	if resp.MaxUploads != 2 {
+		t.Errorf("Expected MaxUploads to be 2, got %d", resp.MaxUploads)
+	}
+	if !resp.IsTruncated {
+		t.Error("Expected IsTruncated to be true with MaxUploads=2")
+	}
+	if resp.NextKeyMarker == "" {
+		t.Error("Expected NextKeyMarker to be set when IsTruncated is true")
+	}
+}
+
+func TestListMultipartUploadsPagination(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+
+	// Create multiple uploads to test pagination
+	objectNames := []string{
+		"file-a.txt",
+		"file-b.txt",
+		"file-c.txt",
+		"file-d.txt",
+		"file-e.txt",
+	}
+
+	for _, name := range objectNames {
+		_, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+			Bucket: "test-bucket",
+			Key:    name,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Test pagination with max-uploads=2
+	var allUploadKeys []string
+	var keyMarker string
+	var uploadIDMarker string
+
+	for {
+		req := &multipartclient.ListMultipartUploadsRequest{
+			Bucket:     "test-bucket",
+			MaxUploads: 2,
+		}
+		if keyMarker != "" {
+			req.KeyMarker = keyMarker
+		}
+		if uploadIDMarker != "" {
+			req.UploadIdMarker = uploadIDMarker
+		}
+
+		resp, err := mpuc.ListMultipartUploads(ctx, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, upload := range resp.Uploads {
+			allUploadKeys = append(allUploadKeys, upload.Key)
+		}
+
+		if !resp.IsTruncated {
+			break
+		}
+
+		keyMarker = resp.NextKeyMarker
+		uploadIDMarker = resp.NextUploadIdMarker
+	}
+
+	// Should have collected all 5 uploads
+	if len(allUploadKeys) != 5 {
+		t.Errorf("Expected to collect 5 uploads through pagination, got %d", len(allUploadKeys))
+	}
+
+	// Verify they're in sorted order
+	for i := 1; i < len(allUploadKeys); i++ {
+		if allUploadKeys[i] < allUploadKeys[i-1] {
+			t.Errorf("Pagination results not sorted: %s should come before %s", allUploadKeys[i-1], allUploadKeys[i])
+		}
+	}
+}
+
+func TestListMultipartUploadsSpecialCharacters(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+
+	// Create upload with special characters in name
+	objectName := "folder with spaces/file (1).txt"
+	_, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    objectName,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test listing uploads with special characters
+	resp, err := mpuc.ListMultipartUploads(ctx, &multipartclient.ListMultipartUploadsRequest{
+		Bucket: "test-bucket",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(resp.Uploads) != 1 {
+		t.Fatalf("Expected 1 upload, got %d", len(resp.Uploads))
+	}
+
+	// The key should match the original name
+	if resp.Uploads[0].Key != objectName {
+		t.Errorf("Expected key '%s', got '%s'", objectName, resp.Uploads[0].Key)
+	}
+}
+
+func TestListMultipartUploadsEmptyResults(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+
+	// Test listing uploads in empty bucket
+	resp, err := mpuc.ListMultipartUploads(ctx, &multipartclient.ListMultipartUploadsRequest{
+		Bucket: "empty-bucket",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(resp.Uploads) != 0 {
+		t.Errorf("Expected 0 uploads in empty bucket, got %d", len(resp.Uploads))
+	}
+	if resp.IsTruncated {
+		t.Error("Expected IsTruncated to be false for empty results")
+	}
+	if resp.NextKeyMarker != "" {
+		t.Error("Expected NextKeyMarker to be empty for empty results")
+	}
+}
+
+func TestListMultipartUploadsXMLResponse(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+
+	// Create the bucket first
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "test-bucket"})
+
+	mpuc := multipartclient.New(server.HTTPClient())
+	ctx := context.Background()
+
+	// Create a few uploads
+	_, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "file1.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "folder/file2.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test pagination with prefix
+	resp, err := mpuc.ListMultipartUploads(ctx, &multipartclient.ListMultipartUploadsRequest{
+		Bucket:     "test-bucket",
+		MaxUploads: 1,
+		Prefix:     "f",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify the response has all required fields and correct values
+	if resp.Bucket != "test-bucket" {
+		t.Errorf("Expected bucket 'test-bucket', got '%s'", resp.Bucket)
+	}
+	if resp.MaxUploads != 1 {
+		t.Errorf("Expected MaxUploads 1, got %d", resp.MaxUploads)
+	}
+	if resp.Prefix != "f" {
+		t.Errorf("Expected Prefix 'f', got '%s'", resp.Prefix)
+	}
+	if !resp.IsTruncated {
+		t.Error("Expected IsTruncated to be true with MaxUploads=1 and prefix filter")
+	}
+	if resp.NextKeyMarker == "" {
+		t.Error("Expected NextKeyMarker to be set when IsTruncated is true")
+	}
+	if len(resp.Uploads) != 1 {
+		t.Errorf("Expected 1 upload with MaxUploads=1, got %d", len(resp.Uploads))
+	}
+
+	// Verify upload has all required fields
+	upload := resp.Uploads[0]
+	if upload.Key == "" {
+		t.Error("Upload missing Key field")
+	}
+	if upload.UploadID == "" {
+		t.Error("Upload missing UploadID field")
+	}
+	if upload.StorageClass != "STANDARD" {
+		t.Errorf("Expected StorageClass 'STANDARD', got '%s'", upload.StorageClass)
+	}
+	if upload.Initiated.IsZero() {
+		t.Error("Upload missing Initiated field")
+	}
+
+	// Test with delimiter parameter
+	resp, err = mpuc.ListMultipartUploads(ctx, &multipartclient.ListMultipartUploadsRequest{
+		Bucket:    "test-bucket",
+		Delimiter: "/",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should include delimiter and common prefixes
+	if resp.Delimiter != "/" {
+		t.Errorf("Expected Delimiter '/', got '%s'", resp.Delimiter)
+	}
+}

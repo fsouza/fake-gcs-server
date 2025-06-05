@@ -11,6 +11,7 @@ import (
 	"hash/crc32"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,10 @@ const (
 	// List object parts pagination constants
 	defaultMaxParts = 1000
 	maxMaxParts     = 1000
+
+	// List multipart uploads pagination constants
+	defaultMaxUploads = 1000
+	maxMaxUploads     = 1000
 )
 
 type objectPart struct {
@@ -43,7 +48,8 @@ type objectPart struct {
 
 type multipartUpload struct {
 	ObjectAttrs
-	parts map[int]objectPart
+	parts     map[int]objectPart
+	initiated time.Time
 }
 
 type initiateMultipartUploadResult struct {
@@ -83,7 +89,8 @@ func (s *Server) initiateMultipartUpload(r *http.Request) xmlResponse {
 			Name:       objectName,
 			Metadata:   metadata,
 		},
-		parts: make(map[int]objectPart),
+		parts:     make(map[int]objectPart),
+		initiated: time.Now(),
 	})
 	respBody := initiateMultipartUploadResult{
 		Bucket:   bucketName,
@@ -562,34 +569,166 @@ func (s *Server) abortMultipartUpload(r *http.Request) xmlResponse {
 }
 
 type listUpload struct {
-	XMLName  xml.Name `xml:"Upload"`
-	UploadID string   `xml:"UploadId"`
+	XMLName      xml.Name  `xml:"Upload"`
+	Key          string    `xml:"Key"`
+	UploadID     string    `xml:"UploadId"`
+	StorageClass string    `xml:"StorageClass"`
+	Initiated    time.Time `xml:"Initiated"`
 }
 
 type listMultipartUploadsResult struct {
-	XMLName xml.Name     `xml:"ListMultipartUploadsResult"`
-	Bucket  string       `xml:"Bucket"`
-	Uploads []listUpload `xml:"Upload"`
+	XMLName            xml.Name     `xml:"ListMultipartUploadsResult"`
+	Bucket             string       `xml:"Bucket"`
+	KeyMarker          string       `xml:"KeyMarker"`
+	UploadIDMarker     string       `xml:"UploadIdMarker"`
+	NextKeyMarker      string       `xml:"NextKeyMarker"`
+	NextUploadIDMarker string       `xml:"NextUploadIdMarker"`
+	Delimiter          string       `xml:"Delimiter"`
+	Prefix             string       `xml:"Prefix"`
+	MaxUploads         int          `xml:"MaxUploads"`
+	IsTruncated        bool         `xml:"IsTruncated"`
+	Uploads            []listUpload `xml:"Upload"`
 }
 
 func (s *Server) listMultipartUploads(r *http.Request) xmlResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
 
-	uploads := []listUpload{}
-	s.mpus.Range(func(key, _ any) bool {
-		uploads = append(uploads, listUpload{
-			UploadID: key.(string),
-		})
+	// Parse query parameters
+	query := r.URL.Query()
+
+	// Parse max-uploads parameter (default 1000, max 1000)
+	maxUploads := defaultMaxUploads
+	if maxUploadsStr := query.Get("max-uploads"); maxUploadsStr != "" {
+		if parsed, err := strconv.Atoi(maxUploadsStr); err == nil {
+			if parsed > 0 && parsed <= maxMaxUploads {
+				maxUploads = parsed
+			}
+		}
+	}
+
+	// Parse other query parameters
+	keyMarker := query.Get("key-marker")
+	uploadIDMarker := query.Get("upload-id-marker")
+	prefix := query.Get("prefix")
+	delimiter := query.Get("delimiter")
+	encodingType := query.Get("encoding-type")
+
+	// Collect all uploads for this bucket
+	type uploadInfo struct {
+		uploadID string
+		mpu      *multipartUpload
+	}
+
+	var allUploads []uploadInfo
+	s.mpus.Range(func(key, value any) bool {
+		uploadID := key.(string)
+		mpu := value.(*multipartUpload)
+		// Filter by bucket
+		if mpu.BucketName == bucketName {
+			allUploads = append(allUploads, uploadInfo{
+				uploadID: uploadID,
+				mpu:      mpu,
+			})
+		}
 		return true
 	})
 
-	result := listMultipartUploadsResult{
-		Bucket:  bucketName,
-		Uploads: uploads,
+	// Sort uploads lexicographically by object name, then by upload ID
+	sort.Slice(allUploads, func(i, j int) bool {
+		if allUploads[i].mpu.Name != allUploads[j].mpu.Name {
+			return allUploads[i].mpu.Name < allUploads[j].mpu.Name
+		}
+		return allUploads[i].uploadID < allUploads[j].uploadID
+	})
+
+	// Apply prefix filter
+	if prefix != "" {
+		var filteredUploads []uploadInfo
+		for _, upload := range allUploads {
+			if strings.HasPrefix(upload.mpu.Name, prefix) {
+				filteredUploads = append(filteredUploads, upload)
+			}
+		}
+		allUploads = filteredUploads
 	}
+
+	// Apply marker-based filtering
+	if keyMarker != "" {
+		var filteredUploads []uploadInfo
+		for _, upload := range allUploads {
+			objectName := upload.mpu.Name
+			uploadID := upload.uploadID
+
+			// Include if object name is lexicographically greater than keyMarker
+			if objectName > keyMarker {
+				filteredUploads = append(filteredUploads, upload)
+			} else if objectName == keyMarker && uploadIDMarker != "" && uploadID > uploadIDMarker {
+				// If object name equals keyMarker, check uploadIDMarker
+				filteredUploads = append(filteredUploads, upload)
+			}
+		}
+		allUploads = filteredUploads
+	}
+
+	var uploads []listUpload
+	for i, upload := range allUploads {
+		if i >= maxUploads {
+			break
+		}
+		uploads = append(uploads, listUpload{
+			Key:          upload.mpu.Name,
+			UploadID:     upload.uploadID,
+			StorageClass: "STANDARD", // Default storage class
+			Initiated:    upload.mpu.initiated,
+		})
+	}
+
+	// Determine if results are truncated and set next markers
+	var isTruncated bool
+	var nextKeyMarker, nextUploadIDMarker string
+
+	totalResults := len(uploads)
+	if totalResults == maxUploads && len(allUploads) > maxUploads {
+		isTruncated = true
+		if len(uploads) > 0 {
+			lastUpload := uploads[len(uploads)-1]
+			nextKeyMarker = lastUpload.Key
+			nextUploadIDMarker = lastUpload.UploadID
+		}
+	}
+
+	// URL encode object names if requested
+	if encodingType == "url" {
+		for i := range uploads {
+			uploads[i].Key = url.QueryEscape(uploads[i].Key)
+		}
+		if nextKeyMarker != "" {
+			nextKeyMarker = url.QueryEscape(nextKeyMarker)
+		}
+		if prefix != "" {
+			prefix = url.QueryEscape(prefix)
+		}
+		if delimiter != "" {
+			delimiter = url.QueryEscape(delimiter)
+		}
+	}
+
+	result := listMultipartUploadsResult{
+		Bucket:             bucketName,
+		KeyMarker:          keyMarker,
+		UploadIDMarker:     uploadIDMarker,
+		NextKeyMarker:      nextKeyMarker,
+		NextUploadIDMarker: nextUploadIDMarker,
+		Delimiter:          delimiter,
+		Prefix:             prefix,
+		MaxUploads:         maxUploads,
+		IsTruncated:        isTruncated,
+		Uploads:            uploads,
+	}
+
 	return xmlResponse{
-		status: 200,
+		status: http.StatusOK,
 		data:   result,
 	}
 }
