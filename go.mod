@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/jonmseaman/gcs-xml-multipart-client v0.7.5
-	github.com/minio/minio-go/v7 v7.0.91
+	github.com/minio/minio-go/v7 v7.0.92
 	github.com/pkg/xattr v0.4.10
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/oauth2 v0.30.0
