@@ -1,6 +1,7 @@
 package fakestorage
 
 import (
+	"bytes"
 	"context"
 	"hash/crc32"
 	"io"
@@ -660,4 +661,129 @@ func TestValidateUploadObjectPartFunction(t *testing.T) {
 	if result == nil || !strings.Contains(result.errorMessage, "ContentLengthMismatch") {
 		t.Errorf("Expected ContentLengthMismatch error for mismatched Content-Length")
 	}
+}
+
+func TestLargeMultipartUploadAndDownload(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+
+	// Create a 130 MiB object split into 3 parts of ~43.3 MiB each
+	const totalSize = 130 * 1024 * 1024 // 130 MiB
+	const partSize = totalSize / 3      // ~43.3 MiB per part
+
+	// Generate test data for each part
+	part1Data := make([]byte, partSize)
+	part2Data := make([]byte, partSize)
+	part3Data := make([]byte, totalSize-2*partSize) // remaining bytes
+
+	// Fill with predictable patterns to verify integrity
+	for i := range part1Data {
+		part1Data[i] = byte(i % 256)
+	}
+	for i := range part2Data {
+		part2Data[i] = byte((i + 1000) % 256)
+	}
+	for i := range part3Data {
+		part3Data[i] = byte((i + 2000) % 256)
+	}
+
+	// Initiate multipart upload
+	resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "large-object.bin",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadID := resp.UploadID
+
+	// Upload part 1
+	part1Resp, err := mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "large-object.bin",
+		UploadID:   uploadID,
+		PartNumber: 1,
+		Body:       io.NopCloser(bytes.NewReader(part1Data)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Upload part 2
+	part2Resp, err := mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "large-object.bin",
+		UploadID:   uploadID,
+		PartNumber: 2,
+		Body:       io.NopCloser(bytes.NewReader(part2Data)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Upload part 3
+	part3Resp, err := mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "large-object.bin",
+		UploadID:   uploadID,
+		PartNumber: 3,
+		Body:       io.NopCloser(bytes.NewReader(part3Data)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Complete the multipart upload
+	_, err = mpuc.CompleteMultipartUpload(ctx, &multipartclient.CompleteMultipartUploadRequest{
+		Bucket:   "test-bucket",
+		Key:      "large-object.bin",
+		UploadID: uploadID,
+		Body: multipartclient.CompleteMultipartUploadBody{
+			Parts: []multipartclient.CompletePart{
+				{PartNumber: 1, Etag: part1Resp.ETag},
+				{PartNumber: 2, Etag: part2Resp.ETag},
+				{PartNumber: 3, Etag: part3Resp.ETag},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to complete multipart upload: %v", err)
+	}
+
+	// Now read the object back using the regular (non-multipart) API
+	obj, err := server.GetObject("test-bucket", "large-object.bin")
+	if err != nil {
+		t.Fatalf("Failed to get object: %v", err)
+	}
+
+	// Verify the object size
+	expectedSize := int64(totalSize)
+	if obj.Size != expectedSize {
+		t.Errorf("Expected object size %d, got %d", expectedSize, obj.Size)
+	}
+
+	// Verify the content matches our original parts concatenated
+	expectedContent := append(append(part1Data, part2Data...), part3Data...)
+	if !bytes.Equal(obj.Content, expectedContent) {
+		t.Error("Object content does not match expected concatenated parts")
+
+		// Additional debugging info
+		if len(obj.Content) != len(expectedContent) {
+			t.Errorf("Content length mismatch: expected %d, got %d", len(expectedContent), len(obj.Content))
+		} else {
+			// Find first differing byte
+			for i := 0; i < len(expectedContent); i++ {
+				if obj.Content[i] != expectedContent[i] {
+					t.Errorf("First difference at byte %d: expected %d, got %d", i, expectedContent[i], obj.Content[i])
+					break
+				}
+			}
+		}
+	}
+
+	t.Logf("Successfully uploaded and downloaded %d byte object via multipart upload", totalSize)
 }

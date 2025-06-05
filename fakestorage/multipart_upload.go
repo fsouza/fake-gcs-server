@@ -1,9 +1,11 @@
 package fakestorage
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"hash/crc32"
@@ -14,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/gorilla/mux"
 )
 
@@ -129,7 +132,7 @@ func validateUploadObjectPartHashes(r *http.Request, crc32c string, md5 string) 
 		if strings.HasPrefix(hash, "md5=") && strings.TrimPrefix(hash, "md5=") == md5 {
 			continue
 		}
-		if strings.HasPrefix(hash, "crc32c=") && strings.TrimPrefix(hash, "crc32c") == crc32c {
+		if strings.HasPrefix(hash, "crc32c=") && strings.TrimPrefix(hash, "crc32c=") == crc32c {
 			continue
 		}
 		return &xmlResponse{
@@ -146,7 +149,7 @@ func validateUploadObjectPart(r *http.Request, partNumber int, partSize int64) *
 	if partNumber < minAllowedPartNumber || partNumber > maxAllowedPartNumber {
 		return &xmlResponse{
 			status:       http.StatusBadRequest,
-			errorMessage: fmt.Sprintf("InvalidPartNumber: Part number must be between %d and %d", minAllowedPartNumber, maxAllowedPartNumber),
+			errorMessage: "InvalidPartNumber",
 		}
 	}
 
@@ -154,7 +157,7 @@ func validateUploadObjectPart(r *http.Request, partNumber int, partSize int64) *
 	if partSize > maxAllowedPartSize {
 		return &xmlResponse{
 			status:       http.StatusBadRequest,
-			errorMessage: fmt.Sprintf("EntityTooLarge: Part size cannot exceed %d bytes", maxAllowedPartSize),
+			errorMessage: "EntityTooLarge",
 		}
 	}
 
@@ -164,7 +167,7 @@ func validateUploadObjectPart(r *http.Request, partNumber int, partSize int64) *
 		if err != nil {
 			return &xmlResponse{
 				status:       http.StatusBadRequest,
-				errorMessage: "InvalidHeader: Content-Length must be a valid integer",
+				errorMessage: "InvalidHeader",
 			}
 		}
 
@@ -172,7 +175,7 @@ func validateUploadObjectPart(r *http.Request, partNumber int, partSize int64) *
 		if contentLength != partSize {
 			return &xmlResponse{
 				status:       http.StatusBadRequest,
-				errorMessage: fmt.Sprintf("ContentLengthMismatch: Content-Length (%d) does not match actual part size (%d)", contentLength, partSize),
+				errorMessage: "ContentLengthMismatch",
 			}
 		}
 
@@ -180,7 +183,7 @@ func validateUploadObjectPart(r *http.Request, partNumber int, partSize int64) *
 		if contentLength > maxAllowedPartSize {
 			return &xmlResponse{
 				status:       http.StatusBadRequest,
-				errorMessage: fmt.Sprintf("EntityTooLarge: Content-Length cannot exceed %d bytes", maxAllowedPartSize),
+				errorMessage: "EntityTooLarge",
 			}
 		}
 	}
@@ -276,7 +279,7 @@ func validateCompletePartSizeAndNum(partSize int64, partNumber int, isLastPart b
 	if partNumber < minAllowedPartNumber || partNumber > maxAllowedPartNumber {
 		return &xmlResponse{
 			status:       http.StatusBadRequest,
-			errorMessage: fmt.Sprintf("InvalidPartNumber: Part number must be between %d and %d", minAllowedPartNumber, maxAllowedPartNumber),
+			errorMessage: "InvalidPartNumber",
 		}
 	}
 
@@ -284,7 +287,7 @@ func validateCompletePartSizeAndNum(partSize int64, partNumber int, isLastPart b
 	if partSize > maxAllowedPartSize {
 		return &xmlResponse{
 			status:       http.StatusBadRequest,
-			errorMessage: fmt.Sprintf("EntityTooLarge: Part size cannot exceed %d bytes", maxAllowedPartSize),
+			errorMessage: "EntityTooLarge",
 		}
 	}
 
@@ -292,46 +295,46 @@ func validateCompletePartSizeAndNum(partSize int64, partNumber int, isLastPart b
 	if !isLastPart && partSize < minAllowedPartSize {
 		return &xmlResponse{
 			status:       http.StatusBadRequest,
-			errorMessage: fmt.Sprintf("PartTooSmall: Part size must be at least %d bytes (except for the last part)", minAllowedPartSize),
+			errorMessage: "InvalidArgument",
 		}
 	}
 
 	return nil
 }
 
-func validateCompleteMultipartUploadRequest(s *Server, uploadID string, bucketName string, objectName string, r *http.Request) (*multipartUpload, *xmlResponse) {
+func validateCompleteMultipartUploadRequest(s *Server, uploadID string, bucketName string, objectName string, r *http.Request) (*multipartUpload, *completeMultipartUploadRequest, *xmlResponse) {
 	val, ok := s.mpus.LoadAndDelete(uploadID)
 	if !ok {
-		return nil, &xmlResponse{
+		return nil, nil, &xmlResponse{
 			status:       http.StatusNotFound,
-			errorMessage: "upload id not found",
+			errorMessage: "NoSuchUpload",
 		}
 	}
 	mpu := val.(*multipartUpload)
 	if mpu.BucketName != bucketName {
-		return nil, &xmlResponse{
+		return nil, nil, &xmlResponse{
 			status:       http.StatusBadRequest,
-			errorMessage: "bucket name mismatch",
+			errorMessage: "NoSuchUpload",
 		}
 	}
 	if mpu.Name != objectName {
-		return nil, &xmlResponse{
+		return nil, nil, &xmlResponse{
 			status:       http.StatusBadRequest,
-			errorMessage: "object name mismatch",
+			errorMessage: "NoSuchUpload",
 		}
 	}
 
 	request := completeMultipartUploadRequest{}
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, &xmlResponse{
+		return nil, nil, &xmlResponse{
 			status:       http.StatusInternalServerError,
 			errorMessage: fmt.Sprintf("failed to read request body: %s", err),
 		}
 	}
 	err = xml.Unmarshal(bodyBytes, &request)
 	if err != nil {
-		return nil, &xmlResponse{
+		return nil, nil, &xmlResponse{
 			status:       http.StatusBadRequest,
 			errorMessage: fmt.Sprintf("failed to parse request body: %s", err),
 		}
@@ -339,9 +342,19 @@ func validateCompleteMultipartUploadRequest(s *Server, uploadID string, bucketNa
 
 	// Validate that all requested parts exist and ETags match
 	if len(request.Parts) == 0 {
-		return nil, &xmlResponse{
+		return nil, nil, &xmlResponse{
 			status:       http.StatusBadRequest,
-			errorMessage: "MalformedXML: Must specify at least one part",
+			errorMessage: "MalformedXML",
+		}
+	}
+
+	// Fix: Validate part order - parts must be in ascending order
+	for i := 1; i < len(request.Parts); i++ {
+		if request.Parts[i].PartNumber <= request.Parts[i-1].PartNumber {
+			return nil, nil, &xmlResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: "InvalidPartOrder",
+			}
 		}
 	}
 
@@ -357,26 +370,26 @@ func validateCompleteMultipartUploadRequest(s *Server, uploadID string, bucketNa
 	for _, requestedPart := range request.Parts {
 		storedPart, exists := mpu.parts[requestedPart.PartNumber]
 		if !exists {
-			return nil, &xmlResponse{
+			return nil, nil, &xmlResponse{
 				status:       http.StatusBadRequest,
-				errorMessage: fmt.Sprintf("InvalidPart: Part number %d was not uploaded", requestedPart.PartNumber),
+				errorMessage: "InvalidPart",
 			}
 		}
 
 		// Validate ETag matches (if not wildcard "*")
 		if requestedPart.Etag != "*" && requestedPart.Etag != storedPart.Etag {
-			return nil, &xmlResponse{
+			return nil, nil, &xmlResponse{
 				status:       http.StatusBadRequest,
-				errorMessage: fmt.Sprintf("InvalidPart: ETag mismatch for part %d", requestedPart.PartNumber),
+				errorMessage: "InvalidPart",
 			}
 		}
 
 		isLastPart := requestedPart.PartNumber == maxPartNumber
 		if sizeValidationResp := validateCompletePartSizeAndNum(storedPart.Size, requestedPart.PartNumber, isLastPart); sizeValidationResp != nil {
-			return nil, sizeValidationResp
+			return nil, nil, sizeValidationResp
 		}
 	}
-	return mpu, nil
+	return mpu, &request, nil
 }
 
 type completeMultipartUploadPart struct {
@@ -397,27 +410,138 @@ type completeMultipartUploadResult struct {
 	ETag     string   `xml:"ETag"`
 }
 
+// calculateMultipartETag calculates the ETag for a multipart upload
+// GCS uses a different format than S3 - it's not based on MD5 of individual parts
+// For compatibility, we'll create an ETag based on the combined content hash
+func calculateMultipartETag(parts []objectPart, partNumbers []int) string {
+	// Create a hash of all the part ETags concatenated in order
+	hasher := md5.New()
+	// TODO: Use a dictionary to be more efficient. Map the part number to the trimmed etag.
+	for _, partNum := range partNumbers {
+		for _, part := range parts {
+			if part.PartNumber == partNum {
+				// Remove quotes from ETag before hashing
+				etag := strings.Trim(part.Etag, "\"")
+				hasher.Write([]byte(etag))
+				break
+			}
+		}
+	}
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	// Format similar to S3 multipart ETag but without the part count suffix
+	// GCS doesn't include part count in ETag
+	return fmt.Sprintf("\"%s\"", hash)
+}
+
+// assembleFinalObject creates the final object by concatenating all parts
+func (s *Server) assembleFinalObject(mpu *multipartUpload, partNumbers []int) (*Object, error) {
+	var finalContent bytes.Buffer
+	var totalSize int64
+	var combinedCRC32C uint32
+
+	// Sort parts by part number to ensure correct order
+	partNumToPart := make(map[int]objectPart)
+	for _, part := range mpu.parts {
+		partNumToPart[part.PartNumber] = part
+	}
+	var orderedParts []objectPart
+	for _, partNum := range partNumbers {
+		orderedParts = append(orderedParts, partNumToPart[partNum])
+	}
+
+	// Concatenate all parts
+	// TODO: Concatenate the crcs without re-reading each part.
+	crcTable := crc32.MakeTable(crc32.Castagnoli)
+	for i, part := range orderedParts {
+		finalContent.Write(part.Content)
+		totalSize += part.Size
+
+		// For CRC32C, we need to combine the checksums properly
+		if i == 0 {
+			combinedCRC32C = part.CRC32C
+		} else {
+			// This is a simplified combination - in reality, CRC32C combination
+			// requires more complex logic, but for a fake server this is acceptable
+			combinedCRC32C = crc32.Update(combinedCRC32C, crcTable, part.Content)
+		}
+	}
+
+	// Calculate the final ETag
+	finalETag := calculateMultipartETag(orderedParts, partNumbers)
+
+	// Create the final object
+	now := time.Now()
+	finalObject := &Object{
+		ObjectAttrs: ObjectAttrs{
+			BucketName:   mpu.BucketName,
+			Name:         mpu.Name,
+			Size:         totalSize,
+			ContentType:  "application/octet-stream", // Default content type
+			StorageClass: "STANDARD",
+			Crc32c:       formatCRC32C(combinedCRC32C),
+			Etag:         finalETag,
+			Created:      now,
+			Updated:      now,
+			Generation:   1,
+			Metadata:     mpu.Metadata,
+		},
+		Content: finalContent.Bytes(),
+	}
+
+	return finalObject, nil
+}
+
 func (s *Server) completeMultipartUpload(r *http.Request) xmlResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
 	objectName := vars["objectName"]
 	uploadID := vars["uploadId"]
 
-	mpu, xr := validateCompleteMultipartUploadRequest(s, uploadID, bucketName, objectName, r)
+	mpu, request, xr := validateCompleteMultipartUploadRequest(s, uploadID, bucketName, objectName, r)
 	if xr != nil {
 		return *xr
 	}
 
-	// TODO: Calculate the ETag based on the parts.
+	// Extract part numbers in the requested order
+	var partNumbers []int
+	for _, part := range request.Parts {
+		partNumbers = append(partNumbers, part.PartNumber)
+	}
 
+	// Assemble the final object from the parts
+	finalObject, err := s.assembleFinalObject(mpu, partNumbers)
+	if err != nil {
+		return xmlResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: fmt.Sprintf("failed to assemble final object: %s", err),
+		}
+	}
+
+	// Store the final object in the backend
+	_, err = s.createObject(finalObject.StreamingObject(), backend.NoConditions{})
+	if err != nil {
+		return xmlResponse{
+			status:       http.StatusInternalServerError,
+			errorMessage: fmt.Sprintf("failed to create final object: %s", err),
+		}
+	}
+
+	// Create the response
 	result := completeMultipartUploadResult{
 		Bucket:   mpu.BucketName,
 		Key:      mpu.Name,
 		Location: fmt.Sprintf("http://%s/%s/%s", r.Host, bucketName, objectName),
-		ETag:     mpu.Etag,
+		ETag:     finalObject.Etag,
 	}
+
+	// Add the x-goog-hash header as specified in documentation
+	headers := http.Header{
+		"x-goog-hash": []string{fmt.Sprintf("crc32c=%s", finalObject.Crc32c)},
+	}
+
 	return xmlResponse{
-		status: 200,
+		status: http.StatusOK,
+		header: headers,
 		data:   result,
 	}
 }
