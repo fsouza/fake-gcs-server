@@ -4,6 +4,7 @@ import (
 	"context"
 	"hash/crc32"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -348,5 +349,315 @@ func TestCompleteMultipartUpload(t *testing.T) {
 	}
 	if completeResp.Key != "object.txt" {
 		t.Errorf("unexpected object key: got %v, want %v", completeResp.Key, "object.txt")
+	}
+}
+
+func TestListObjectPartsPagination(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "object.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadId := resp.UploadID
+
+	// Upload multiple parts in non-sequential order to test sorting
+	partContents := map[int]string{
+		1: "part 1 content",
+		3: "part 3 content",
+		2: "part 2 content",
+		5: "part 5 content",
+		4: "part 4 content",
+	}
+
+	for partNum, content := range partContents {
+		_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+			Bucket:     "test-bucket",
+			Key:        "object.txt",
+			UploadID:   uploadId,
+			PartNumber: partNum,
+			Body:       strToReadCloser(content),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Test 1: List all parts without pagination
+	listResp, err := mpuc.ListObjectParts(ctx, &multipartclient.ListObjectPartsRequest{
+		Bucket:   "test-bucket",
+		Key:      "object.txt",
+		UploadID: uploadId,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listResp.Parts) != 5 {
+		t.Errorf("expected 5 parts, got %d", len(listResp.Parts))
+	}
+	if listResp.IsTruncated {
+		t.Error("expected IsTruncated to be false for all parts")
+	}
+	if listResp.MaxParts != 1000 {
+		t.Errorf("expected MaxParts to be 1000, got %d", listResp.MaxParts)
+	}
+	// Verify parts are sorted by part number
+	expectedOrder := []int{1, 2, 3, 4, 5}
+	for i, part := range listResp.Parts {
+		if part.PartNumber != expectedOrder[i] {
+			t.Errorf("expected part number %d at index %d, got %d", expectedOrder[i], i, part.PartNumber)
+		}
+	}
+
+	// Test 2: List with max-parts=2
+	listResp, err = mpuc.ListObjectParts(ctx, &multipartclient.ListObjectPartsRequest{
+		Bucket:   "test-bucket",
+		Key:      "object.txt",
+		UploadID: uploadId,
+		MaxParts: 2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listResp.Parts) != 2 {
+		t.Errorf("expected 2 parts with max-parts=2, got %d", len(listResp.Parts))
+	}
+	if !listResp.IsTruncated {
+		t.Error("expected IsTruncated to be true with max-parts=2")
+	}
+	if listResp.MaxParts != 2 {
+		t.Errorf("expected MaxParts to be 2, got %d", listResp.MaxParts)
+	}
+	if listResp.NextPartNumberMarker != 3 {
+		t.Errorf("expected NextPartNumberMarker to be 3, got %d", listResp.NextPartNumberMarker)
+	}
+
+	// Test 3: List with part-number-marker=2
+	listResp, err = mpuc.ListObjectParts(ctx, &multipartclient.ListObjectPartsRequest{
+		Bucket:           "test-bucket",
+		Key:              "object.txt",
+		UploadID:         uploadId,
+		PartNumberMarker: 2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listResp.Parts) != 3 {
+		t.Errorf("expected 3 parts with part-number-marker=2, got %d", len(listResp.Parts))
+	}
+	if listResp.IsTruncated {
+		t.Error("expected IsTruncated to be false when listing remaining parts")
+	}
+	if listResp.PartNumberMarker != 2 {
+		t.Errorf("expected PartNumberMarker to be 2, got %d", listResp.PartNumberMarker)
+	}
+	// Should return parts 3, 4, 5
+	expectedPartNumbers := []int{3, 4, 5}
+	for i, part := range listResp.Parts {
+		if part.PartNumber != expectedPartNumbers[i] {
+			t.Errorf("expected part number %d at index %d, got %d", expectedPartNumbers[i], i, part.PartNumber)
+		}
+	}
+
+	// Test 4: Combine part-number-marker and max-parts
+	listResp, err = mpuc.ListObjectParts(ctx, &multipartclient.ListObjectPartsRequest{
+		Bucket:           "test-bucket",
+		Key:              "object.txt",
+		UploadID:         uploadId,
+		PartNumberMarker: 1,
+		MaxParts:         2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listResp.Parts) != 2 {
+		t.Errorf("expected 2 parts with marker=1 and max-parts=2, got %d", len(listResp.Parts))
+	}
+	if !listResp.IsTruncated {
+		t.Error("expected IsTruncated to be true with marker=1 and max-parts=2")
+	}
+	if listResp.NextPartNumberMarker != 4 {
+		t.Errorf("expected NextPartNumberMarker to be 4, got %d", listResp.NextPartNumberMarker)
+	}
+	// Should return parts 2, 3
+	expectedPartNumbers = []int{2, 3}
+	for i, part := range listResp.Parts {
+		if part.PartNumber != expectedPartNumbers[i] {
+			t.Errorf("expected part number %d at index %d, got %d", expectedPartNumbers[i], i, part.PartNumber)
+		}
+	}
+
+	// Test 5: part-number-marker beyond all parts
+	listResp, err = mpuc.ListObjectParts(ctx, &multipartclient.ListObjectPartsRequest{
+		Bucket:           "test-bucket",
+		Key:              "object.txt",
+		UploadID:         uploadId,
+		PartNumberMarker: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listResp.Parts) != 0 {
+		t.Errorf("expected 0 parts with marker=10, got %d", len(listResp.Parts))
+	}
+	if listResp.IsTruncated {
+		t.Error("expected IsTruncated to be false when no parts remain")
+	}
+}
+
+func TestUploadObjectPartValidation(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	// Create an upload to use.
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "object.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadId := resp.UploadID
+
+	// Test 1: Valid part upload should succeed
+	_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "object.txt",
+		UploadID:   uploadId,
+		PartNumber: 1,
+		Body:       strToReadCloser("valid content"),
+	})
+	if err != nil {
+		t.Errorf("Expected valid part upload to succeed, but got error: %v", err)
+	}
+
+	// Test 2: Invalid part number (too low) should fail
+	_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "object.txt",
+		UploadID:   uploadId,
+		PartNumber: 0, // Invalid: below minimum
+		Body:       strToReadCloser("content"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "InvalidPartNumber") {
+		t.Errorf("Expected InvalidPartNumber error for part number 0, got: %v", err)
+	}
+
+	// Test 3: Invalid part number (too high) should fail
+	_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "object.txt",
+		UploadID:   uploadId,
+		PartNumber: 10001, // Invalid: above maximum
+		Body:       strToReadCloser("content"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "InvalidPartNumber") {
+		t.Errorf("Expected InvalidPartNumber error for part number 10001, got: %v", err)
+	}
+
+	// Test 4: Part size too large should fail (>5GB)
+	// Note: Not testing this because it would use a lot of memory.
+
+	// Test 5: Verify part was actually stored
+	val, ok := server.mpus.Load(uploadId)
+	if !ok {
+		t.Fatalf("upload id not found in server")
+	}
+	mpu := val.(*multipartUpload)
+	if _, ok := mpu.parts[1]; !ok {
+		t.Errorf("expected part 1 to be stored")
+	}
+}
+
+func TestUploadObjectPartSizeValidation(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	client := server.HTTPClient()
+
+	// Create an upload to use.
+	mpuc := multipartclient.New(client)
+	ctx := context.Background()
+	resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		Bucket: "test-bucket",
+		Key:    "object.txt",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadId := resp.UploadID
+
+	// Test 1: Try uploading a part that's too large (simulate with ContentLength)
+	// We can't actually create a 5GB+ body in memory, so we'll test with a smaller body
+	// but set the ContentLength to exceed the limit
+	_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:        "test-bucket",
+		Key:           "object.txt",
+		UploadID:      uploadId,
+		PartNumber:    1,
+		ContentLength: int64(6 * 1024 * 1024 * 1024), // 6GB - exceeds 5GB limit
+		Body:          strToReadCloser("small content"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "ContentLengthMismatch") {
+		t.Errorf("Expected ContentLengthMismatch error for mismatched Content-Length, got: %v", err)
+	}
+
+	// Test 2: Upload a normal-sized part should work
+	_, err = mpuc.UploadObjectPart(ctx, &multipartclient.UploadObjectPartRequest{
+		Bucket:     "test-bucket",
+		Key:        "object.txt",
+		UploadID:   uploadId,
+		PartNumber: 2,
+		Body:       strToReadCloser("normal content"),
+	})
+	if err != nil {
+		t.Errorf("Expected normal part upload to succeed, but got error: %v", err)
+	}
+}
+
+func TestValidateUploadObjectPartFunction(t *testing.T) {
+	// Test the validation function directly
+	request := &http.Request{
+		Header: make(http.Header),
+	}
+
+	// Test 1: Valid part number and size
+	result := validateUploadObjectPart(request, 1, 1024)
+	if result != nil {
+		t.Errorf("Expected nil for valid input, got error: %s", result.errorMessage)
+	}
+
+	// Test 2: Invalid part number (too low)
+	result = validateUploadObjectPart(request, 0, 1024)
+	if result == nil || !strings.Contains(result.errorMessage, "InvalidPartNumber") {
+		t.Errorf("Expected InvalidPartNumber error for part number 0")
+	}
+
+	// Test 3: Invalid part number (too high)
+	result = validateUploadObjectPart(request, 10001, 1024)
+	if result == nil || !strings.Contains(result.errorMessage, "InvalidPartNumber") {
+		t.Errorf("Expected InvalidPartNumber error for part number 10001")
+	}
+
+	// Test 4: Part size too large
+	result = validateUploadObjectPart(request, 1, int64(6*1024*1024*1024)) // 6GB
+	if result == nil || !strings.Contains(result.errorMessage, "EntityTooLarge") {
+		t.Errorf("Expected EntityTooLarge error for oversized part")
+	}
+
+	// Test 5: Content-Length mismatch
+	request.Header.Set("Content-Length", "2048")
+	result = validateUploadObjectPart(request, 1, 1024) // Content-Length says 2048, actual is 1024
+	if result == nil || !strings.Contains(result.errorMessage, "ContentLengthMismatch") {
+		t.Errorf("Expected ContentLengthMismatch error for mismatched Content-Length")
 	}
 }

@@ -66,7 +66,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
-	github.com/jonmseaman/gcs-xml-multipart-client v0.7.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
@@ -80,3 +79,5 @@ require (
 )
 
 go 1.23.0
+
+replace github.com/jonmseaman/gcs-xml-multipart-client => ../gcs-xml-multipart-client
