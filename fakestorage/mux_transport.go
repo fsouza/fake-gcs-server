@@ -11,7 +11,6 @@ import (
 
 type muxTransport struct {
 	handler http.Handler
-	closed  bool
 }
 
 func (t *muxTransport) RoundTrip(r *http.Request) (*http.Response, error) {
