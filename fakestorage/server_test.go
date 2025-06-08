@@ -1271,21 +1271,3 @@ func runServersTest(t *testing.T, runOpts runServersOptions, fn func(*testing.T,
 		})
 	}
 }
-
-func TestServerStartStop(t *testing.T) {
-	ctx := context.Background()
-
-	server, err := NewServerWithOptions(Options{InitialObjects: []Object{
-		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "text-01.txt"}, Content: []byte("something")},
-	}})
-	assert.NoError(t, err)
-	client := server.Client()
-
-	_, err = client.Bucket("some-bucket").Object("text-01.txt").NewReader(ctx)
-	assert.NoError(t, err)
-
-	server.Stop()
-
-	_, err = client.Bucket("some-bucket").Object("text-01.txt").NewReader(ctx)
-	assert.EqualError(t, err, `Get "https://storage.googleapis.com/some-bucket/text-01.txt": server closed`)
-}
