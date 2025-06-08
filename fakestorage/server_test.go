@@ -544,9 +544,8 @@ func testDownloadObject(t *testing.T, server *Server) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			// The tests cannot be run in parallel, because if one of them
-			// fails early, the parent test will close the server, failing the
-			// remaining ones.
+			t.Parallel()
+
 			client := server.HTTPClient()
 			url := server.scheme() + test.url
 			req, err := http.NewRequest(test.method, url, nil)
