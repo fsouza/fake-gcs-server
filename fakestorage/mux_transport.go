@@ -5,7 +5,6 @@
 package fakestorage
 
 import (
-	"errors"
 	"net/http"
 	"net/http/httptest"
 )
@@ -16,9 +15,6 @@ type muxTransport struct {
 }
 
 func (t *muxTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	if t.closed {
-		return nil, errors.New("server closed")
-	}
 	w := httptest.NewRecorder()
 	t.handler.ServeHTTP(w, r)
 	return w.Result(), nil
