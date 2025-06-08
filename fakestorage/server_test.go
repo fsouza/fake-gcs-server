@@ -196,7 +196,6 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-
 			objects, emptyBuckets := generateObjectsFromFiles(test.folder)
 			cmpOpts := []cmp.Option{
 				cmpopts.IgnoreFields(Object{}, "Crc32c", "Md5Hash"),
