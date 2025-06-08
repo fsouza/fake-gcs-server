@@ -196,6 +196,7 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			objects, emptyBuckets := generateObjectsFromFiles(test.folder)
 			cmpOpts := []cmp.Option{
 				cmpopts.IgnoreFields(Object{}, "Crc32c", "Md5Hash"),
@@ -544,7 +545,6 @@ func testDownloadObject(t *testing.T, server *Server) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-
 			client := server.HTTPClient()
 			url := server.scheme() + test.url
 			req, err := http.NewRequest(test.method, url, nil)
