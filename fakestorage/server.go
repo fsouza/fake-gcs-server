@@ -455,8 +455,10 @@ func (s *Server) publicHostMatcher(r *http.Request, rm *mux.RouteMatch) bool {
 
 // Stop stops the server, closing all connections.
 func (s *Server) Stop() {
-	s.transport.closed = true
 	if s.ts != nil {
+		if transport, ok := s.transport.(*http.Transport); ok {
+			transport.CloseIdleConnections()
+		}
 		s.ts.Close()
 	}
 }
