@@ -1258,6 +1258,7 @@ func runServersTest(t *testing.T, runOpts runServersOptions, fn func(*testing.T,
 		)
 	}
 	for _, test := range testScenarios {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			server, err := NewServerWithOptions(test.options)
