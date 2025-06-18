@@ -49,5 +49,5 @@ requests==2.32.0
     #   google-cloud-storage
 rsa==4.7.2
     # via google-auth
-urllib3==1.26.19
+urllib3==2.5.0
     # via requests
