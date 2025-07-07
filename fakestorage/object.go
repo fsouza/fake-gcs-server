@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -318,6 +319,7 @@ func (s *Server) createObject(obj StreamingObject, conditions backend.Conditions
 
 type ListOptions struct {
 	Prefix                   string
+	MatchGlob                string
 	Delimiter                string
 	Versions                 bool
 	StartOffset              string
@@ -353,6 +355,11 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 		if !strings.HasPrefix(obj.Name, options.Prefix) {
 			continue
 		}
+
+		if options.MatchGlob != "" && !matchGlob(options.MatchGlob, obj.Name) {
+			continue
+		}
+
 		objName := strings.Replace(obj.Name, options.Prefix, "", 1)
 		delimPos := strings.Index(objName, options.Delimiter)
 		if options.Delimiter != "" && delimPos > -1 {
@@ -587,6 +594,7 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 	}
 	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, ListOptions{
 		Prefix:                   r.URL.Query().Get("prefix"),
+		MatchGlob:                r.URL.Query().Get("matchGlob"),
 		Delimiter:                r.URL.Query().Get("delimiter"),
 		Versions:                 r.URL.Query().Get("versions") == "true",
 		StartOffset:              r.URL.Query().Get("startOffset"),
@@ -605,6 +613,7 @@ func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
 
 	opts := ListOptions{
 		Prefix:    r.URL.Query().Get("prefix"),
+		MatchGlob: r.URL.Query().Get("matchGlob"),
 		Delimiter: r.URL.Query().Get("delimiter"),
 		Versions:  r.URL.Query().Get("versions") == "true",
 	}
@@ -1276,4 +1285,121 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 	s.eventManager.Trigger(&backendObj, notification.EventFinalize, nil)
 
 	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, s.externalURL)}
+}
+
+// matchGlob matches a glob pattern against a string following GCS glob syntax.
+// See https://cloud.google.com/storage/docs/json_api/v1/objects/list#list-object-glob
+// Supports:
+// - * matches zero or more characters (excluding /)
+// - ** matches zero or more characters (including /)
+// - ? matches any single character (excluding /)
+// - [abc] matches exactly one character in the set
+// - [a-z] matches one character in a range
+// - [!abc] or [^abc] matches one character NOT in the set
+// - {abc,xyz} matches one of the specified options
+// Doesn't currently support:
+// - nested {} braces
+// - patterns inside {} braces e.g. {*foo,bar*}
+func matchGlob(pattern, name string) bool {
+	regex := globToRegex(pattern)
+	matched, err := regexp.MatchString(regex, name)
+	if err != nil {
+		return false
+	}
+	return matched
+}
+
+func globToRegex(pattern string) string {
+	var result strings.Builder
+	result.WriteString("^")
+
+	i := 0
+	for i < len(pattern) {
+		switch pattern[i] {
+		case '*':
+			if i+1 < len(pattern) && pattern[i+1] == '*' {
+				// ** matches zero or more characters including /
+				result.WriteString(".*")
+				i += 2
+			} else {
+				// * matches zero or more characters excluding /
+				result.WriteString("[^/]*")
+				i++
+			}
+		case '?':
+			// ? matches any single character excluding /
+			result.WriteString("[^/]")
+			i++
+		case '[':
+			// Character class [abc] or [a-z] or [!abc] or [^abc]
+			j := i + 1
+			if j < len(pattern) && (pattern[j] == '!' || pattern[j] == '^') {
+				j++
+			}
+			for j < len(pattern) && pattern[j] != ']' {
+				j++
+			}
+			if j < len(pattern) {
+				// Valid character class
+				charClass := pattern[i : j+1]
+				// Convert [!...] to [^...] for regex
+				if strings.HasPrefix(charClass, "[!") {
+					charClass = "[^" + charClass[2:]
+				}
+				result.WriteString(charClass)
+				i = j + 1
+			} else {
+				// Invalid character class, treat as literal
+				result.WriteString(regexp.QuoteMeta(string(pattern[i])))
+				i++
+			}
+		case '{':
+			// Brace expansion {abc,xyz}
+			j := i + 1
+			depth := 1
+			for j < len(pattern) && depth > 0 {
+				switch pattern[j] {
+				case '{':
+					depth++
+				case '}':
+					depth--
+				}
+				j++
+			}
+			if depth == 0 {
+				// Valid brace expansion
+				braceContent := pattern[i+1 : j-1]
+				options := strings.Split(braceContent, ",")
+				result.WriteString("(")
+				for k, option := range options {
+					if k > 0 {
+						result.WriteString("|")
+					}
+					result.WriteString(regexp.QuoteMeta(option))
+				}
+				result.WriteString(")")
+				i = j
+			} else {
+				// Invalid brace expansion, treat as literal
+				result.WriteString(regexp.QuoteMeta(string(pattern[i])))
+				i++
+			}
+		case '\\':
+			// Escape character
+			if i+1 < len(pattern) {
+				result.WriteString(regexp.QuoteMeta(string(pattern[i+1])))
+				i += 2
+			} else {
+				result.WriteString(regexp.QuoteMeta(string(pattern[i])))
+				i++
+			}
+		default:
+			// Regular character, escape for regex
+			result.WriteString(regexp.QuoteMeta(string(pattern[i])))
+			i++
+		}
+	}
+
+	result.WriteString("$")
+	return result.String()
 }
