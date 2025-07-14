@@ -22,6 +22,8 @@ import (
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/config"
 	"github.com/fsouza/fake-gcs-server/internal/grpc"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 func createListener(logger *slog.Logger, cfg *config.Config, scheme string) (net.Listener, *fakestorage.Options) {
@@ -49,10 +51,25 @@ func createListener(logger *slog.Logger, cfg *config.Config, scheme string) (net
 			server.Close()
 			tlsConfig = server.TLS
 		}
+		addToNextProtos(tlsConfig, "h2")
+
 		listener = tls.NewListener(listener, tlsConfig)
 	}
 
 	return listener, &opts
+}
+
+func addToNextProtos(tlsConfig *tls.Config, proto string) {
+	if tlsConfig.NextProtos == nil {
+		tlsConfig.NextProtos = []string{proto}
+	} else {
+		for _, p := range tlsConfig.NextProtos {
+			if p == proto {
+				return
+			}
+		}
+		tlsConfig.NextProtos = append(tlsConfig.NextProtos, proto)
+	}
 }
 
 func startServer(logger *slog.Logger, cfg *config.Config) {
@@ -88,10 +105,13 @@ func startServer(logger *slog.Logger, cfg *config.Config) {
 	for _, listenerAndOpts := range listenersAndOpts {
 		go func(listener net.Listener) {
 			http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.ProtoMajor == 2 && strings.HasPrefix(
-					r.Header.Get("Content-Type"), "application/grpc") {
+				switch {
+				case r.ProtoMajor == 2 && r.Method == "PRI" && r.RequestURI == "*":
+					// h2c prior knowledge, conn preface
+					h2c.NewHandler(grpcServer, &http2.Server{}).ServeHTTP(w, r)
+				case r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc"):
 					grpcServer.ServeHTTP(w, r)
-				} else {
+				default:
 					httpServer.HTTPHandler().ServeHTTP(w, r)
 				}
 			}))
