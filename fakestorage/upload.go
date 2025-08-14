@@ -23,6 +23,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
+	"github.com/fsouza/fake-gcs-server/internal/helper"
 	"github.com/gorilla/mux"
 )
 
@@ -193,7 +194,7 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	defer obj.Close()
 
 	if successActionStatus == 201 {
-		objectURI := fmt.Sprintf("%s/%s%s", s.URL(), bucketName, name)
+		objectURI := fmt.Sprintf("%s/%s%s", helper.GetBaseURL(r), bucketName, name)
 		xmlBody := createXmlResponseBody(bucketName, obj.Etag, strings.TrimPrefix(name, "/"), objectURI)
 		return xmlResponse{status: successActionStatus, data: xmlBody}
 	}
@@ -257,7 +258,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		return errToJsonResponse(err)
 	}
 	obj.Close()
-	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, s.externalURL)}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, helper.GetBaseURL(r))}
 }
 
 type notImplementedSeeker struct {
@@ -305,7 +306,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 		return errToJsonResponse(err)
 	}
 	obj.Close()
-	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, s.externalURL)}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, helper.GetBaseURL(r))}
 }
 
 func getObjectACL(predefinedACL string) []storage.ACLRule {
@@ -398,7 +399,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		return errToJsonResponse(err)
 	}
 	defer obj.Close()
-	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, s.externalURL)}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, helper.GetBaseURL(r))}
 }
 
 func parseContentTypeParams(requestContentType string) (map[string]string, error) {
@@ -448,7 +449,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	header := make(http.Header)
 	location := fmt.Sprintf(
 		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
-		s.URL(),
+		helper.GetBaseURL(r),
 		bucketName,
 		url.PathEscape(objName),
 		uploadID,
@@ -459,7 +460,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 		header.Set("X-Goog-Upload-Status", "active")
 	}
 	return jsonResponse{
-		data:   newObjectResponse(obj.ObjectAttrs, s.externalURL),
+		data:   newObjectResponse(obj.ObjectAttrs, helper.GetBaseURL(r)),
 		header: header,
 	}
 }
@@ -566,7 +567,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	}
 	return jsonResponse{
 		status: status,
-		data:   newObjectResponse(obj.ObjectAttrs, s.externalURL),
+		data:   newObjectResponse(obj.ObjectAttrs, helper.GetBaseURL(r)),
 		header: responseHeader,
 	}
 }
