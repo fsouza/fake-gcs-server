@@ -49,6 +49,7 @@ func createListener(logger *slog.Logger, cfg *config.Config, scheme string) (net
 			server.Close()
 			tlsConfig = server.TLS
 		}
+		tlsConfig.NextProtos = []string{"h2"}
 		listener = tls.NewListener(listener, tlsConfig)
 	}
 
