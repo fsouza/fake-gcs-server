@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"testing"
 
-	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsub/v2"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
