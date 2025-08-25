@@ -21,8 +21,8 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
-	"github.com/fsouza/fake-gcs-server/internal/helper"
 	"github.com/fsouza/fake-gcs-server/internal/notification"
+	"github.com/fsouza/fake-gcs-server/internal/urlhelper"
 	"github.com/gorilla/mux"
 )
 
@@ -598,7 +598,7 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	return jsonResponse{data: newListObjectsResponse(objs, prefixes, helper.GetBaseURL(r))}
+	return jsonResponse{data: newListObjectsResponse(objs, prefixes, urlhelper.GetBaseURL(r))}
 }
 
 func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
@@ -892,9 +892,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	defer created.Close()
 
 	if vars["copyType"] == "copyTo" {
-		return jsonResponse{data: newObjectResponse(created.ObjectAttrs, helper.GetBaseURL(r))}
+		return jsonResponse{data: newObjectResponse(created.ObjectAttrs, urlhelper.GetBaseURL(r))}
 	}
-	return jsonResponse{data: newObjectRewriteResponse(created.ObjectAttrs, helper.GetBaseURL(r))}
+	return jsonResponse{data: newObjectRewriteResponse(created.ObjectAttrs, urlhelper.GetBaseURL(r))}
 }
 
 func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
@@ -1276,5 +1276,5 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 
 	s.eventManager.Trigger(&backendObj, notification.EventFinalize, nil)
 
-	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, helper.GetBaseURL(r))}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, urlhelper.GetBaseURL(r))}
 }
