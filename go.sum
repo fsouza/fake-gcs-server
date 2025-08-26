@@ -58,8 +58,8 @@ github.com/envoyproxy/protoc-gen-validate v1.2.1 h1:DEo3O99U8j4hBFwbJfrz9VtgcDfU
 github.com/envoyproxy/protoc-gen-validate v1.2.1/go.mod h1:d/C80l/jxXLdfEIhX1W2TmLfsJ31lvEjwamM4DxlWXU=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
-github.com/fsouza/slognil v0.4.2 h1:QWoEvjkRYnw7EivBDsupgUvqs0F6CycArX310enqj+k=
-github.com/fsouza/slognil v0.4.2/go.mod h1:OaIW8xFU2sYYuT1as0GWWRn3MKdl9TupCSLaAqS/mRQ=
+github.com/fsouza/slognil v0.4.3 h1:BozwVsIBrT+DSRKZm7Fmm8Hwpl6OWrRjpaQYKHRzxuA=
+github.com/fsouza/slognil v0.4.3/go.mod h1:aeqfcl5mmgmSSQaF7t1ue8AVu7i4VU/fDVdbcjF5u0s=
 github.com/go-ini/ini v1.67.0 h1:z6ZrTEZqSWOTyH2FlglNbNgARyHG8oLW9gMELqKr06A=
 github.com/go-ini/ini v1.67.0/go.mod h1:ByCAeIL28uOIIG0E3PJtZPDL8WnHpFKFOtgjp+3Ies8=
 github.com/go-jose/go-jose/v4 v4.0.4 h1:VsjPI33J0SB9vQM6PLmNjoHqMQNGPiZ0rHL7Ni7Q6/E=
