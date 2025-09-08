@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -551,7 +552,7 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		partRequest, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(content)))
+		partRequest, err := s.readRequestLenient(content)
 		if err != nil {
 			http.Error(partResponseWriter, "unable to process request", http.StatusBadRequest)
 			writeMultipartResponse(partResponseWriter.Result(), partWriter, contentID)
@@ -567,6 +568,46 @@ func (s *Server) handleBatchCall(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "unable to process request", http.StatusBadRequest)
 	}
+}
+
+func (s *Server) readRequestLenient(content []byte) (*http.Request, error) {
+	if req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(content))); err == nil {
+		return req, nil
+	} else if !errors.Is(err, io.ErrUnexpectedEOF) {
+		return nil, err
+	}
+
+	content = s.normalizeRequestContent(content)
+	return http.ReadRequest(bufio.NewReader(bytes.NewReader(content)))
+}
+
+func (s *Server) normalizeRequestContent(content []byte) []byte {
+
+	req := string(content)
+
+	if !strings.HasPrefix(req, "DELETE ") {
+		return content
+	}
+
+	parts := strings.SplitN(req, "\r\n\r\n", 2)
+	if len(parts) != 2 {
+		return []byte(req + "\r\n\r\n{}")
+	}
+
+	headers := parts[0]
+	body := parts[1]
+
+	if strings.TrimSpace(body) == "" {
+		if !strings.Contains(headers, "Content-Length:") {
+			headers += "\r\nContent-Length: 2"
+		} else {
+			headers = regexp.MustCompile(`Content-Length:\s*\d+`).
+				ReplaceAllString(headers, "Content-Length: 2")
+		}
+		return []byte(headers + "\r\n\r\n{}")
+	}
+
+	return content
 }
 
 func writeMultipartResponse(r *http.Response, w io.Writer, contentId string) {
