@@ -9,7 +9,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/pkg/xattr v0.4.12
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/oauth2 v0.31.0
+	golang.org/x/oauth2 v0.32.0
 	google.golang.org/api v0.252.0
 	google.golang.org/grpc v1.76.0
 )
