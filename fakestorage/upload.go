@@ -60,6 +60,17 @@ type multipartMetadata struct {
 	Name               string            `json:"name"`
 	StorageClass       string            `json:"storageClass"`
 	Metadata           map[string]string `json:"metadata"`
+	Retention          *jsonRetention    `json:"retention,omitempty"`
+}
+
+func convertJsonRetentionToStorage(jr *jsonRetention) *storage.ObjectRetention {
+	if jr == nil {
+		return nil
+	}
+	return &storage.ObjectRetention{
+		Mode:        jr.Mode,
+		RetainUntil: jr.RetainUntil,
+	}
 }
 
 type contentRange struct {
@@ -389,6 +400,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 			CustomTime:         metadata.CustomTime,
 			ACL:                getObjectACL(predefinedACL),
 			Metadata:           metadata.Metadata,
+			Retention:          convertJsonRetentionToStorage(metadata.Retention),
 		},
 		Content: notImplementedSeeker{io.NopCloser(io.MultiReader(partReaders...))},
 	}
@@ -438,6 +450,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 			CustomTime:      metadata.CustomTime,
 			ACL:             getObjectACL(predefinedACL),
 			Metadata:        metadata.Metadata,
+			Retention:       convertJsonRetentionToStorage(metadata.Retention),
 		},
 	}
 	uploadID, err := generateUploadID()
