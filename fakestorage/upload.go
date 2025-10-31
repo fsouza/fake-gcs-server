@@ -514,7 +514,64 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	}
 	commit := true
 	status := http.StatusOK
-	obj.Content = append(obj.Content, content...)
+	responseHeader := make(http.Header)
+
+	// Parse Content-Range header to determine where to place the content
+	contentRangeHeader := r.Header.Get("Content-Range")
+	var parsed contentRange
+	if contentRangeHeader != "" {
+		var err error
+		parsed, err = parseContentRange(contentRangeHeader)
+		if err != nil {
+			return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
+		}
+		if parsed.KnownRange {
+			// Place content at the specified range position
+			// Ensure the content buffer is large enough
+			requiredSize := parsed.End + 1
+			if len(obj.Content) < requiredSize {
+				// Extend the buffer to accommodate the new range
+				oldSize := len(obj.Content)
+				obj.Content = append(obj.Content, make([]byte, requiredSize-oldSize)...)
+			}
+			// Calculate the offset within the content array where this chunk starts
+			// The Content-Range specifies byte positions, so we need to match them
+			contentStart := parsed.Start
+			contentEnd := parsed.End
+			contentLength := contentEnd - contentStart + 1
+
+			// Validate that the content length matches the range
+			if len(content) != contentLength {
+				return jsonResponse{
+					errorMessage: fmt.Sprintf("content length %d does not match range length %d", len(content), contentLength),
+					status:       http.StatusBadRequest,
+				}
+			}
+
+			// Replace/merge the content at the specified range
+			copy(obj.Content[contentStart:contentStart+len(content)], content)
+
+			// Middle of streaming request, or any part of chunked request
+			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", parsed.End))
+			// Complete if the range covers the known total
+			commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
+		} else {
+			// Unknown range (e.g., "bytes */4096" or "bytes */*")
+			// For streaming uploads with unknown range, append the content
+			obj.Content = append(obj.Content, content...)
+			// End of a streaming request
+			if parsed.KnownTotal {
+				// We know the total, check if we're complete
+				commit = len(obj.Content) >= parsed.Total
+			}
+			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", len(obj.Content)-1))
+		}
+	} else {
+		// No Content-Range header, append content (fallback behavior)
+		obj.Content = append(obj.Content, content...)
+		responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", len(obj.Content)-1))
+	}
+
 	obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
 	obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
 	obj.Etag = obj.Md5Hash
@@ -523,22 +580,6 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 		obj.ContentType = contentTypeHeader
 	} else {
 		obj.ContentType = "application/octet-stream"
-	}
-	responseHeader := make(http.Header)
-	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
-		parsed, err := parseContentRange(contentRange)
-		if err != nil {
-			return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
-		}
-		if parsed.KnownRange {
-			// Middle of streaming request, or any part of chunked request
-			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", parsed.End))
-			// Complete if the range covers the known total
-			commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
-		} else {
-			// End of a streaming request
-			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", len(obj.Content)))
-		}
 	}
 	if commit {
 		s.uploads.Delete(uploadID)
