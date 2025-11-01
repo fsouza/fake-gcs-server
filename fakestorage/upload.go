@@ -200,7 +200,7 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	return xmlResponse{status: successActionStatus}
 }
 
-func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, objectName string) (generationCondition, error) {
+func (s *Server) wrapUploadPreconditions(r *http.Request) (generationCondition, error) {
 	result := generationCondition{
 		ifGenerationMatch:    nil,
 		ifGenerationNotMatch: nil,
@@ -226,6 +226,20 @@ func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, obj
 	}
 
 	return result, nil
+}
+
+func (s *Server) formatUploadPreconditions(conditions generationCondition) string {
+	values := url.Values{}
+
+	if conditions.ifGenerationMatch != nil {
+		values["ifGenerationMatch"] = []string{strconv.FormatInt(*conditions.ifGenerationMatch, 10)}
+	}
+
+	if conditions.ifGenerationNotMatch != nil {
+		values["ifGenerationNotMatch"] = []string{strconv.FormatInt(*conditions.ifGenerationNotMatch, 10)}
+	}
+
+	return values.Encode()
 }
 
 func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
@@ -368,7 +382,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		objName = metadata.Name
 	}
 
-	conditions, err := s.wrapUploadPreconditions(r, bucketName, objName)
+	conditions, err := s.wrapUploadPreconditions(r)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusBadRequest,
@@ -428,6 +442,15 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if contentEncoding == "" {
 		contentEncoding = metadata.ContentEncoding
 	}
+
+	conditions, err := s.wrapUploadPreconditions(r)
+	if err != nil {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: err.Error(),
+		}
+	}
+
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
@@ -444,14 +467,21 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
+	var preconditionArgs = s.formatUploadPreconditions(conditions)
+	var extraArgs strings.Builder
+	if preconditionArgs != "" {
+		extraArgs.WriteString("&")
+		extraArgs.WriteString(preconditionArgs)
+	}
 	s.uploads.Store(uploadID, obj)
 	header := make(http.Header)
 	location := fmt.Sprintf(
-		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
+		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s%s",
 		s.URL(),
 		bucketName,
 		url.PathEscape(objName),
 		uploadID,
+		extraArgs.String(),
 	)
 	header.Set("Location", location)
 	if r.Header.Get("X-Goog-Upload-Command") == "start" {
@@ -542,7 +572,16 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	}
 	if commit {
 		s.uploads.Delete(uploadID)
-		streamingObject, err := s.createObject(obj.StreamingObject(), backend.NoConditions{})
+
+		conditions, err := s.wrapUploadPreconditions(r)
+		if err != nil {
+			return jsonResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: err.Error(),
+			}
+		}
+
+		streamingObject, err := s.createObject(obj.StreamingObject(), conditions)
 		if err != nil {
 			return errToJsonResponse(err)
 		}
