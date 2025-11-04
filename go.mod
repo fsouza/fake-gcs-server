@@ -6,6 +6,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
+	github.com/jonmseaman/gcs-xml-multipart-client v0.8.0
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/pkg/xattr v0.4.12
 	github.com/stretchr/testify v1.11.1

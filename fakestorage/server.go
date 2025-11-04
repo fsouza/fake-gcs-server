@@ -44,6 +44,7 @@ const defaultPublicHost = "storage.googleapis.com"
 type Server struct {
 	backend      backend.Storage
 	uploads      sync.Map
+	mpus         sync.Map
 	transport    *muxTransport
 	ts           *httptest.Server
 	handler      http.Handler
@@ -222,6 +223,7 @@ func newServer(options Options) (*Server, error) {
 	s := Server{
 		backend:      backendStorage,
 		uploads:      sync.Map{},
+		mpus:         sync.Map{},
 		externalURL:  options.ExternalURL,
 		publicHost:   publicHost,
 		options:      options,
@@ -293,16 +295,37 @@ func (s *Server) buildMuxer() {
 	// Internal - end
 
 	// XML API
+	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	xmlApiRouters := []*mux.Router{
-		handler.Host(fmt.Sprintf("{bucketName}.%s", s.publicHost)).Subrouter(),
+		handler.Host(bucketHost).Subrouter(),
 		handler.MatcherFunc(s.publicHostMatcher).PathPrefix(`/{bucketName}`).Subrouter(),
 	}
 	for _, r := range xmlApiRouters {
+		// XML Multipart Upload Handlers
+		r.Path("/{objectName:.+}").Methods(http.MethodPost).
+			Queries("uploads", "").
+			HandlerFunc(xmlToHTTPHandler(s.initiateMultipartUpload))
+		r.Path("/{objectName:.+}").Methods(http.MethodPut).
+			Queries("partNumber", "{partNumber}").Queries("uploadId", "{uploadId}").
+			HandlerFunc(xmlToHTTPHandler(s.uploadObjectPart))
+		r.Path("/{objectName:.+}").Methods(http.MethodPost).
+			Queries("uploadId", "{uploadId}").
+			HandlerFunc(xmlToHTTPHandler(s.completeMultipartUpload))
+		r.Path("/{objectName:.+}").Methods(http.MethodDelete).
+			Queries("uploadId", "{uploadId}").
+			HandlerFunc(xmlToHTTPHandler(s.abortMultipartUpload))
+		r.Path("/").Methods(http.MethodGet).
+			Queries("uploads", "").
+			HandlerFunc(xmlToHTTPHandler(s.listMultipartUploads))
+		r.Path("/{objectName:.+}").Methods(http.MethodGet).
+			Queries("uploadId", "{uploadId}").
+			HandlerFunc(xmlToHTTPHandler(s.listObjectParts))
+
+		// Other XML APIs
 		r.Path("/").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
 		r.Path("").Methods(http.MethodGet).HandlerFunc(xmlToHTTPHandler(s.xmlListObjects))
 	}
 
-	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	handler.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	handler.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
