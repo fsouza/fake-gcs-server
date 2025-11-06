@@ -970,6 +970,7 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
 	w.Header().Set("X-Goog-Generation", strconv.FormatInt(obj.Generation, 10))
 	w.Header().Set("X-Goog-Hash", fmt.Sprintf("crc32c=%s,md5=%s", obj.Crc32c, obj.Md5Hash))
+	w.Header().Set("X-Goog-Stored-Content-Length", strconv.FormatInt(obj.Size, 10))
 	w.Header().Set("Last-Modified", obj.Updated.Format(http.TimeFormat))
 	w.Header().Set("ETag", fmt.Sprintf("%q", obj.Etag))
 	for name, value := range obj.Metadata {
