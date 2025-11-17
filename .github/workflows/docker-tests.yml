@@ -9,7 +9,7 @@ jobs:
     name: test-dockerfile
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v5.0.1
 
       - name: setup qemu
         uses: docker/setup-qemu-action@v3.6.0
