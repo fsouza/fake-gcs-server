@@ -23,9 +23,10 @@ func formatTime(t time.Time) string {
 }
 
 type listResponse struct {
-	Kind     string   `json:"kind"`
-	Items    []any    `json:"items,omitempty"`
-	Prefixes []string `json:"prefixes,omitempty"`
+	Kind          string   `json:"kind"`
+	Items         []any    `json:"items,omitempty"`
+	Prefixes      []string `json:"prefixes,omitempty"`
+	NextPageToken string   `json:"nextPageToken,omitempty"`
 }
 
 func newListBucketsResponse(buckets []backend.Bucket, location string, externalURL string) listResponse {
@@ -79,13 +80,14 @@ func newBucketResponse(bucket backend.Bucket, location string, externalURL strin
 	}
 }
 
-func newListObjectsResponse(objs []ObjectAttrs, prefixes []string, externalURL string) listResponse {
+func newListObjectsResponse(response ListResponse, externalURL string) listResponse {
 	resp := listResponse{
-		Kind:     "storage#objects",
-		Items:    make([]any, len(objs)),
-		Prefixes: prefixes,
+		Kind:          "storage#objects",
+		Items:         make([]any, len(response.Objects)),
+		Prefixes:      response.Prefixes,
+		NextPageToken: response.NextPageToken,
 	}
-	for i, obj := range objs {
+	for i, obj := range response.Objects {
 		resp.Items[i] = newObjectResponse(obj, externalURL)
 	}
 	return resp
