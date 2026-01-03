@@ -29,6 +29,7 @@ import (
 
 const (
 	contentTypeHeader        = "Content-Type"
+	contentEncodingHeader    = "Content-Encoding"
 	cacheControlHeader       = "Cache-Control"
 	contentDispositionHeader = "Content-Disposition"
 	contentLanguageHeader    = "Content-Language"
@@ -460,7 +461,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 
 	// Load data from HTTP Headers
 	if contentEncoding == "" {
-		contentEncoding = r.Header.Get("Content-Encoding")
+		contentEncoding = r.Header.Get(contentEncodingHeader)
 	}
 
 	metaData := make(map[string]string)
@@ -550,8 +551,12 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 
 	objName := r.URL.Query().Get("name")
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if objName == "" {
 		objName = metadata.Name
+	}
+	if contentEncoding == "" {
+		contentEncoding = metadata.ContentEncoding
 	}
 
 	conditions, err := s.wrapUploadPreconditions(r, bucketName, objName)
@@ -569,7 +574,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 			StorageClass:       metadata.StorageClass,
 			ContentType:        contentType,
 			CacheControl:       metadata.CacheControl,
-			ContentEncoding:    metadata.ContentEncoding,
+			ContentEncoding:    contentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
 			ContentLanguage:    metadata.ContentLanguage,
 			CustomTime:         metadata.CustomTime,

@@ -2238,6 +2238,7 @@ func TestServiceClientComposeObject(t *testing.T) {
 		contentDisposition = "attachment; filename=\"replaced.txt\""
 		contentLanguage    = "fr"
 		contentType        = "text/plain; charset=utf-8"
+		cacheControl       = "public, max-age=3600"
 	)
 	u32Checksum := uint32Checksum([]byte(source1Content))
 	hash := checksum.MD5Hash([]byte(source1Content))
@@ -2251,6 +2252,7 @@ func TestServiceClientComposeObject(t *testing.T) {
 				ContentDisposition: contentDisposition,
 				ContentLanguage:    contentLanguage,
 				ContentType:        contentType,
+				CacheControl:       cacheControl,
 				Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
 				Md5Hash:            checksum.EncodedHash(hash),
 				Metadata:           map[string]string{"foo": "bar"},
@@ -2264,6 +2266,7 @@ func TestServiceClientComposeObject(t *testing.T) {
 				ContentDisposition: contentDisposition,
 				ContentLanguage:    contentLanguage,
 				ContentType:        contentType,
+				CacheControl:       cacheControl,
 				Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
 				Md5Hash:            checksum.EncodedHash(hash),
 				Metadata:           map[string]string{"foo": "bar"},
@@ -2277,6 +2280,7 @@ func TestServiceClientComposeObject(t *testing.T) {
 				ContentDisposition: contentDisposition,
 				ContentLanguage:    contentLanguage,
 				ContentType:        contentType,
+				CacheControl:       cacheControl,
 				Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
 				Md5Hash:            checksum.EncodedHash(hash),
 				Metadata:           map[string]string{"foo": "bar"},
@@ -2290,6 +2294,7 @@ func TestServiceClientComposeObject(t *testing.T) {
 				ContentDisposition: contentDisposition,
 				ContentLanguage:    contentLanguage,
 				ContentType:        contentType,
+				CacheControl:       cacheControl,
 				Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
 				Md5Hash:            checksum.EncodedHash(hash),
 				Metadata:           map[string]string{"foo": "bar"},
@@ -2357,6 +2362,7 @@ func TestServiceClientComposeObject(t *testing.T) {
 				composer.ContentDisposition = contentDisposition
 				composer.ContentLanguage = contentLanguage
 				composer.ContentType = contentType
+				composer.CacheControl = cacheControl
 				composer.Metadata = map[string]string{"baz": "qux"}
 				attrs, err := composer.Run(context.TODO())
 				if err != nil {
@@ -2390,6 +2396,9 @@ func TestServiceClientComposeObject(t *testing.T) {
 				if attrs.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, attrs.ContentType)
 				}
+				if attrs.CacheControl != cacheControl {
+					t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, attrs.CacheControl)
+				}
 				if then.After(attrs.Created) {
 					t.Errorf("wrong created time\nwant > %v\ngot:   %v", then, attrs.Created)
 				}
@@ -2420,6 +2429,9 @@ func TestServiceClientComposeObject(t *testing.T) {
 				}
 				if obj.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+				}
+				if obj.CacheControl != cacheControl {
+					t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
 				}
 				if !reflect.DeepEqual(obj.Metadata, composer.Metadata) {
 					t.Errorf("wrong meta data\nwant %+v\ngot  %+v", composer.Metadata, obj.Metadata)
