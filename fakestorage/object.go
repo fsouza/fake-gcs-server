@@ -68,6 +68,7 @@ type jsonObject struct {
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
 	ContentLanguage    string            `json:"contentLanguage"`
+	CacheControl       string            `json:"cacheControl"`
 	Crc32c             string            `json:"crc32c,omitempty"`
 	Md5Hash            string            `json:"md5Hash,omitempty"`
 	Etag               string            `json:"etag,omitempty"`
@@ -96,6 +97,7 @@ func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
 		ContentEncoding:    o.ContentEncoding,
 		ContentDisposition: o.ContentDisposition,
 		ContentLanguage:    o.ContentLanguage,
+		CacheControl:       o.CacheControl,
 		Size:               o.Size,
 		Crc32c:             o.Crc32c,
 		Md5Hash:            o.Md5Hash,
@@ -133,6 +135,7 @@ func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
 	o.ContentEncoding = temp.ContentEncoding
 	o.ContentDisposition = temp.ContentDisposition
 	o.ContentLanguage = temp.ContentLanguage
+	o.CacheControl = temp.CacheControl
 	o.Size = temp.Size
 	o.Crc32c = temp.Crc32c
 	o.Md5Hash = temp.Md5Hash
@@ -499,6 +502,7 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 				ContentEncoding:      o.ContentEncoding,
 				ContentDisposition:   o.ContentDisposition,
 				ContentLanguage:      o.ContentLanguage,
+				CacheControl:         o.CacheControl,
 				ACL:                  o.ACL,
 				Created:              getCurrentIfZero(o.Created).Format(timestampFormat),
 				Deleted:              o.Deleted.Format(timestampFormat),

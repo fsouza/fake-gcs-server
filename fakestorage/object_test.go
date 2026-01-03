@@ -52,6 +52,7 @@ func getObjectTestCases() objectTestCases {
 		contentEncoding    = "gzip"
 		contentDisposition = "attachment; filename=\"replaced.txt\""
 		contentLanguage    = "fr"
+		cacheControl       = "public, max-age=3600"
 		metaValue          = "MetaValue"
 	)
 	testInitExecTime := time.Now().Truncate(time.Microsecond)
@@ -115,6 +116,7 @@ func getObjectTestCases() objectTestCases {
 					ContentEncoding:    contentEncoding,
 					ContentDisposition: contentDisposition,
 					ContentLanguage:    contentLanguage,
+					CacheControl:       cacheControl,
 					Crc32c:             checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
 					Md5Hash:            checksum.EncodedHash(hash),
 					Metadata:           map[string]string{"MetaHeader": metaValue},
@@ -194,6 +196,9 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	}
 	if attrs.ContentLanguage != testObj.ContentLanguage {
 		t.Errorf("wrong content language\nwant %q\ngot  %q", testObj.ContentLanguage, attrs.ContentLanguage)
+	}
+	if attrs.CacheControl != testObj.CacheControl {
+		t.Errorf("wrong cache control\nwant %q\ngot  %q", testObj.CacheControl, attrs.CacheControl)
 	}
 	expectedStorageClass := testObj.StorageClass
 	if expectedStorageClass == "" {

@@ -394,15 +394,27 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 			errorMessage: "name is required for simple uploads",
 		}
 	}
+
+	metaData := make(map[string]string)
+	for key := range r.Header {
+		lowerKey := strings.ToLower(key)
+		if metaDataKey := strings.TrimPrefix(lowerKey, "x-goog-meta-"); metaDataKey != lowerKey {
+			metaData[metaDataKey] = r.Header.Get(key)
+		}
+	}
+
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            name,
-			ContentType:     r.Header.Get(contentTypeHeader),
-			CacheControl:    r.Header.Get(cacheControlHeader),
-			ContentEncoding: contentEncoding,
-			CustomTime:      convertTimeWithoutError(customTime),
-			ACL:             getObjectACL(predefinedACL),
+			BucketName:         bucketName,
+			Name:               name,
+			ContentType:        r.Header.Get(contentTypeHeader),
+			CacheControl:       r.Header.Get(cacheControlHeader),
+			ContentEncoding:    contentEncoding,
+			ContentDisposition: r.Header.Get("Content-Disposition"),
+			ContentLanguage:    r.Header.Get("Content-Language"),
+			CustomTime:         convertTimeWithoutError(customTime),
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metaData,
 		},
 		Content: notImplementedSeeker{r.Body},
 	}
@@ -444,13 +456,16 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            name,
-			ContentType:     r.Header.Get(contentTypeHeader),
-			ContentEncoding: contentEncoding,
-			CustomTime:      convertTimeWithoutError(customTime),
-			ACL:             getObjectACL(predefinedACL),
-			Metadata:        metaData,
+			BucketName:         bucketName,
+			Name:               name,
+			ContentType:        r.Header.Get(contentTypeHeader),
+			ContentEncoding:    contentEncoding,
+			CacheControl:       r.Header.Get(cacheControlHeader),
+			ContentDisposition: r.Header.Get("Content-Disposition"),
+			ContentLanguage:    r.Header.Get("Content-Language"),
+			CustomTime:         convertTimeWithoutError(customTime),
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metaData,
 		},
 		Content: notImplementedSeeker{r.Body},
 	}
@@ -587,15 +602,17 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            objName,
-			ContentType:     metadata.ContentType,
-			CacheControl:    metadata.CacheControl,
-			ContentEncoding: contentEncoding,
-			CustomTime:      metadata.CustomTime,
-			ACL:             getObjectACL(predefinedACL),
-			Metadata:        metadata.Metadata,
-			Retention:       convertJsonRetentionToStorage(metadata.Retention),
+			BucketName:         bucketName,
+			Name:               objName,
+			ContentType:        metadata.ContentType,
+			CacheControl:       metadata.CacheControl,
+			ContentEncoding:    contentEncoding,
+			ContentDisposition: metadata.ContentDisposition,
+			ContentLanguage:    metadata.ContentLanguage,
+			CustomTime:         metadata.CustomTime,
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metadata.Metadata,
+			Retention:          convertJsonRetentionToStorage(metadata.Retention),
 		},
 	}
 	uploadID, err := generateUploadID()
