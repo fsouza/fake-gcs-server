@@ -27,8 +27,10 @@ import (
 )
 
 const (
-	contentTypeHeader  = "Content-Type"
-	cacheControlHeader = "Cache-Control"
+	contentTypeHeader        = "Content-Type"
+	cacheControlHeader       = "Cache-Control"
+	contentDispositionHeader = "Content-Disposition"
+	contentLanguageHeader    = "Content-Language"
 )
 
 const (
@@ -54,7 +56,7 @@ type multipartMetadata struct {
 	ContentType        string            `json:"contentType"`
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
-	ContentLanguage    string            `json:"ContentLanguage"`
+	ContentLanguage    string            `json:"contentLanguage"`
 	CacheControl       string            `json:"cacheControl"`
 	CustomTime         time.Time         `json:"customTime,omitempty"`
 	Name               string            `json:"name"`
@@ -144,6 +146,18 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	if contentTypes, ok := r.MultipartForm.Value["Content-Type"]; ok {
 		contentType = contentTypes[0]
 	}
+	var cacheControl string
+	if cacheControls, ok := r.MultipartForm.Value["Cache-Control"]; ok {
+		cacheControl = cacheControls[0]
+	}
+	var contentDisposition string
+	if contentDispositions, ok := r.MultipartForm.Value["Content-Disposition"]; ok {
+		contentDisposition = contentDispositions[0]
+	}
+	var contentLanguage string
+	if contentLanguages, ok := r.MultipartForm.Value["Content-Language"]; ok {
+		contentLanguage = contentLanguages[0]
+	}
 	successActionStatus := http.StatusNoContent
 	if successActionStatuses, ok := r.MultipartForm.Value["success_action_status"]; ok {
 		successInt, err := strconv.Atoi(successActionStatuses[0])
@@ -177,12 +191,15 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	}
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            name,
-			ContentType:     contentType,
-			ContentEncoding: contentEncoding,
-			ACL:             getObjectACL(predefinedACL),
-			Metadata:        metaData,
+			BucketName:         bucketName,
+			Name:               name,
+			ContentType:        contentType,
+			ContentEncoding:    contentEncoding,
+			CacheControl:       cacheControl,
+			ContentDisposition: contentDisposition,
+			ContentLanguage:    contentLanguage,
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metaData,
 		},
 		Content: infile,
 	}
@@ -256,8 +273,8 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 			ContentType:        r.Header.Get(contentTypeHeader),
 			CacheControl:       r.Header.Get(cacheControlHeader),
 			ContentEncoding:    contentEncoding,
-			ContentDisposition: r.Header.Get("Content-Disposition"),
-			ContentLanguage:    r.Header.Get("Content-Language"),
+			ContentDisposition: r.Header.Get(contentDispositionHeader),
+			ContentLanguage:    r.Header.Get(contentLanguageHeader),
 			CustomTime:         convertTimeWithoutError(customTime),
 			ACL:                getObjectACL(predefinedACL),
 			Metadata:           metaData,
@@ -307,8 +324,8 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 			ContentType:        r.Header.Get(contentTypeHeader),
 			ContentEncoding:    contentEncoding,
 			CacheControl:       r.Header.Get(cacheControlHeader),
-			ContentDisposition: r.Header.Get("Content-Disposition"),
-			ContentLanguage:    r.Header.Get("Content-Language"),
+			ContentDisposition: r.Header.Get(contentDispositionHeader),
+			ContentLanguage:    r.Header.Get(contentLanguageHeader),
 			CustomTime:         convertTimeWithoutError(customTime),
 			ACL:                getObjectACL(predefinedACL),
 			Metadata:           metaData,

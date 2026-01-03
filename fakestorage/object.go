@@ -872,6 +872,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	if metadata.ContentLanguage == "" {
 		metadata.ContentLanguage = obj.ContentLanguage
 	}
+	if metadata.CacheControl == "" {
+		metadata.CacheControl = obj.CacheControl
+	}
 
 	dstBucket := vars["destinationBucket"]
 	newObject := StreamingObject{
@@ -883,6 +886,7 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 			ContentEncoding:    metadata.ContentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
 			ContentLanguage:    metadata.ContentLanguage,
+			CacheControl:       metadata.CacheControl,
 			Metadata:           metadata.Metadata,
 		},
 		Content: obj.Content,
