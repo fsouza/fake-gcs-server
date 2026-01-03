@@ -1920,6 +1920,67 @@ func TestObjectPatchWithMethodOverrideHeader(t *testing.T) {
 	})
 }
 
+func TestServerClientObjectPatchCacheControl(t *testing.T) {
+	const (
+		bucketName   = "some-bucket"
+		objectName   = "items/data.txt"
+		content      = "some nice content"
+		contentType  = "text/plain; charset=utf-8"
+		cacheControl = "public, max-age=3600"
+	)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: contentType,
+			},
+			Content: []byte(content),
+		},
+	}
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		objHandle := client.Bucket(bucketName).Object(objectName)
+
+		// Verify object starts with no cache control
+		attrs, err := objHandle.Attrs(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if attrs.CacheControl != "" {
+			t.Errorf("expected empty cache control, got %q", attrs.CacheControl)
+		}
+
+		// Update cache control
+		attrs, err = objHandle.Update(context.TODO(), storage.ObjectAttrsToUpdate{CacheControl: cacheControl})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if attrs.CacheControl != cacheControl {
+			t.Errorf("wrong cache control after update\nwant %q\ngot  %q", cacheControl, attrs.CacheControl)
+		}
+
+		// Verify cache control persists
+		attrs, err = objHandle.Attrs(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if attrs.CacheControl != cacheControl {
+			t.Errorf("wrong cache control after re-fetch\nwant %q\ngot  %q", cacheControl, attrs.CacheControl)
+		}
+
+		// Update to different cache control
+		newCacheControl := "private, max-age=7200"
+		attrs, err = objHandle.Update(context.TODO(), storage.ObjectAttrsToUpdate{CacheControl: newCacheControl})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if attrs.CacheControl != newCacheControl {
+			t.Errorf("wrong cache control after second update\nwant %q\ngot  %q", newCacheControl, attrs.CacheControl)
+		}
+	})
+}
+
 func TestServerClientObjectUpdateCustomTime(t *testing.T) {
 	const (
 		bucketName  = "some-bucket"

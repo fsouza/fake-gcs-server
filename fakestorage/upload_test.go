@@ -595,6 +595,91 @@ func TestServerClientSimpleUploadWithMetadataHeaders(t *testing.T) {
 	checkChecksum(t, []byte(data), obj)
 }
 
+func TestServerClientMultipartUploadWithContentEncodingQueryParam(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
+
+	const data = "some nice content"
+	const contentType = "text/plain"
+	const contentEncoding = "gzip"
+	const cacheControl = "public, max-age=3600"
+
+	// Create multipart request body
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// First part: JSON metadata (without contentEncoding - we'll pass it via query param)
+	metadataHeader := make(map[string][]string)
+	metadataHeader["Content-Type"] = []string{"application/json; charset=UTF-8"}
+	metadataPart, err := writer.CreatePart(metadataHeader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata := map[string]interface{}{
+		"name":         "some/nice/object.txt",
+		"contentType":  contentType,
+		"cacheControl": cacheControl,
+	}
+	if err := json.NewEncoder(metadataPart).Encode(metadata); err != nil {
+		t.Fatal(err)
+	}
+
+	// Second part: file content
+	fileHeader := make(map[string][]string)
+	fileHeader["Content-Type"] = []string{contentType}
+	filePart, err := writer.CreatePart(fileHeader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := filePart.Write([]byte(data)); err != nil {
+		t.Fatal(err)
+	}
+
+	writer.Close()
+
+	// Send request with contentEncoding as query parameter (not in metadata JSON)
+	req, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/other-bucket/o?uploadType=multipart&contentEncoding="+contentEncoding, &buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	// Fix the content type to be multipart/related instead of multipart/form-data
+	req.Header.Set("Content-Type", "multipart/related; boundary="+writer.Boundary())
+
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("wrong status code\nwant %d\ngot  %d\nbody: %s", http.StatusOK, resp.StatusCode, body)
+	}
+
+	obj, err := server.GetObject("other-bucket", "some/nice/object.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(obj.Content) != data {
+		t.Errorf("wrong content\nwant %q\ngot  %q", data, string(obj.Content))
+	}
+	if obj.ContentType != contentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+	}
+	if obj.ContentEncoding != contentEncoding {
+		t.Errorf("wrong content encoding\nwant %q\ngot  %q", contentEncoding, obj.ContentEncoding)
+	}
+	if obj.CacheControl != cacheControl {
+		t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
+	}
+}
+
 func TestServerClientSignedUpload(t *testing.T) {
 	server, err := NewServerWithOptions(Options{PublicHost: "127.0.0.1"})
 	if err != nil {
