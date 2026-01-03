@@ -951,6 +951,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	if metadata.ContentLanguage == "" {
 		metadata.ContentLanguage = obj.ContentLanguage
 	}
+	if metadata.CacheControl == "" {
+		metadata.CacheControl = obj.CacheControl
+	}
 
 	dstBucket := vars["destinationBucket"]
 	if _, err := s.backend.GetBucket(dstBucket); err != nil {
@@ -965,6 +968,7 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 			ContentEncoding:    metadata.ContentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
 			ContentLanguage:    metadata.ContentLanguage,
+			CacheControl:       metadata.CacheControl,
 			Metadata:           metadata.Metadata,
 		},
 		Content: obj.Content,

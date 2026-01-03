@@ -1433,21 +1433,23 @@ func TestServiceClientListObjectsBucketNotFound(t *testing.T) {
 
 func TestServiceClientRewriteObject(t *testing.T) {
 	const (
-		content     = "some content"
-		contentType = "text/plain; charset=utf-8"
+		content      = "some content"
+		contentType  = "text/plain; charset=utf-8"
+		cacheControl = "public, max-age=3600"
 	)
 	u32Checksum := uint32Checksum([]byte(content))
 	hash := checksum.MD5Hash([]byte(content))
 	objs := []Object{
 		{
 			ObjectAttrs: ObjectAttrs{
-				BucketName:  "first-bucket",
-				Name:        "files/some-file.txt",
-				Size:        int64(len([]byte(content))),
-				ContentType: contentType,
-				Crc32c:      checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
-				Md5Hash:     checksum.EncodedHash(hash),
-				Metadata:    map[string]string{"foo": "bar"},
+				BucketName:   "first-bucket",
+				Name:         "files/some-file.txt",
+				Size:         int64(len([]byte(content))),
+				ContentType:  contentType,
+				CacheControl: cacheControl,
+				Crc32c:       checksum.EncodedChecksum(uint32ToBytes(u32Checksum)),
+				Md5Hash:      checksum.EncodedHash(hash),
+				Metadata:     map[string]string{"foo": "bar"},
 			},
 			Content: []byte(content),
 		},
@@ -1532,6 +1534,9 @@ func TestServiceClientRewriteObject(t *testing.T) {
 				}
 				if obj.ContentType != contentType {
 					t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+				}
+				if obj.CacheControl != cacheControl {
+					t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
 				}
 				if !reflect.DeepEqual(obj.Metadata, copier.Metadata) {
 					t.Errorf("wrong meta data\nwant %+v\ngot  %+v", copier.Metadata, obj.Metadata)
