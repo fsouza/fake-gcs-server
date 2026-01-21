@@ -522,7 +522,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	contentTypeHeader := r.Header.Get(contentTypeHeader)
 	if contentTypeHeader != "" {
 		obj.ContentType = contentTypeHeader
-	} else {
+	} else if obj.ContentType == "" {
 		obj.ContentType = "application/octet-stream"
 	}
 	responseHeader := make(http.Header)
