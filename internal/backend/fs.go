@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -37,8 +38,10 @@ import (
 // Bucket and object names are url path escaped, so there's no special meaning of forward slashes.
 type storageFS struct {
 	rootDir string
-	mtx     sync.RWMutex
+	mtx     sync.RWMutex // protects bucket operations and objectLocks map
 	mh      metadataHandler
+
+	objectLocks map[string]*sync.RWMutex // per-object locks, key is "bucket/object"
 }
 
 // NewStorageFS creates an instance of the filesystem-backed storage backend.
@@ -62,7 +65,7 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 		}
 	}
 
-	s := &storageFS{rootDir: rootDir, mh: mh}
+	s := &storageFS{rootDir: rootDir, mh: mh, objectLocks: make(map[string]*sync.RWMutex)}
 	for _, o := range objects {
 		obj, err := s.CreateObject(o, NoConditions{})
 		if err != nil {
@@ -71,6 +74,25 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 		obj.Close()
 	}
 	return s, nil
+}
+
+// objectKey returns the key used for per-object locking.
+func objectKey(bucketName, objectName string) string {
+	return bucketName + "/" + objectName
+}
+
+// getObjectLock returns the lock for the given object, creating it if necessary.
+// Caller must NOT hold s.mtx.
+func (s *storageFS) getObjectLock(bucketName, objectName string) *sync.RWMutex {
+	key := objectKey(bucketName, objectName)
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	if lock, ok := s.objectLocks[key]; ok {
+		return lock
+	}
+	lock := &sync.RWMutex{}
+	s.objectLocks[key] = lock
+	return lock
 }
 
 // CreateBucket creates a bucket in the fs backend. A bucket is a folder in the
@@ -201,17 +223,28 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, errors.New("not implemented: fs storage type does not support objects generation yet")
 	}
 
+	// Ensure bucket exists (uses global lock briefly)
+	s.mtx.Lock()
+	err := s.createBucket(obj.BucketName, BucketAttrs{VersioningEnabled: false})
+	s.mtx.Unlock()
+	if err != nil {
+		return StreamingObject{}, err
+	}
+
+	// Use per-object lock for the actual object creation
+	objLock := s.getObjectLock(obj.BucketName, obj.Name)
+	objLock.Lock()
+	defer objLock.Unlock()
+
+	return s.createObject(obj, conditions)
+}
+
+// createObject is the internal implementation that assumes the caller holds the object lock.
+func (s *storageFS) createObject(obj StreamingObject, conditions Conditions) (StreamingObject, error) {
 	// Note: this was a quick fix for issue #701. Now that we have a way to
 	// persist object attributes, we should implement versioning in the
 	// filesystem backend and handle generations outside of the backends.
 	obj.Generation = time.Now().UnixNano() / 1000
-
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-	err := s.createBucket(obj.BucketName, BucketAttrs{VersioningEnabled: false})
-	if err != nil {
-		return StreamingObject{}, err
-	}
 
 	var activeGeneration int64
 	existingObj, err := s.getObject(obj.BucketName, obj.Name)
@@ -313,8 +346,9 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 
 // GetObject get an object by bucket and name.
 func (s *storageFS) GetObject(bucketName, objectName string) (StreamingObject, error) {
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
+	objLock := s.getObjectLock(bucketName, objectName)
+	objLock.RLock()
+	defer objLock.RUnlock()
 	return s.getObject(bucketName, objectName)
 }
 
@@ -381,11 +415,14 @@ func (s *storageFS) getObjectAttrs(bucketName, objectName string) (ObjectAttrs, 
 
 // DeleteObject deletes an object by bucket and name.
 func (s *storageFS) DeleteObject(bucketName, objectName string) error {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
 	if objectName == "" {
 		return errors.New("can't delete object with empty name")
 	}
+
+	objLock := s.getObjectLock(bucketName, objectName)
+	objLock.Lock()
+	defer objLock.Unlock()
+
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
 	if err := s.mh.remove(path); err != nil {
 		return err
@@ -394,7 +431,11 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 }
 
 func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
-	obj, err := s.GetObject(bucketName, objectName)
+	objLock := s.getObjectLock(bucketName, objectName)
+	objLock.Lock()
+	defer objLock.Unlock()
+
+	obj, err := s.getObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
@@ -402,11 +443,15 @@ func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate Obj
 
 	obj.patch(attrsToUpdate)
 	obj.Generation = 0 // reset generation id
-	return s.CreateObject(obj, NoConditions{})
+	return s.createObject(obj, NoConditions{})
 }
 
 func (s *storageFS) UpdateObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
-	obj, err := s.GetObject(bucketName, objectName)
+	objLock := s.getObjectLock(bucketName, objectName)
+	objLock.Lock()
+	defer objLock.Unlock()
+
+	obj, err := s.getObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
@@ -417,7 +462,7 @@ func (s *storageFS) UpdateObject(bucketName, objectName string, attrsToUpdate Ob
 	}
 	obj.patch(attrsToUpdate)
 	obj.Generation = 0 // reset generation id
-	return s.CreateObject(obj, NoConditions{})
+	return s.createObject(obj, NoConditions{})
 }
 
 type concatenatedContent struct {
@@ -440,10 +485,53 @@ func concatObjectReaders(objects []StreamingObject) io.ReadSeekCloser {
 	return concatenatedContent{io.MultiReader(readers...)}
 }
 
+// acquireObjectLocksForWrite acquires write locks for multiple objects in a deterministic
+// order (sorted by object key) to prevent deadlocks. Returns the locks in the order they
+// were acquired (sorted order) for proper release.
+func (s *storageFS) acquireObjectLocksForWrite(bucketName string, objectNames []string) []*sync.RWMutex {
+	// Build unique set of object keys and sort them for deterministic ordering
+	uniqueKeys := make(map[string]struct{})
+	for _, name := range objectNames {
+		uniqueKeys[objectKey(bucketName, name)] = struct{}{}
+	}
+
+	sortedKeys := make([]string, 0, len(uniqueKeys))
+	for key := range uniqueKeys {
+		sortedKeys = append(sortedKeys, key)
+	}
+	sort.Strings(sortedKeys)
+
+	// Acquire locks in sorted order
+	locks := make([]*sync.RWMutex, len(sortedKeys))
+	for i, key := range sortedKeys {
+		s.mtx.Lock()
+		lock, ok := s.objectLocks[key]
+		if !ok {
+			lock = &sync.RWMutex{}
+			s.objectLocks[key] = lock
+		}
+		s.mtx.Unlock()
+
+		lock.Lock()
+		locks[i] = lock
+	}
+	return locks
+}
+
+// releaseObjectLocksForWrite releases write locks acquired by acquireObjectLocksForWrite.
+func releaseObjectLocksForWrite(locks []*sync.RWMutex) {
+	for i := len(locks) - 1; i >= 0; i-- {
+		locks[i].Unlock()
+	}
+}
+
 func (s *storageFS) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentDisposition string, contentLanguage string) (StreamingObject, error) {
+	locks := s.acquireObjectLocksForWrite(bucketName, append([]string{destinationName}, objectNames...))
+	defer releaseObjectLocksForWrite(locks)
+
 	var sourceObjects []StreamingObject
 	for _, n := range objectNames {
-		obj, err := s.GetObject(bucketName, n)
+		obj, err := s.getObject(bucketName, n)
 		if err != nil {
 			return StreamingObject{}, err
 		}
@@ -467,7 +555,8 @@ func (s *storageFS) ComposeObject(bucketName string, objectNames []string, desti
 	dest.Content = concatObjectReaders(sourceObjects)
 	dest.Metadata = metadata
 
-	result, err := s.CreateObject(dest, NoConditions{})
+	// Use createObject directly since we already hold the destination lock
+	result, err := s.createObject(dest, NoConditions{})
 	if err != nil {
 		return result, err
 	}
@@ -478,6 +567,10 @@ func (s *storageFS) ComposeObject(bucketName string, objectNames []string, desti
 func (s *storageFS) DeleteAllFiles() error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
+
+	// Clear per-object locks (mtx already held)
+	s.objectLocks = make(map[string]*sync.RWMutex)
+
 	if err := os.RemoveAll(s.rootDir); err != nil {
 		return err
 	}
