@@ -2327,3 +2327,58 @@ func TestServiceClientComposeObject(t *testing.T) {
 		}
 	})
 }
+
+func TestServiceClientRewriteObjectNonExistentDestBucket(t *testing.T) {
+	const (
+		content     = "some content"
+		contentType = "text/plain; charset=utf-8"
+	)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "source-bucket",
+				Name:        "files/some-file.txt",
+				ContentType: contentType,
+			},
+			Content: []byte(content),
+		},
+	}
+
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+
+		// List buckets before the copy attempt
+		bucketsBefore, err := server.backend.ListBuckets()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Attempt to copy to a non-existent bucket
+		sourceObject := client.Bucket("source-bucket").Object("files/some-file.txt")
+		dstObject := client.Bucket("non-existent-bucket").Object("destination-file.txt")
+		copier := dstObject.CopierFrom(sourceObject)
+		_, err = copier.Run(context.TODO())
+
+		// The copy should fail
+		if err == nil {
+			t.Fatal("expected error when copying to non-existent bucket, got nil")
+		}
+
+		// Verify the destination bucket was NOT created
+		bucketsAfter, err := server.backend.ListBuckets()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(bucketsAfter) != len(bucketsBefore) {
+			t.Errorf("bucket count changed unexpectedly: before=%d, after=%d", len(bucketsBefore), len(bucketsAfter))
+		}
+
+		// Also verify the specific bucket doesn't exist
+		for _, b := range bucketsAfter {
+			if b.Name == "non-existent-bucket" {
+				t.Error("non-existent-bucket was unexpectedly created during copy operation")
+			}
+		}
+	})
+}

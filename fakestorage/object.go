@@ -870,6 +870,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	}
 
 	dstBucket := vars["destinationBucket"]
+	if _, err := s.backend.GetBucket(dstBucket); err != nil {
+		return jsonResponse{status: http.StatusNotFound}
+	}
 	newObject := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:         dstBucket,
