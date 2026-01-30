@@ -137,7 +137,7 @@ jobs:
       matrix:
         include:
           - lang: python
-            docker-image: python:latest
+            docker-image: python:3.13
             entrypoint: /bin/bash
           - lang: gsutil
             docker-image: python:3.11
