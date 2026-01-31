@@ -1159,3 +1159,206 @@ func TestParseContentTypeParamsGsutilEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestResumableUploadWithContentRange(t *testing.T) {
+	bucketName := "testbucket"
+	objectName := "testobj"
+
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		client := server.HTTPClient()
+
+		// Step 1: Start resumable upload
+		url := server.URL()
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/upload/storage/v1/b/%s/o?name=%s", url, bucketName, objectName), strings.NewReader("{\"contentType\": \"text/plain\"}"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Header.Set("X-Goog-Upload-Protocol", "resumable")
+		req.Header.Set("X-Goog-Upload-Command", "start")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			t.Fatalf("expected a 200 response, got: %d", resp.StatusCode)
+		}
+
+		uploadURL := resp.Header.Get("X-Goog-Upload-URL")
+		if uploadURL == "" {
+			t.Fatal("X-Goog-Upload-URL did not return upload url")
+		}
+
+		// Step 2: Upload first chunk (bytes 0-4: "Hello")
+		chunk1 := "Hello"
+		req, err = http.NewRequest(http.MethodPut, uploadURL, strings.NewReader(chunk1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Range", "bytes 0-4/20")
+
+		resp, err = client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != 308 {
+			t.Errorf("expected 308 status for partial upload, got: %d", resp.StatusCode)
+		}
+
+		// Step 3: Upload second chunk (bytes 5-9: " Worl")
+		chunk2 := " Worl"
+		req, err = http.NewRequest(http.MethodPut, uploadURL, strings.NewReader(chunk2))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Range", "bytes 5-9/20")
+
+		resp, err = client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != 308 {
+			t.Errorf("expected 308 status for partial upload, got: %d", resp.StatusCode)
+		}
+
+		// Step 4: Upload overlapping range (bytes 0-4 again: "Hi!  ")
+		// This tests that overlapping ranges are correctly replaced
+		chunk3 := "Hi!  "
+		req, err = http.NewRequest(http.MethodPut, uploadURL, strings.NewReader(chunk3))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Range", "bytes 0-4/20")
+
+		resp, err = client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != 308 {
+			t.Errorf("expected 308 status for partial upload, got: %d", resp.StatusCode)
+		}
+
+		// Step 5: Upload final chunk (bytes 10-19: exactly 10 bytes)
+		// "d!Test OK " = 10 bytes (d, !, T, e, s, t, space, O, K, space)
+		chunk4 := "d!Test OK "
+		req, err = http.NewRequest(http.MethodPut, uploadURL, strings.NewReader(chunk4))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Range", "bytes 10-19/20")
+
+		resp, err = client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			t.Errorf("expected 200 status for complete upload, got: %d", resp.StatusCode)
+		}
+
+		// Step 6: Verify final content
+		// bytes 0-4: "Hi!  " (from chunk3, replaces chunk1)
+		// bytes 5-9: " Worl" (from chunk2) - note the leading space
+		// bytes 10-19: "d!Test OK " (from chunk4)
+		// Expected: "Hi!   World!Test OK " (exactly 20 bytes: Hi! + space + space + space + World!Test OK )
+		obj, err := server.GetObject(bucketName, objectName)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expectedContent := "Hi!   World!Test OK "
+		if len(obj.Content) != 20 {
+			t.Errorf("wrong content length after overlapping range upload\nwant %d\ngot  %d", 20, len(obj.Content))
+		}
+		if string(obj.Content) != expectedContent {
+			t.Errorf("wrong content after overlapping range upload\nwant %q (len %d)\ngot  %q (len %d)", expectedContent, len(expectedContent), string(obj.Content), len(obj.Content))
+		}
+
+		checkChecksum(t, []byte(expectedContent), obj)
+	})
+
+	// Test: Sequential uploads with non-overlapping ranges
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		client := server.HTTPClient()
+
+		// Start resumable upload
+		url := server.URL()
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/upload/storage/v1/b/%s/o?name=%s-sequential", url, bucketName, objectName), strings.NewReader("{\"contentType\": \"text/plain\"}"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Header.Set("X-Goog-Upload-Protocol", "resumable")
+		req.Header.Set("X-Goog-Upload-Command", "start")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		uploadURL := resp.Header.Get("X-Goog-Upload-URL")
+
+		// Upload chunks sequentially
+		chunks := []struct {
+			content     string
+			rangeHeader string
+		}{
+			{"Hello", "bytes 0-4/23"},
+			{" ", "bytes 5-5/23"},
+			{"World", "bytes 6-10/23"},
+			{"! This is ", "bytes 11-20/23"},
+			{"OK", "bytes 21-22/23"},
+		}
+
+		for _, chunk := range chunks {
+			req, err = http.NewRequest(http.MethodPut, uploadURL, strings.NewReader(chunk.content))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Range", chunk.rangeHeader)
+
+			resp, err = client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+
+			// Last chunk should return 200, others should return 308
+			if chunk.rangeHeader == "bytes 21-22/23" {
+				if resp.StatusCode != 200 {
+					t.Errorf("expected 200 status for final chunk, got: %d", resp.StatusCode)
+				}
+			} else {
+				if resp.StatusCode != 308 {
+					t.Errorf("expected 308 status for partial upload, got: %d", resp.StatusCode)
+				}
+			}
+		}
+
+		// Verify final content
+		obj, err := server.GetObject(bucketName, objectName+"-sequential")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expectedContent := "Hello World! This is OK"
+		if string(obj.Content) != expectedContent {
+			t.Errorf("wrong content after sequential upload\nwant %q\ngot  %q", expectedContent, string(obj.Content))
+		}
+
+		checkChecksum(t, []byte(expectedContent), obj)
+	})
+}
