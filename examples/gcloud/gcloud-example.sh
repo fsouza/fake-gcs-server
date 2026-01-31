@@ -1,8 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
 export CLOUDSDK_CORE_PROJECT=fake-project
 export GCS_API_ENDPOINT=http://localhost:4443/
 export CLOUDSDK_API_ENDPOINT_OVERRIDES_STORAGE=http://localhost:4443/
 export CLOUDSDK_AUTH_DISABLE_CREDENTIALS=True
-
 
 # Create bucket
 gcloud storage buckets create gs://fake-bucket

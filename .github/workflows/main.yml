@@ -141,6 +141,9 @@ jobs:
           - lang: gsutil
             docker-image: python:3.11
             entrypoint: /bin/bash
+          - lang: gcloud
+            docker-image: google/cloud-sdk:alpine
+            entrypoint: /bin/sh
           - lang: node
             docker-image: node:20-alpine
             entrypoint: /bin/sh
