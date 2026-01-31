@@ -23,6 +23,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
+	"github.com/fsouza/fake-gcs-server/internal/urlhelper"
 	"github.com/gorilla/mux"
 )
 
@@ -200,9 +201,13 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 
 	// Create response headers
 	header := make(http.Header)
+	baseURL := urlhelper.GetBaseURL(r)
+	if baseURL == "" {
+		baseURL = s.URL()
+	}
 	location := fmt.Sprintf(
 		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
-		s.URL(),
+		baseURL,
 		bucketName,
 		url.PathEscape(body.Name),
 		uploadID,

@@ -4,7 +4,7 @@
 
 set -e
 
-./fake-gcs-server -backend memory -port 4443 &
+./fake-gcs-server -backend memory -port 4443 -scheme http &
 
 ./examples/gcloud/gcloud-example.sh
 

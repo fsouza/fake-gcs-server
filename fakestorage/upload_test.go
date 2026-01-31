@@ -1356,5 +1356,44 @@ func TestBodyBasedResumableUpload(t *testing.T) {
 				}
 			})
 		}
+
+		t.Run("location_uses_request_base_url_when_forwarded", func(t *testing.T) {
+			// When X-Forwarded-Proto and X-Forwarded-Host are set (e.g. behind a proxy),
+			// Location and X-Goog-Upload-URL should use that base URL.
+			jsonBody := []byte(`{"bucket":"` + bucketName + `","name":"forwarded-object.txt"}`)
+			url := fmt.Sprintf("%s/upload/storage/v1/b/dummy/o?uploadType=resumable", server.URL())
+			req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(jsonBody))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Goog-Upload-Command", "start")
+			req.Header.Set("X-Forwarded-Proto", "https")
+			req.Header.Set("X-Forwarded-Host", "gcs.example.com:4443")
+
+			resp, err := server.HTTPClient().Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				t.Fatalf("expected status 200, got %d. Body: %s", resp.StatusCode, string(body))
+			}
+
+			baseURL := "https://gcs.example.com:4443"
+			location := resp.Header.Get("Location")
+			if location == "" {
+				t.Fatal("Location header should be set")
+			}
+			if !strings.HasPrefix(location, baseURL+"/") {
+				t.Errorf("Location should use forwarded base URL: want prefix %q, got %q", baseURL+"/", location)
+			}
+			uploadURL := resp.Header.Get("X-Goog-Upload-URL")
+			if uploadURL != "" && !strings.HasPrefix(uploadURL, baseURL+"/") {
+				t.Errorf("X-Goog-Upload-URL should use forwarded base URL: want prefix %q, got %q", baseURL+"/", uploadURL)
+			}
+		})
 	})
 }
