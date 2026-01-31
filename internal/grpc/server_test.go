@@ -76,16 +76,31 @@ func compareGrpcObjAttrs(t *testing.T, grpcObj *pb.Object, expectedAttrs backend
 		t.Errorf("Unexpected bucket name '%q'. Expected '%q'", grpcObj.Bucket, expectedAttrs.BucketName)
 	}
 	if grpcObj.Name != expectedAttrs.Name {
-		t.Errorf("Unexpected bucket name '%q'. Expected '%q'", grpcObj.Name, expectedAttrs.Name)
+		t.Errorf("Unexpected object name '%q'. Expected '%q'", grpcObj.Name, expectedAttrs.Name)
 	}
 	if grpcObj.Md5Hash != expectedAttrs.Md5Hash {
-		t.Errorf("Unexpected bucket name '%q'. Expected '%q'", grpcObj.Md5Hash, expectedAttrs.Md5Hash)
+		t.Errorf("Unexpected Md5Hash '%q'. Expected '%q'", grpcObj.Md5Hash, expectedAttrs.Md5Hash)
 	}
 	if grpcObj.Generation != expectedAttrs.Generation {
-		t.Errorf("Unexpected bucket name '%q'. Expected '%q'", grpcObj.Generation, expectedAttrs.Generation)
+		t.Errorf("Unexpected Generation '%d'. Expected '%d'", grpcObj.Generation, expectedAttrs.Generation)
 	}
 	if grpcObj.ContentType != expectedAttrs.ContentType {
-		t.Errorf("Unexpected bucket name '%q'. Expected '%q'", grpcObj.ContentType, expectedAttrs.ContentType)
+		t.Errorf("Unexpected ContentType '%q'. Expected '%q'", grpcObj.ContentType, expectedAttrs.ContentType)
+	}
+	if grpcObj.ContentEncoding != expectedAttrs.ContentEncoding {
+		t.Errorf("Unexpected ContentEncoding '%q'. Expected '%q'", grpcObj.ContentEncoding, expectedAttrs.ContentEncoding)
+	}
+	if grpcObj.ContentDisposition != expectedAttrs.ContentDisposition {
+		t.Errorf("Unexpected ContentDisposition '%q'. Expected '%q'", grpcObj.ContentDisposition, expectedAttrs.ContentDisposition)
+	}
+	if grpcObj.ContentLanguage != expectedAttrs.ContentLanguage {
+		t.Errorf("Unexpected ContentLanguage '%q'. Expected '%q'", grpcObj.ContentLanguage, expectedAttrs.ContentLanguage)
+	}
+	if grpcObj.CacheControl != expectedAttrs.CacheControl {
+		t.Errorf("Unexpected CacheControl '%q'. Expected '%q'", grpcObj.CacheControl, expectedAttrs.CacheControl)
+	}
+	if !reflect.DeepEqual(grpcObj.Metadata, expectedAttrs.Metadata) {
+		t.Errorf("Unexpected Metadata '%v'. Expected '%v'", grpcObj.Metadata, expectedAttrs.Metadata)
 	}
 }
 

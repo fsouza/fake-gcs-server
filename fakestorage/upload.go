@@ -28,8 +28,11 @@ import (
 )
 
 const (
-	contentTypeHeader  = "Content-Type"
-	cacheControlHeader = "Cache-Control"
+	contentTypeHeader        = "Content-Type"
+	contentEncodingHeader    = "Content-Encoding"
+	cacheControlHeader       = "Cache-Control"
+	contentDispositionHeader = "Content-Disposition"
+	contentLanguageHeader    = "Content-Language"
 )
 
 const (
@@ -55,7 +58,7 @@ type multipartMetadata struct {
 	ContentType        string            `json:"contentType"`
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
-	ContentLanguage    string            `json:"ContentLanguage"`
+	ContentLanguage    string            `json:"contentLanguage"`
 	CacheControl       string            `json:"cacheControl"`
 	CustomTime         time.Time         `json:"customTime,omitempty"`
 	Name               string            `json:"name"`
@@ -145,6 +148,18 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	if contentTypes, ok := r.MultipartForm.Value["Content-Type"]; ok {
 		contentType = contentTypes[0]
 	}
+	var cacheControl string
+	if cacheControls, ok := r.MultipartForm.Value["Cache-Control"]; ok {
+		cacheControl = cacheControls[0]
+	}
+	var contentDisposition string
+	if contentDispositions, ok := r.MultipartForm.Value["Content-Disposition"]; ok {
+		contentDisposition = contentDispositions[0]
+	}
+	var contentLanguage string
+	if contentLanguages, ok := r.MultipartForm.Value["Content-Language"]; ok {
+		contentLanguage = contentLanguages[0]
+	}
 	successActionStatus := http.StatusNoContent
 	if successActionStatuses, ok := r.MultipartForm.Value["success_action_status"]; ok {
 		successInt, err := strconv.Atoi(successActionStatuses[0])
@@ -178,12 +193,15 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	}
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            name,
-			ContentType:     contentType,
-			ContentEncoding: contentEncoding,
-			ACL:             getObjectACL(predefinedACL),
-			Metadata:        metaData,
+			BucketName:         bucketName,
+			Name:               name,
+			ContentType:        contentType,
+			ContentEncoding:    contentEncoding,
+			CacheControl:       cacheControl,
+			ContentDisposition: contentDisposition,
+			ContentLanguage:    contentLanguage,
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metaData,
 		},
 		Content: infile,
 	}
@@ -241,15 +259,27 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 			errorMessage: "name is required for simple uploads",
 		}
 	}
+
+	metaData := make(map[string]string)
+	for key := range r.Header {
+		lowerKey := strings.ToLower(key)
+		if metaDataKey := strings.TrimPrefix(lowerKey, "x-goog-meta-"); metaDataKey != lowerKey {
+			metaData[metaDataKey] = r.Header.Get(key)
+		}
+	}
+
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            name,
-			ContentType:     r.Header.Get(contentTypeHeader),
-			CacheControl:    r.Header.Get(cacheControlHeader),
-			ContentEncoding: contentEncoding,
-			CustomTime:      convertTimeWithoutError(customTime),
-			ACL:             getObjectACL(predefinedACL),
+			BucketName:         bucketName,
+			Name:               name,
+			ContentType:        r.Header.Get(contentTypeHeader),
+			CacheControl:       r.Header.Get(cacheControlHeader),
+			ContentEncoding:    contentEncoding,
+			ContentDisposition: r.Header.Get(contentDispositionHeader),
+			ContentLanguage:    r.Header.Get(contentLanguageHeader),
+			CustomTime:         convertTimeWithoutError(customTime),
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metaData,
 		},
 		Content: notImplementedSeeker{r.Body},
 	}
@@ -278,7 +308,7 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 
 	// Load data from HTTP Headers
 	if contentEncoding == "" {
-		contentEncoding = r.Header.Get("Content-Encoding")
+		contentEncoding = r.Header.Get(contentEncodingHeader)
 	}
 
 	metaData := make(map[string]string)
@@ -291,13 +321,16 @@ func (s *Server) signedUpload(bucketName string, r *http.Request) jsonResponse {
 
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            name,
-			ContentType:     r.Header.Get(contentTypeHeader),
-			ContentEncoding: contentEncoding,
-			CustomTime:      convertTimeWithoutError(customTime),
-			ACL:             getObjectACL(predefinedACL),
-			Metadata:        metaData,
+			BucketName:         bucketName,
+			Name:               name,
+			ContentType:        r.Header.Get(contentTypeHeader),
+			ContentEncoding:    contentEncoding,
+			CacheControl:       r.Header.Get(cacheControlHeader),
+			ContentDisposition: r.Header.Get(contentDispositionHeader),
+			ContentLanguage:    r.Header.Get(contentLanguageHeader),
+			CustomTime:         convertTimeWithoutError(customTime),
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metaData,
 		},
 		Content: notImplementedSeeker{r.Body},
 	}
@@ -365,8 +398,12 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 
 	objName := r.URL.Query().Get("name")
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	contentEncoding := r.URL.Query().Get("contentEncoding")
 	if objName == "" {
 		objName = metadata.Name
+	}
+	if contentEncoding == "" {
+		contentEncoding = metadata.ContentEncoding
 	}
 
 	conditions, err := s.wrapUploadPreconditions(r, bucketName, objName)
@@ -384,7 +421,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 			StorageClass:       metadata.StorageClass,
 			ContentType:        contentType,
 			CacheControl:       metadata.CacheControl,
-			ContentEncoding:    metadata.ContentEncoding,
+			ContentEncoding:    contentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
 			ContentLanguage:    metadata.ContentLanguage,
 			CustomTime:         metadata.CustomTime,
@@ -431,14 +468,16 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	}
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            objName,
-			ContentType:     metadata.ContentType,
-			CacheControl:    metadata.CacheControl,
-			ContentEncoding: contentEncoding,
-			CustomTime:      metadata.CustomTime,
-			ACL:             getObjectACL(predefinedACL),
-			Metadata:        metadata.Metadata,
+			BucketName:         bucketName,
+			Name:               objName,
+			ContentType:        metadata.ContentType,
+			CacheControl:       metadata.CacheControl,
+			ContentEncoding:    contentEncoding,
+			ContentDisposition: metadata.ContentDisposition,
+			ContentLanguage:    metadata.ContentLanguage,
+			CustomTime:         metadata.CustomTime,
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           metadata.Metadata,
 		},
 	}
 	uploadID, err := generateUploadID()

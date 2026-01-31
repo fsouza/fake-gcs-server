@@ -67,6 +67,7 @@ type jsonObject struct {
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
 	ContentLanguage    string            `json:"contentLanguage"`
+	CacheControl       string            `json:"cacheControl"`
 	Crc32c             string            `json:"crc32c,omitempty"`
 	Md5Hash            string            `json:"md5Hash,omitempty"`
 	Etag               string            `json:"etag,omitempty"`
@@ -89,6 +90,7 @@ func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
 		ContentEncoding:    o.ContentEncoding,
 		ContentDisposition: o.ContentDisposition,
 		ContentLanguage:    o.ContentLanguage,
+		CacheControl:       o.CacheControl,
 		Size:               o.Size,
 		Crc32c:             o.Crc32c,
 		Md5Hash:            o.Md5Hash,
@@ -120,6 +122,7 @@ func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
 	o.ContentEncoding = temp.ContentEncoding
 	o.ContentDisposition = temp.ContentDisposition
 	o.ContentLanguage = temp.ContentLanguage
+	o.CacheControl = temp.CacheControl
 	o.Size = temp.Size
 	o.Crc32c = temp.Crc32c
 	o.Md5Hash = temp.Md5Hash
@@ -440,6 +443,7 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 				ContentEncoding:    o.ContentEncoding,
 				ContentDisposition: o.ContentDisposition,
 				ContentLanguage:    o.ContentLanguage,
+				CacheControl:       o.CacheControl,
 				ACL:                o.ACL,
 				Created:            getCurrentIfZero(o.Created).Format(timestampFormat),
 				Deleted:            o.Deleted.Format(timestampFormat),
@@ -869,6 +873,9 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	if metadata.ContentLanguage == "" {
 		metadata.ContentLanguage = obj.ContentLanguage
 	}
+	if metadata.CacheControl == "" {
+		metadata.CacheControl = obj.CacheControl
+	}
 
 	dstBucket := vars["destinationBucket"]
 	if _, err := s.backend.GetBucket(dstBucket); err != nil {
@@ -883,6 +890,7 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 			ContentEncoding:    metadata.ContentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
 			ContentLanguage:    metadata.ContentLanguage,
+			CacheControl:       metadata.CacheControl,
 			Metadata:           metadata.Metadata,
 		},
 		Content: obj.Content,
@@ -997,13 +1005,13 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 		}
 		// If content was transcoded, the underlying encoding was removed so we shouldn't report it.
 		if obj.ContentEncoding != "" && !transcoded {
-			w.Header().Set("Content-Encoding", obj.ContentEncoding)
+			w.Header().Set(contentEncodingHeader, obj.ContentEncoding)
 		}
 		if obj.ContentDisposition != "" {
-			w.Header().Set("Content-Disposition", obj.ContentDisposition)
+			w.Header().Set(contentDispositionHeader, obj.ContentDisposition)
 		}
 		if obj.ContentLanguage != "" {
-			w.Header().Set("Content-Language", obj.ContentLanguage)
+			w.Header().Set(contentLanguageHeader, obj.ContentLanguage)
 		}
 		// X-Goog-Stored-Content-Encoding must be set to the original encoding,
 		// defaulting to "identity" if no encoding was set.
@@ -1131,6 +1139,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		ContentEncoding    string
 		ContentDisposition string
 		ContentLanguage    string
+		CacheControl       string
 		Metadata           map[string]string `json:"metadata"`
 		CustomTime         string
 		Acl                []acls
@@ -1149,6 +1158,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	attrsToUpdate.ContentEncoding = payload.ContentEncoding
 	attrsToUpdate.ContentDisposition = payload.ContentDisposition
 	attrsToUpdate.ContentLanguage = payload.ContentLanguage
+	attrsToUpdate.CacheControl = payload.CacheControl
 	attrsToUpdate.Metadata = payload.Metadata
 	attrsToUpdate.CustomTime = payload.CustomTime
 
@@ -1188,6 +1198,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 		ContentType        string            `json:"contentType"`
 		ContentDisposition string            `json:"contentDisposition"`
 		ContentLanguage    string            `json:"contentLanguage"`
+		CacheControl       string            `json:"cacheControl"`
 		CustomTime         string
 		Acl                []acls
 	}
@@ -1206,6 +1217,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	attrsToUpdate.ContentType = payload.ContentType
 	attrsToUpdate.ContentDisposition = payload.ContentDisposition
 	attrsToUpdate.ContentLanguage = payload.ContentLanguage
+	attrsToUpdate.CacheControl = payload.CacheControl
 	if len(payload.Acl) > 0 {
 		attrsToUpdate.ACL = []storage.ACLRule{}
 		for _, aclData := range payload.Acl {
@@ -1238,8 +1250,10 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 		Destination struct {
 			Bucket             string
 			ContentType        string
+			ContentEncoding    string
 			ContentDisposition string
 			ContentLanguage    string
+			CacheControl       string
 			Metadata           map[string]string
 		}
 	}
@@ -1266,7 +1280,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 		sourceNames = append(sourceNames, n.Name)
 	}
 
-	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType, composeRequest.Destination.ContentDisposition, composeRequest.Destination.ContentLanguage)
+	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType, composeRequest.Destination.ContentEncoding, composeRequest.Destination.ContentDisposition, composeRequest.Destination.ContentLanguage, composeRequest.Destination.CacheControl)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusInternalServerError,
