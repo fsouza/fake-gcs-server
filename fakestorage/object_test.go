@@ -1817,6 +1817,43 @@ func checkObjectMetadata(actual, expected map[string]string, t *testing.T) {
 	}
 }
 
+func TestObjectPatchWithMethodOverrideHeader(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "bucket"})
+		server.CreateObject(Object{
+			ObjectAttrs: ObjectAttrs{BucketName: "bucket", Name: "obj"},
+			Content:     []byte("content"),
+		})
+
+		client := server.HTTPClient()
+		patchMetadata := func(metadata map[string]string) error {
+			payload, _ := json.Marshal(map[string]any{"metadata": metadata})
+			req, _ := http.NewRequest(http.MethodPost, server.URL()+"/storage/v1/b/bucket/o/obj", bytes.NewReader(payload))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-HTTP-Method-Override", "PATCH")
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+			resp.Body.Close()
+			return nil
+		}
+
+		if err := patchMetadata(map[string]string{"k1": "v1", "k2": "v2"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := patchMetadata(map[string]string{"k1": "v1_updated", "k3": "v3"}); err != nil {
+			t.Fatal(err)
+		}
+
+		obj, err := server.GetObject("bucket", "obj")
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkObjectMetadata(obj.Metadata, map[string]string{"k1": "v1_updated", "k2": "v2", "k3": "v3"}, t)
+	})
+}
+
 func TestServerClientObjectUpdateCustomTime(t *testing.T) {
 	const (
 		bucketName  = "some-bucket"

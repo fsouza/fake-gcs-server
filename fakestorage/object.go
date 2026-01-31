@@ -1174,6 +1174,10 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 }
 
 func (s *Server) updateObject(r *http.Request) jsonResponse {
+	if r.Method == http.MethodPost && r.Header.Get("X-HTTP-Method-Override") == "PATCH" {
+		return s.patchObject(r)
+	}
+
 	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
 	objectName := vars["objectName"]
