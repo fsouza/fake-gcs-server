@@ -65,7 +65,7 @@ require (
 	cloud.google.com/go/pubsub/v2 v2.2.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/google/renameio/v2 v2.0.0
+	github.com/google/renameio/v2 v2.0.2
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
@@ -80,4 +80,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-go 1.24.0
+go 1.25
