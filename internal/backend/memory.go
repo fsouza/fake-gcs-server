@@ -155,9 +155,11 @@ func NewStorageMemory(objects []StreamingObject) (Storage, error) {
 }
 
 func (s *storageMemory) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
 	if err != nil {
-		return err
+		return BucketNotFound
 	}
 	bucketInMemory.DefaultEventBasedHold = attrsToUpdate.DefaultEventBasedHold
 	bucketInMemory.VersioningEnabled = attrsToUpdate.VersioningEnabled
