@@ -70,6 +70,18 @@ type contentRange struct {
 	Total      int  // Total bytes expected, -1 if unknown
 }
 
+// resumableUploadBody is the JSON body for body-based resumable uploads (e.g. gcloud CLI).
+type resumableUploadBody struct {
+	Bucket          string            `json:"bucket"`
+	Name            string            `json:"name"`
+	ContentType     string            `json:"contentType"`
+	CacheControl    string            `json:"cacheControl"`
+	ContentEncoding string            `json:"contentEncoding"`
+	CustomTime      string            `json:"customTime"` // RFC3339
+	Metadata        map[string]string `json:"metadata"`
+	PredefinedACL   string            `json:"predefinedAcl"`
+}
+
 type generationCondition struct {
 	ifGenerationMatch    *int64
 	ifGenerationNotMatch *int64
@@ -97,7 +109,7 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 		}
 
 		// Check if this is a body-based resumable upload (has bucket in JSON)
-		if parsedBody != nil && parsedBody["bucket"] != nil {
+		if parsedBody != nil && parsedBody.Bucket != "" {
 			return s.handleBodyBasedResumableUpload(r, parsedBody)
 		}
 	}
@@ -133,14 +145,9 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 	}
 }
 
-func (s *Server) handleBodyBasedResumableUpload(r *http.Request, jsonData map[string]interface{}) jsonResponse {
+func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumableUploadBody) jsonResponse {
 	// Extract bucket name from JSON or URL
-	bucketName := ""
-	if bucket, ok := jsonData["bucket"]; ok {
-		if bucketStr, ok := bucket.(string); ok {
-			bucketName = bucketStr
-		}
-	}
+	bucketName := body.Bucket
 	if bucketName == "" {
 		bucketName = unescapeMuxVars(mux.Vars(r))["bucketName"]
 	}
@@ -156,67 +163,31 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, jsonData map[st
 		return jsonResponse{status: http.StatusNotFound}
 	}
 
-	// Extract metadata from JSON
-	metadata := &multipartMetadata{}
-	if name, ok := jsonData["name"]; ok {
-		if nameStr, ok := name.(string); ok {
-			metadata.Name = nameStr
-		}
-	}
-	if contentType, ok := jsonData["contentType"]; ok {
-		if ctStr, ok := contentType.(string); ok {
-			metadata.ContentType = ctStr
-		}
-	}
-	if cacheControl, ok := jsonData["cacheControl"]; ok {
-		if ccStr, ok := cacheControl.(string); ok {
-			metadata.CacheControl = ccStr
-		}
-	}
-	if contentEncoding, ok := jsonData["contentEncoding"]; ok {
-		if ceStr, ok := contentEncoding.(string); ok {
-			metadata.ContentEncoding = ceStr
-		}
-	}
-	if customTime, ok := jsonData["customTime"]; ok {
-		if customTimeStr, ok := customTime.(string); ok {
-			if parsedTime, err := time.Parse(time.RFC3339, customTimeStr); err == nil {
-				metadata.CustomTime = parsedTime
-			}
-		}
-	}
-	if meta, ok := jsonData["metadata"]; ok {
-		if metaMap, ok := meta.(map[string]interface{}); ok {
-			metadata.Metadata = make(map[string]string)
-			for k, v := range metaMap {
-				if vStr, ok := v.(string); ok {
-					metadata.Metadata[k] = vStr
-				}
-			}
+	// Parse customTime if present
+	var customTime time.Time
+	if body.CustomTime != "" {
+		if parsedTime, err := time.Parse(time.RFC3339, body.CustomTime); err == nil {
+			customTime = parsedTime
 		}
 	}
 
 	// Get predefined ACL from query parameters or JSON
 	predefinedACL := r.URL.Query().Get("predefinedAcl")
 	if predefinedACL == "" {
-		if acl, ok := jsonData["predefinedAcl"]; ok {
-			if aclStr, ok := acl.(string); ok {
-				predefinedACL = aclStr
-			}
-		}
+		predefinedACL = body.PredefinedACL
 	}
 
 	// Create an object with the metadata
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:      bucketName,
-			Name:            metadata.Name,
-			ContentType:     metadata.ContentType,
-			CacheControl:    metadata.CacheControl,
-			ContentEncoding: metadata.ContentEncoding,
-			CustomTime:      metadata.CustomTime,
+			Name:            body.Name,
+			ContentType:     body.ContentType,
+			CacheControl:    body.CacheControl,
+			ContentEncoding: body.ContentEncoding,
+			CustomTime:      customTime,
 			ACL:             getObjectACL(predefinedACL),
-			Metadata:        metadata.Metadata,
+			Metadata:        body.Metadata,
 		},
 	}
 
@@ -233,7 +204,7 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, jsonData map[st
 		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
 		s.URL(),
 		bucketName,
-		url.PathEscape(metadata.Name),
+		url.PathEscape(body.Name),
 		uploadID,
 	)
 	header.Set("Location", location)
@@ -250,7 +221,7 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, jsonData map[st
 	}
 }
 
-func parseJSONBody(r *http.Request) (map[string]interface{}, error) {
+func parseJSONBody(r *http.Request) (*resumableUploadBody, error) {
 	if !strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 		return nil, nil
 	}
@@ -273,15 +244,15 @@ func parseJSONBody(r *http.Request) (map[string]interface{}, error) {
 		return nil, nil
 	}
 
-	// Parse JSON
-	var jsonData map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &jsonData); err != nil {
+	// Parse JSON into typed struct
+	var body resumableUploadBody
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
 		// For invalid JSON, we return nil without error to allow other upload types
 		// to be processed. This maintains backward compatibility.
 		return nil, nil
 	}
 
-	return jsonData, nil
+	return &body, nil
 }
 
 func (s *Server) insertFormObject(r *http.Request) xmlResponse {
