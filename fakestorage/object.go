@@ -52,6 +52,7 @@ type ObjectAttrs struct {
 	CustomTime time.Time
 	Generation int64
 	Metadata   map[string]string
+	Retention  *storage.ObjectRetention
 }
 
 func (o *ObjectAttrs) id() string {
@@ -77,6 +78,12 @@ type jsonObject struct {
 	CustomTime         time.Time         `json:"customTime,omitempty"`
 	Generation         int64             `json:"generation,omitempty,string"`
 	Metadata           map[string]string `json:"metadata,omitempty"`
+	Retention          *jsonRetention    `json:"retention,omitempty"`
+}
+
+type jsonRetention struct {
+	Mode        string    `json:"mode,omitempty"`
+	RetainUntil time.Time `json:"retainUntilTime,omitempty"`
 }
 
 // MarshalJSON for ObjectAttrs to use ACLRule instead of storage.ACLRule
@@ -103,6 +110,12 @@ func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
 	temp.ACL = make([]aclRule, len(o.ACL))
 	for i, ACL := range o.ACL {
 		temp.ACL[i] = aclRule(ACL)
+	}
+	if o.Retention != nil {
+		temp.Retention = &jsonRetention{
+			Mode:        o.Retention.Mode,
+			RetainUntil: o.Retention.RetainUntil,
+		}
 	}
 	return json.Marshal(temp)
 }
@@ -133,6 +146,12 @@ func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
 	o.ACL = make([]storage.ACLRule, len(temp.ACL))
 	for i, ACL := range temp.ACL {
 		o.ACL[i] = storage.ACLRule(ACL)
+	}
+	if temp.Retention != nil {
+		o.Retention = &storage.ObjectRetention{
+			Mode:        temp.Retention.Mode,
+			RetainUntil: temp.Retention.RetainUntil,
+		}
 	}
 
 	return nil
@@ -403,23 +422,33 @@ func getCurrentIfZero(date time.Time) time.Time {
 func toBackendObjects(objects []StreamingObject) []backend.StreamingObject {
 	backendObjects := make([]backend.StreamingObject, 0, len(objects))
 	for _, o := range objects {
+		retentionMode := ""
+		retentionRetainUntil := ""
+		if o.Retention != nil {
+			retentionMode = o.Retention.Mode
+			if !o.Retention.RetainUntil.IsZero() {
+				retentionRetainUntil = o.Retention.RetainUntil.Format(timestampFormat)
+			}
+		}
 		backendObjects = append(backendObjects, backend.StreamingObject{
 			ObjectAttrs: backend.ObjectAttrs{
-				BucketName:         o.BucketName,
-				Name:               o.Name,
-				StorageClass:       o.StorageClass,
-				ContentType:        o.ContentType,
-				ContentEncoding:    o.ContentEncoding,
-				ContentDisposition: o.ContentDisposition,
-				ContentLanguage:    o.ContentLanguage,
-				CacheControl:       o.CacheControl,
-				ACL:                o.ACL,
-				Created:            getCurrentIfZero(o.Created).Format(timestampFormat),
-				Deleted:            o.Deleted.Format(timestampFormat),
-				Updated:            getCurrentIfZero(o.Updated).Format(timestampFormat),
-				CustomTime:         o.CustomTime.Format(timestampFormat),
-				Generation:         o.Generation,
-				Metadata:           o.Metadata,
+				BucketName:           o.BucketName,
+				Name:                 o.Name,
+				StorageClass:         o.StorageClass,
+				ContentType:          o.ContentType,
+				ContentEncoding:      o.ContentEncoding,
+				ContentDisposition:   o.ContentDisposition,
+				ContentLanguage:      o.ContentLanguage,
+				CacheControl:         o.CacheControl,
+				ACL:                  o.ACL,
+				Created:              getCurrentIfZero(o.Created).Format(timestampFormat),
+				Deleted:              o.Deleted.Format(timestampFormat),
+				Updated:              getCurrentIfZero(o.Updated).Format(timestampFormat),
+				CustomTime:           o.CustomTime.Format(timestampFormat),
+				Generation:           o.Generation,
+				Metadata:             o.Metadata,
+				RetentionMode:        retentionMode,
+				RetentionRetainUntil: retentionRetainUntil,
 			},
 			Content: o.Content,
 		})
@@ -431,26 +460,36 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 	backendObjects := make([]backend.StreamingObject, 0, len(objects))
 	for _, bufferedObject := range objects {
 		o := bufferedObject.StreamingObject()
+		retentionMode := ""
+		retentionRetainUntil := ""
+		if o.Retention != nil {
+			retentionMode = o.Retention.Mode
+			if !o.Retention.RetainUntil.IsZero() {
+				retentionRetainUntil = o.Retention.RetainUntil.Format(timestampFormat)
+			}
+		}
 		backendObjects = append(backendObjects, backend.StreamingObject{
 			ObjectAttrs: backend.ObjectAttrs{
-				BucketName:         o.BucketName,
-				Name:               o.Name,
-				StorageClass:       o.StorageClass,
-				ContentType:        o.ContentType,
-				ContentEncoding:    o.ContentEncoding,
-				ContentDisposition: o.ContentDisposition,
-				ContentLanguage:    o.ContentLanguage,
-				ACL:                o.ACL,
-				Created:            getCurrentIfZero(o.Created).Format(timestampFormat),
-				Deleted:            o.Deleted.Format(timestampFormat),
-				Updated:            getCurrentIfZero(o.Updated).Format(timestampFormat),
-				CustomTime:         o.CustomTime.Format(timestampFormat),
-				Generation:         o.Generation,
-				Metadata:           o.Metadata,
-				Crc32c:             o.Crc32c,
-				Md5Hash:            o.Md5Hash,
-				Size:               o.Size,
-				Etag:               o.Etag,
+				BucketName:           o.BucketName,
+				Name:                 o.Name,
+				StorageClass:         o.StorageClass,
+				ContentType:          o.ContentType,
+				ContentEncoding:      o.ContentEncoding,
+				ContentDisposition:   o.ContentDisposition,
+				ContentLanguage:      o.ContentLanguage,
+				ACL:                  o.ACL,
+				Created:              getCurrentIfZero(o.Created).Format(timestampFormat),
+				Deleted:              o.Deleted.Format(timestampFormat),
+				Updated:              getCurrentIfZero(o.Updated).Format(timestampFormat),
+				CustomTime:           o.CustomTime.Format(timestampFormat),
+				Generation:           o.Generation,
+				Metadata:             o.Metadata,
+				Crc32c:               o.Crc32c,
+				Md5Hash:              o.Md5Hash,
+				Size:                 o.Size,
+				Etag:                 o.Etag,
+				RetentionMode:        retentionMode,
+				RetentionRetainUntil: retentionRetainUntil,
 			},
 			Content: o.Content,
 		})
@@ -461,6 +500,13 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 	backendObjects := make([]StreamingObject, 0, len(objects))
 	for _, o := range objects {
+		var retention *storage.ObjectRetention
+		if o.RetentionMode != "" || o.RetentionRetainUntil != "" {
+			retention = &storage.ObjectRetention{
+				Mode:        o.RetentionMode,
+				RetainUntil: convertTimeWithoutError(o.RetentionRetainUntil),
+			}
+		}
 		backendObjects = append(backendObjects, StreamingObject{
 			ObjectAttrs: ObjectAttrs{
 				BucketName:         o.BucketName,
@@ -482,6 +528,7 @@ func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 				CustomTime:         convertTimeWithoutError(o.CustomTime),
 				Generation:         o.Generation,
 				Metadata:           o.Metadata,
+				Retention:          retention,
 			},
 			Content: o.Content,
 		})
@@ -492,6 +539,13 @@ func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 	oattrs := make([]ObjectAttrs, 0, len(objectAttrs))
 	for _, o := range objectAttrs {
+		var retention *storage.ObjectRetention
+		if o.RetentionMode != "" || o.RetentionRetainUntil != "" {
+			retention = &storage.ObjectRetention{
+				Mode:        o.RetentionMode,
+				RetainUntil: convertTimeWithoutError(o.RetentionRetainUntil),
+			}
+		}
 		oattrs = append(oattrs, ObjectAttrs{
 			BucketName:         o.BucketName,
 			Name:               o.Name,
@@ -512,6 +566,7 @@ func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 			CustomTime:         convertTimeWithoutError(o.CustomTime),
 			Generation:         o.Generation,
 			Metadata:           o.Metadata,
+			Retention:          retention,
 		})
 	}
 	return oattrs
@@ -1116,6 +1171,37 @@ func parseRange(rangeHeaderValue string, contentLength int64) (start int64, end 
 	return start, end, nil
 }
 
+// maybeUpdateRetention validates and updates retention attributes if allowed.
+// Returns an error response if the retention is locked and cannot be modified.
+func (s *Server) maybeUpdateRetention(bucketName, objectName string, newRetention *jsonRetention, attrsToUpdate *backend.ObjectAttrs) *jsonResponse {
+	if newRetention == nil {
+		return nil
+	}
+
+	// Get the current object to check its retention state
+	currentObj, err := s.backend.GetObject(bucketName, objectName)
+	if err != nil {
+		// Object doesn't exist or error accessing it, skip retention validation
+		return nil
+	}
+	defer currentObj.Close()
+
+	// If object has locked retention, prevent any changes
+	if currentObj.RetentionMode == "Locked" {
+		return &jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: "Object has a locked retention policy and cannot be modified",
+		}
+	}
+
+	// For unlocked retention, allow changes
+	attrsToUpdate.RetentionMode = newRetention.Mode
+	if !newRetention.RetainUntil.IsZero() {
+		attrsToUpdate.RetentionRetainUntil = newRetention.RetainUntil.Format(timestampFormat)
+	}
+	return nil
+}
+
 func (s *Server) patchObject(r *http.Request) jsonResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 	bucketName := vars["bucketName"]
@@ -1134,6 +1220,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		Metadata           map[string]string `json:"metadata"`
 		CustomTime         string
 		Acl                []acls
+		Retention          *jsonRetention `json:"retention"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -1144,6 +1231,11 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	}
 
 	var attrsToUpdate backend.ObjectAttrs
+
+	// Check if we need to validate and update retention
+	if errResp := s.maybeUpdateRetention(bucketName, objectName, payload.Retention, &attrsToUpdate); errResp != nil {
+		return *errResp
+	}
 
 	attrsToUpdate.ContentType = payload.ContentType
 	attrsToUpdate.ContentEncoding = payload.ContentEncoding
@@ -1194,6 +1286,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 		ContentLanguage    string            `json:"contentLanguage"`
 		CustomTime         string
 		Acl                []acls
+		Retention          *jsonRetention `json:"retention"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -1204,6 +1297,11 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	}
 
 	var attrsToUpdate backend.ObjectAttrs
+
+	// Check if we need to validate and update retention
+	if errResp := s.maybeUpdateRetention(bucketName, objectName, payload.Retention, &attrsToUpdate); errResp != nil {
+		return *errResp
+	}
 
 	attrsToUpdate.Metadata = payload.Metadata
 	attrsToUpdate.CustomTime = payload.CustomTime
