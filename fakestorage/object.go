@@ -357,7 +357,7 @@ type ListResponse struct {
 // or an error if the bucket doesn't exist.
 //
 // Deprecated: use ListObjectsWithOptions.
-func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool) (ListResponse, error) {
+func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool) ([]ObjectAttrs, []string, error) {
 	return s.ListObjectsWithOptions(bucketName, ListOptions{
 		Prefix:    prefix,
 		Delimiter: delimiter,
@@ -365,7 +365,13 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool
 	})
 }
 
-func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) (ListResponse, error) {
+// Deprecated: use ListObjectsWithOptionsPaginated.
+func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) ([]ObjectAttrs, []string, error) {
+	response, err := s.ListObjectsWithOptionsPaginated(bucketName, options)
+	return response.Objects, response.Prefixes, err
+}
+
+func (s *Server) ListObjectsWithOptionsPaginated(bucketName string, options ListOptions) (ListResponse, error) {
 	backendObjects, err := s.backend.ListObjects(bucketName, options.Prefix, options.Versions)
 	if err != nil {
 		return ListResponse{}, err
@@ -657,7 +663,7 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 			return jsonResponse{status: http.StatusBadRequest}
 		}
 	}
-	response, err := s.ListObjectsWithOptions(bucketName, ListOptions{
+	response, err := s.ListObjectsWithOptionsPaginated(bucketName, ListOptions{
 		Prefix:                   r.URL.Query().Get("prefix"),
 		Delimiter:                r.URL.Query().Get("delimiter"),
 		Versions:                 r.URL.Query().Get("versions") == "true",
@@ -682,7 +688,7 @@ func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
 		Versions:  r.URL.Query().Get("versions") == "true",
 	}
 
-	response, err := s.ListObjectsWithOptions(bucketName, opts)
+	response, err := s.ListObjectsWithOptionsPaginated(bucketName, opts)
 	if err != nil {
 		return xmlResponse{
 			status:       http.StatusInternalServerError,

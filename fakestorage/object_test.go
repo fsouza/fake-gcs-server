@@ -1232,7 +1232,7 @@ func TestObjectStoragePagination(t *testing.T) {
 		for _, test := range tests {
 			test := test
 			t.Run(test.testCase, func(t *testing.T) {
-				response, err := server.ListObjectsWithOptions(test.bucketName, *test.query)
+				response, err := server.ListObjectsWithOptionsPaginated(test.bucketName, *test.query)
 				if err != nil {
 					t.Fatal(err)
 				}
