@@ -1817,6 +1817,43 @@ func checkObjectMetadata(actual, expected map[string]string, t *testing.T) {
 	}
 }
 
+func TestObjectPatchWithMethodOverrideHeader(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "bucket"})
+		server.CreateObject(Object{
+			ObjectAttrs: ObjectAttrs{BucketName: "bucket", Name: "obj"},
+			Content:     []byte("content"),
+		})
+
+		client := server.HTTPClient()
+		patchMetadata := func(metadata map[string]string) error {
+			payload, _ := json.Marshal(map[string]any{"metadata": metadata})
+			req, _ := http.NewRequest(http.MethodPost, server.URL()+"/storage/v1/b/bucket/o/obj", bytes.NewReader(payload))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-HTTP-Method-Override", "PATCH")
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+			resp.Body.Close()
+			return nil
+		}
+
+		if err := patchMetadata(map[string]string{"k1": "v1", "k2": "v2"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := patchMetadata(map[string]string{"k1": "v1_updated", "k3": "v3"}); err != nil {
+			t.Fatal(err)
+		}
+
+		obj, err := server.GetObject("bucket", "obj")
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkObjectMetadata(obj.Metadata, map[string]string{"k1": "v1_updated", "k2": "v2", "k3": "v3"}, t)
+	})
+}
+
 func TestServerClientObjectUpdateCustomTime(t *testing.T) {
 	const (
 		bucketName  = "some-bucket"
@@ -2326,4 +2363,233 @@ func TestServiceClientComposeObject(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestServiceClientRewriteObjectNonExistentDestBucket(t *testing.T) {
+	const (
+		content     = "some content"
+		contentType = "text/plain; charset=utf-8"
+	)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  "source-bucket",
+				Name:        "files/some-file.txt",
+				ContentType: contentType,
+			},
+			Content: []byte(content),
+		},
+	}
+
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		bucketsBefore, err := server.backend.ListBuckets()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		sourceObject := client.Bucket("source-bucket").Object("files/some-file.txt")
+		dstObject := client.Bucket("non-existent-bucket").Object("destination-file.txt")
+		copier := dstObject.CopierFrom(sourceObject)
+		_, err = copier.Run(context.TODO())
+		if err == nil {
+			t.Fatal("expected error when copying to non-existent bucket, got nil")
+		}
+
+		bucketsAfter, err := server.backend.ListBuckets()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(bucketsAfter) != len(bucketsBefore) {
+			t.Errorf("bucket count changed unexpectedly: before=%d, after=%d", len(bucketsBefore), len(bucketsAfter))
+		}
+		for _, b := range bucketsAfter {
+			if b.Name == "non-existent-bucket" {
+				t.Error("non-existent-bucket was unexpectedly created during copy operation")
+			}
+		}
+	})
+}
+
+func TestObjectRetention(t *testing.T) {
+	server := NewServer([]Object{})
+	defer server.Stop()
+
+	const bucketName = "test-bucket"
+	const objectName = "test-object"
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+
+	baseTime := time.Now().Truncate(time.Second)
+
+	type retentionAction struct {
+		action         func() error
+		wantError      string
+		checkRetention func(t *testing.T, obj Object)
+	}
+
+	// Helper to update retention via PATCH
+	patchRetention := func(mode string, retainUntil time.Time, wantStatus int) error {
+		payload := map[string]interface{}{
+			"retention": map[string]interface{}{
+				"mode":            mode,
+				"retainUntilTime": retainUntil.Format(time.RFC3339),
+			},
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		req, err := http.NewRequest(http.MethodPatch,
+			fmt.Sprintf("%s/storage/v1/b/%s/o/%s", server.URL(), bucketName, url.QueryEscape(objectName)),
+			bytes.NewReader(payloadBytes))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := server.HTTPClient().Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != wantStatus {
+			return fmt.Errorf("expected status %d, got %d", wantStatus, resp.StatusCode)
+		}
+
+		if resp.StatusCode == http.StatusBadRequest {
+			var errorResp map[string]interface{}
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			json.Unmarshal(bodyBytes, &errorResp)
+			if errorObj, ok := errorResp["error"].(map[string]interface{}); ok {
+				if msg, ok := errorObj["message"].(string); ok {
+					return fmt.Errorf("%s", msg)
+				}
+			}
+		}
+		return nil
+	}
+
+	actions := []retentionAction{
+		{
+			// Create object with unlocked retention
+			action: func() error {
+				obj := Object{
+					ObjectAttrs: ObjectAttrs{
+						BucketName: bucketName,
+						Name:       objectName,
+						Retention: &storage.ObjectRetention{
+							Mode:        "Unlocked",
+							RetainUntil: baseTime.Add(24 * time.Hour),
+						},
+					},
+					Content: []byte("test content"),
+				}
+				server.CreateObject(obj)
+				return nil
+			},
+			checkRetention: func(t *testing.T, obj Object) {
+				if obj.Retention == nil {
+					t.Fatal("Expected retention to be set")
+				}
+				if obj.Retention.Mode != "Unlocked" {
+					t.Errorf("Expected mode Unlocked, got %s", obj.Retention.Mode)
+				}
+				if !obj.Retention.RetainUntil.Equal(baseTime.Add(24 * time.Hour)) {
+					t.Errorf("Expected RetainUntil %v, got %v", baseTime.Add(24*time.Hour), obj.Retention.RetainUntil)
+				}
+			},
+		},
+		{
+			// Update unlocked retention period
+			action: func() error {
+				return patchRetention("Unlocked", baseTime.Add(48*time.Hour), http.StatusOK)
+			},
+			checkRetention: func(t *testing.T, obj Object) {
+				if !obj.Retention.RetainUntil.Equal(baseTime.Add(48 * time.Hour)) {
+					t.Errorf("Expected RetainUntil %v, got %v", baseTime.Add(48*time.Hour), obj.Retention.RetainUntil)
+				}
+			},
+		},
+		{
+			// Upgrade unlocked to locked
+			action: func() error {
+				return patchRetention("Locked", baseTime.Add(48*time.Hour), http.StatusOK)
+			},
+			checkRetention: func(t *testing.T, obj Object) {
+				if obj.Retention.Mode != "Locked" {
+					t.Errorf("Expected mode Locked, got %s", obj.Retention.Mode)
+				}
+			},
+		},
+		{
+			// Attempt to modify locked retention
+			action: func() error {
+				return patchRetention("Unlocked", baseTime.Add(72*time.Hour), http.StatusBadRequest)
+			},
+			wantError: "locked retention policy",
+			checkRetention: func(t *testing.T, obj Object) {
+				// Should remain locked with unchanged time
+				if obj.Retention.Mode != "Locked" {
+					t.Errorf("Mode should remain Locked, got %s", obj.Retention.Mode)
+				}
+				if !obj.Retention.RetainUntil.Equal(baseTime.Add(48 * time.Hour)) {
+					t.Errorf("RetainUntil should remain %v, got %v", baseTime.Add(48*time.Hour), obj.Retention.RetainUntil)
+				}
+			},
+		},
+	}
+
+	for _, action := range actions {
+		err := action.action()
+
+		if action.wantError != "" {
+			if err == nil || !strings.Contains(err.Error(), action.wantError) {
+				t.Errorf("Expected error containing %q, got %v", action.wantError, err)
+			}
+		} else if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if action.checkRetention != nil {
+			obj, err := server.GetObject(bucketName, objectName)
+			if err != nil {
+				t.Fatalf("Failed to get object: %v", err)
+			}
+			action.checkRetention(t, obj)
+		}
+	}
+}
+
+func TestRetentionLocked(t *testing.T) {
+	server := NewServer([]Object{})
+	defer server.Stop()
+
+	const bucketName = "test-bucket"
+	const objectName = "locked-object"
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+
+	retainUntil := time.Now().Add(36 * time.Hour).Truncate(time.Second)
+
+	obj := Object{
+		ObjectAttrs: ObjectAttrs{
+			BucketName: bucketName,
+			Name:       objectName,
+			Retention: &storage.ObjectRetention{
+				Mode:        "Locked",
+				RetainUntil: retainUntil,
+			},
+		},
+		Content: []byte("locked content"),
+	}
+	server.CreateObject(obj)
+
+	retrieved, err := server.GetObject(bucketName, objectName)
+	if err != nil {
+		t.Fatalf("Failed to get object: %v", err)
+	}
+	if retrieved.Retention == nil || retrieved.Retention.Mode != "Locked" {
+		t.Error("Expected object to be created with Locked retention")
+	}
+	if !retrieved.Retention.RetainUntil.Equal(retainUntil) {
+		t.Errorf("Expected RetainUntil %v, got %v", retainUntil, retrieved.Retention.RetainUntil)
+	}
 }

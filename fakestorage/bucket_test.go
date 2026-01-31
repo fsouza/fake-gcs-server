@@ -21,13 +21,12 @@ func TestServerClientUpdateBucketAttrs(t *testing.T) {
 		const bucketName = "best-bucket-ever"
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, DefaultEventBasedHold: false})
 		client := server.Client()
-		_, err := client.Bucket(bucketName).Update(context.TODO(), storage.BucketAttrsToUpdate{DefaultEventBasedHold: true})
+		attrs, err := client.Bucket(bucketName).Update(context.TODO(), storage.BucketAttrsToUpdate{DefaultEventBasedHold: true})
 		if err != nil {
 			t.Fatal(err)
 		}
-		attrs, err := client.Bucket(bucketName).Attrs(context.Background())
-		if err != nil {
-			t.Fatal(err)
+		if attrs.Name != bucketName {
+			t.Errorf("expected bucket name %q in update response, got %q", bucketName, attrs.Name)
 		}
 		if !attrs.DefaultEventBasedHold {
 			t.Errorf("expected default event based hold to be true, instead got: %v", attrs.DefaultEventBasedHold)
@@ -37,16 +36,32 @@ func TestServerClientUpdateBucketAttrs(t *testing.T) {
 		const bucketName = "best-bucket-ever"
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: false})
 		client := server.Client()
-		_, err := client.Bucket(bucketName).Update(context.TODO(), storage.BucketAttrsToUpdate{VersioningEnabled: true})
+		attrs, err := client.Bucket(bucketName).Update(context.TODO(), storage.BucketAttrsToUpdate{VersioningEnabled: true})
 		if err != nil {
 			t.Fatal(err)
 		}
-		attrs, err := client.Bucket(bucketName).Attrs(context.Background())
-		if err != nil {
-			t.Fatal(err)
+		if attrs.Name != bucketName {
+			t.Errorf("expected bucket name %q in update response, got %q", bucketName, attrs.Name)
 		}
 		if !attrs.VersioningEnabled {
 			t.Errorf("expected VersioningEnabled hold to be true, instead got: %v", attrs.VersioningEnabled)
+		}
+	})
+}
+
+func TestServerClientUpdateBucketNotFound(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		_, err := client.Bucket("non-existent-bucket").Update(context.Background(), storage.BucketAttrsToUpdate{VersioningEnabled: true})
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+		var apiErr *googleapi.Error
+		if !errors.As(err, &apiErr) {
+			t.Fatalf("expected googleapi.Error, got %T", err)
+		}
+		if apiErr.Code != 404 {
+			t.Errorf("expected status 404, got %d", apiErr.Code)
 		}
 	})
 }
