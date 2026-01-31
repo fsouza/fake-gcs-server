@@ -1159,3 +1159,201 @@ func TestParseContentTypeParamsGsutilEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestResumableUploadContentType(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		const bucketName = "test-bucket"
+
+		t.Run("content type from session metadata is preserved", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+			client := server.HTTPClient()
+			const contentType = "text/csv"
+			const objectName = "test-content-type-preserved"
+
+			initReq, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=resumable&name="+objectName, strings.NewReader(`{"contentType": "`+contentType+`"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initReq.Header.Set("Content-Type", "application/json")
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer initResp.Body.Close()
+			if initResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, initResp.StatusCode)
+			}
+
+			uploadURL := initResp.Header.Get("Location")
+			uploadReq, err := http.NewRequest("PUT", uploadURL, strings.NewReader("test content"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			uploadResp, err := client.Do(uploadReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer uploadResp.Body.Close()
+			if uploadResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, uploadResp.StatusCode)
+			}
+
+			obj, err := server.GetObject(bucketName, objectName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if obj.ContentType != contentType {
+				t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+			}
+		})
+
+		t.Run("content type header in chunk overrides session metadata", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+			client := server.HTTPClient()
+			const sessionContentType = "text/plain"
+			const chunkContentType = "text/html"
+			const objectName = "test-content-type-override"
+
+			initReq, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=resumable&name="+objectName, strings.NewReader(`{"contentType": "`+sessionContentType+`"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initReq.Header.Set("Content-Type", "application/json")
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer initResp.Body.Close()
+			if initResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, initResp.StatusCode)
+			}
+
+			uploadURL := initResp.Header.Get("Location")
+			uploadReq, err := http.NewRequest("PUT", uploadURL, strings.NewReader("test content"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			uploadReq.Header.Set("Content-Type", chunkContentType)
+			uploadResp, err := client.Do(uploadReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer uploadResp.Body.Close()
+			if uploadResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, uploadResp.StatusCode)
+			}
+
+			obj, err := server.GetObject(bucketName, objectName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if obj.ContentType != chunkContentType {
+				t.Errorf("wrong content type\nwant %q\ngot  %q", chunkContentType, obj.ContentType)
+			}
+		})
+
+		t.Run("defaults to application/octet-stream when neither is set", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+			client := server.HTTPClient()
+			const objectName = "test-content-type-default"
+
+			initReq, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=resumable&name="+objectName, strings.NewReader("{}"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initReq.Header.Set("Content-Type", "application/json")
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer initResp.Body.Close()
+			if initResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, initResp.StatusCode)
+			}
+
+			uploadURL := initResp.Header.Get("Location")
+			uploadReq, err := http.NewRequest("PUT", uploadURL, strings.NewReader("test content"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			uploadResp, err := client.Do(uploadReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer uploadResp.Body.Close()
+			if uploadResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, uploadResp.StatusCode)
+			}
+
+			obj, err := server.GetObject(bucketName, objectName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if obj.ContentType != "application/octet-stream" {
+				t.Errorf("wrong content type\nwant %q\ngot  %q", "application/octet-stream", obj.ContentType)
+			}
+		})
+
+		t.Run("multi-chunk upload preserves content type", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+			client := server.HTTPClient()
+			const contentType = "text/csv"
+			const objectName = "test-content-type-chunked"
+
+			initReq, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=resumable&name="+objectName, strings.NewReader(`{"contentType": "`+contentType+`"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initReq.Header.Set("Content-Type", "application/json")
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer initResp.Body.Close()
+			if initResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, initResp.StatusCode)
+			}
+
+			uploadURL := initResp.Header.Get("Location")
+			chunk1 := "first chunk data"
+			chunk1Req, err := http.NewRequest("PUT", uploadURL, strings.NewReader(chunk1))
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunk1Req.Header.Set("Content-Range", fmt.Sprintf("bytes 0-%d/*", len(chunk1)-1))
+			chunk1Resp, err := client.Do(chunk1Req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer chunk1Resp.Body.Close()
+
+			chunk2 := "second chunk"
+			totalSize := len(chunk1) + len(chunk2)
+			chunk2Req, err := http.NewRequest("PUT", uploadURL, strings.NewReader(chunk2))
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunk2Req.Header.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", len(chunk1), totalSize-1, totalSize))
+			chunk2Resp, err := client.Do(chunk2Req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer chunk2Resp.Body.Close()
+			if chunk2Resp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, chunk2Resp.StatusCode)
+			}
+
+			obj, err := server.GetObject(bucketName, objectName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if obj.ContentType != contentType {
+				t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+			}
+			expectedContent := chunk1 + chunk2
+			if string(obj.Content) != expectedContent {
+				t.Errorf("wrong content\nwant %q\ngot  %q", expectedContent, string(obj.Content))
+			}
+		})
+	})
+}
