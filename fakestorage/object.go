@@ -385,7 +385,7 @@ func (s *Server) ListObjectsWithOptionsPaginated(bucketName string, options List
 
 	startOffset := options.StartOffset
 	if options.PageToken != "" {
-		// pageToken supercedes startOffset if provided
+		// pageToken supersedes startOffset if provided
 		startOffset = options.PageToken
 	}
 
