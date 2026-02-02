@@ -344,6 +344,13 @@ type ListOptions struct {
 	EndOffset                string
 	IncludeTrailingDelimiter bool
 	MaxResults               int
+	PageToken                string
+}
+
+type ListResponse struct {
+	Objects       []ObjectAttrs
+	Prefixes      []string
+	NextPageToken string
 }
 
 // ListObjects returns a sorted list of objects that match the given criteria,
@@ -358,10 +365,16 @@ func (s *Server) ListObjects(bucketName, prefix, delimiter string, versions bool
 	})
 }
 
+// Deprecated: use ListObjectsWithOptionsPaginated.
 func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) ([]ObjectAttrs, []string, error) {
+	response, err := s.ListObjectsWithOptionsPaginated(bucketName, options)
+	return response.Objects, response.Prefixes, err
+}
+
+func (s *Server) ListObjectsWithOptionsPaginated(bucketName string, options ListOptions) (ListResponse, error) {
 	backendObjects, err := s.backend.ListObjects(bucketName, options.Prefix, options.Versions)
 	if err != nil {
-		return nil, nil, err
+		return ListResponse{}, err
 	}
 	objects := fromBackendObjectsAttrs(backendObjects)
 	slices.SortFunc(objects, func(left, right ObjectAttrs) int {
@@ -369,6 +382,13 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 	})
 	var respObjects []ObjectAttrs
 	prefixes := make(map[string]bool)
+
+	startOffset := options.StartOffset
+	if options.PageToken != "" {
+		// pageToken supersedes startOffset if provided
+		startOffset = options.PageToken
+	}
+
 	for _, obj := range objects {
 		if !strings.HasPrefix(obj.Name, options.Prefix) {
 			continue
@@ -377,14 +397,14 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 		delimPos := strings.Index(objName, options.Delimiter)
 		if options.Delimiter != "" && delimPos > -1 {
 			prefix := obj.Name[:len(options.Prefix)+delimPos+1]
-			if isInOffset(prefix, options.StartOffset, options.EndOffset) {
+			if isInOffset(prefix, startOffset, options.EndOffset) {
 				prefixes[prefix] = true
 			}
 			if options.IncludeTrailingDelimiter && obj.Name == prefix {
 				respObjects = append(respObjects, obj)
 			}
 		} else {
-			if isInOffset(obj.Name, options.StartOffset, options.EndOffset) {
+			if isInOffset(obj.Name, startOffset, options.EndOffset) {
 				respObjects = append(respObjects, obj)
 			}
 		}
@@ -394,10 +414,12 @@ func (s *Server) ListObjectsWithOptions(bucketName string, options ListOptions) 
 		respPrefixes = append(respPrefixes, p)
 	}
 	sort.Strings(respPrefixes)
+	nextPageToken := ""
 	if options.MaxResults != 0 && len(respObjects) > options.MaxResults {
+		nextPageToken = respObjects[options.MaxResults].Name
 		respObjects = respObjects[:options.MaxResults]
 	}
-	return respObjects, respPrefixes, nil
+	return ListResponse{respObjects, respPrefixes, nextPageToken}, nil
 }
 
 func isInOffset(name, startOffset, endOffset string) bool {
@@ -641,19 +663,20 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 			return jsonResponse{status: http.StatusBadRequest}
 		}
 	}
-	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, ListOptions{
+	response, err := s.ListObjectsWithOptionsPaginated(bucketName, ListOptions{
 		Prefix:                   r.URL.Query().Get("prefix"),
 		Delimiter:                r.URL.Query().Get("delimiter"),
 		Versions:                 r.URL.Query().Get("versions") == "true",
 		StartOffset:              r.URL.Query().Get("startOffset"),
 		EndOffset:                r.URL.Query().Get("endOffset"),
 		IncludeTrailingDelimiter: r.URL.Query().Get("includeTrailingDelimiter") == "true",
+		PageToken:                r.URL.Query().Get("pageToken"),
 		MaxResults:               maxResults,
 	})
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	return jsonResponse{data: newListObjectsResponse(objs, prefixes, urlhelper.GetBaseURL(r))}
+	return jsonResponse{data: newListObjectsResponse(response, urlhelper.GetBaseURL(r))}
 }
 
 func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
@@ -665,7 +688,7 @@ func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
 		Versions:  r.URL.Query().Get("versions") == "true",
 	}
 
-	objs, prefixes, err := s.ListObjectsWithOptions(bucketName, opts)
+	response, err := s.ListObjectsWithOptionsPaginated(bucketName, opts)
 	if err != nil {
 		return xmlResponse{
 			status:       http.StatusInternalServerError,
@@ -677,16 +700,16 @@ func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
 		Name:      bucketName,
 		Delimiter: opts.Delimiter,
 		Prefix:    opts.Prefix,
-		KeyCount:  len(objs),
+		KeyCount:  len(response.Objects),
 	}
 
 	if opts.Delimiter != "" {
-		for _, prefix := range prefixes {
+		for _, prefix := range response.Prefixes {
 			result.CommonPrefixes = append(result.CommonPrefixes, CommonPrefix{Prefix: prefix})
 		}
 	}
 
-	for _, obj := range objs {
+	for _, obj := range response.Objects {
 		result.Contents = append(result.Contents, Contents{
 			Key:          obj.Name,
 			Generation:   obj.Generation,

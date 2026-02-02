@@ -939,6 +939,14 @@ type listTest struct {
 	expectedPrefixes []string
 }
 
+type paginationTest struct {
+	testCase              string
+	bucketName            string
+	query                 *ListOptions
+	expectedNames         []string
+	expectedNextPageToken string
+}
+
 func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest {
 	return []listTest{
 		{
@@ -1057,6 +1065,41 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 			&storage.Query{Delimiter: "/", IncludeTrailingDelimiter: true},
 			[]string{"foo/"},
 			[]string{"foo/"},
+		},
+	}
+}
+
+func getTestCasesForPaginationTests() []paginationTest {
+	return []paginationTest{
+		{
+			"first page",
+			"some-bucket",
+			&ListOptions{MaxResults: 2},
+			[]string{
+				"img/brand.jpg",
+				"img/hi-res/party-01.jpg",
+			},
+			"img/hi-res/party-02.jpg",
+		},
+		{
+			"middle page",
+			"some-bucket",
+			&ListOptions{MaxResults: 2, PageToken: "img/hi-res/party-02.jpg"},
+			[]string{
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+			},
+			"img/low-res/party-01.jpg",
+		},
+		{
+			"final page",
+			"some-bucket",
+			&ListOptions{MaxResults: 2, PageToken: "img/low-res/party-03.jpg"},
+			[]string{
+				"img/low-res/party-03.jpg",
+				"video/hi-res/some_video_1080p.mp4",
+			},
+			"",
 		},
 	}
 }
@@ -1180,6 +1223,32 @@ func TestServerClientListAfterCreate(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestObjectStoragePagination(t *testing.T) {
+	runServersTest(t, runServersOptions{objs: getObjectsForListTests()}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
+		tests := getTestCasesForPaginationTests()
+		for _, test := range tests {
+			test := test
+			t.Run(test.testCase, func(t *testing.T) {
+				response, err := server.ListObjectsWithOptionsPaginated(test.bucketName, *test.query)
+				if err != nil {
+					t.Fatal(err)
+				}
+				names := []string{}
+				for _, obj := range response.Objects {
+					names = append(names, obj.Name)
+				}
+				if !reflect.DeepEqual(names, test.expectedNames) {
+					t.Errorf("wrong names returned\nwant %#v\ngot  %#v", test.expectedNames, names)
+				}
+				if !reflect.DeepEqual(response.NextPageToken, test.expectedNextPageToken) {
+					t.Errorf("wrong nextPageToken returned\nwant %#v\ngot  %#v", test.expectedNextPageToken, response.NextPageToken)
+				}
+			})
+		}
+	})
 }
 
 func contains(s []int64, e int64) bool {
