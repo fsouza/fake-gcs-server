@@ -14,6 +14,9 @@ func getScheme(r *http.Request) string {
 	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
 		return proto
 	}
+	if r.TLS != nil {
+		return "https"
+	}
 	if r.URL.Scheme != "" {
 		return r.URL.Scheme
 	}

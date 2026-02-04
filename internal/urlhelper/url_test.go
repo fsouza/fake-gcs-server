@@ -1,6 +1,7 @@
 package urlhelper
 
 import (
+	"crypto/tls"
 	"net/http"
 	"net/url"
 	"testing"
@@ -73,6 +74,17 @@ func TestGetScheme(t *testing.T) {
 						header.Set("X-Forwarded-Proto", "https")
 						return header
 					}(),
+				},
+			},
+			want: "https",
+		},
+		{
+			name: "https_via_tls",
+			args: args{
+				r: &http.Request{
+					URL:    &url.URL{},
+					Header: http.Header{},
+					TLS:    &tls.ConnectionState{},
 				},
 			},
 			want: "https",
