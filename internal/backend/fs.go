@@ -196,7 +196,10 @@ func getBucketAttributes(path string) (BucketAttrs, error) {
 
 // DeleteBucket removes the bucket from the backend.
 func (s *storageFS) DeleteBucket(name string) error {
-	objs, err := s.ListObjects(name, "", false)
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	objs, err := s.listObjects(name, "", false)
 	if err != nil {
 		return BucketNotFound
 	}
@@ -204,8 +207,6 @@ func (s *storageFS) DeleteBucket(name string) error {
 		return BucketNotEmpty
 	}
 
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
 	return os.RemoveAll(filepath.Join(s.rootDir, url.PathEscape(name)))
 }
 
@@ -314,7 +315,10 @@ func (s *storageFS) createObject(obj StreamingObject, conditions Conditions) (St
 func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
+	return s.listObjects(bucketName, prefix, versions)
+}
 
+func (s *storageFS) listObjects(bucketName string, prefix string, versions bool) ([]ObjectAttrs, error) {
 	objects := []ObjectAttrs{}
 	bucketPath := filepath.Join(s.rootDir, url.PathEscape(bucketName))
 	if err := filepath.Walk(bucketPath, func(path string, info fs.FileInfo, err error) error {
