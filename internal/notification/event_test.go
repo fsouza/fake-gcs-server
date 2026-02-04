@@ -193,3 +193,126 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 		})
 	}
 }
+
+func TestMultiEventManager_Trigger(t *testing.T) {
+	t.Parallel()
+	content := []byte("something")
+	newObject := func(bucket string) backend.StreamingObject {
+		obj := backend.Object{
+			ObjectAttrs: backend.ObjectAttrs{
+				BucketName: bucket,
+				Name:       "files/obj.txt",
+				Size:       int64(len(content)),
+			},
+			Content: content,
+		}
+		return obj.StreamingObject()
+	}
+
+	tests := []struct {
+		name            string
+		managerA        *PubsubEventManager
+		managerB        *PubsubEventManager
+		triggerBucket   string
+		expectAReceived bool
+		expectBReceived bool
+	}{
+		{
+			name: "both managers no bucket filter",
+			managerA: &PubsubEventManager{
+				notifyOn:             EventNotificationOptions{Finalize: true},
+				publishSynchronously: true,
+			},
+			managerB: &PubsubEventManager{
+				notifyOn:             EventNotificationOptions{Finalize: true},
+				publishSynchronously: true,
+			},
+			triggerBucket:   "bucket-x",
+			expectAReceived: true,
+			expectBReceived: true,
+		},
+		{
+			name: "only manager A matches bucket",
+			managerA: &PubsubEventManager{
+				notifyOn:             EventNotificationOptions{Finalize: true},
+				bucket:               "bucket-x",
+				publishSynchronously: true,
+			},
+			managerB: &PubsubEventManager{
+				notifyOn:             EventNotificationOptions{Finalize: true},
+				bucket:               "bucket-y",
+				publishSynchronously: true,
+			},
+			triggerBucket:   "bucket-x",
+			expectAReceived: true,
+			expectBReceived: false,
+		},
+		{
+			name: "only manager B matches bucket",
+			managerA: &PubsubEventManager{
+				notifyOn:             EventNotificationOptions{Finalize: true},
+				bucket:               "bucket-x",
+				publishSynchronously: true,
+			},
+			managerB: &PubsubEventManager{
+				notifyOn:             EventNotificationOptions{Finalize: true},
+				bucket:               "bucket-y",
+				publishSynchronously: true,
+			},
+			triggerBucket:   "bucket-y",
+			expectAReceived: false,
+			expectBReceived: true,
+		},
+		{
+			name: "neither manager matches bucket",
+			managerA: &PubsubEventManager{
+				notifyOn:             EventNotificationOptions{Finalize: true},
+				bucket:               "bucket-x",
+				publishSynchronously: true,
+			},
+			managerB: &PubsubEventManager{
+				notifyOn:             EventNotificationOptions{Finalize: true},
+				bucket:               "bucket-y",
+				publishSynchronously: true,
+			},
+			triggerBucket:   "bucket-z",
+			expectAReceived: false,
+			expectBReceived: false,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			pubA := &mockPublisher{}
+			pubB := &mockPublisher{}
+			test.managerA.publisher = pubA
+			test.managerB.publisher = pubB
+
+			multi := NewMultiEventManager([]EventManager{test.managerA, test.managerB})
+			obj := newObject(test.triggerBucket)
+			multi.Trigger(&obj, EventFinalize, nil)
+
+			if test.expectAReceived && pubA.lastMessage == nil {
+				t.Error("manager A: expected to receive event, got nil")
+			}
+			if !test.expectAReceived && pubA.lastMessage != nil {
+				t.Errorf("manager A: expected no event, got %v", pubA.lastMessage)
+			}
+			if test.expectBReceived && pubB.lastMessage == nil {
+				t.Error("manager B: expected to receive event, got nil")
+			}
+			if !test.expectBReceived && pubB.lastMessage != nil {
+				t.Errorf("manager B: expected no event, got %v", pubB.lastMessage)
+			}
+		})
+	}
+
+	t.Run("empty managers slice", func(t *testing.T) {
+		t.Parallel()
+		multi := NewMultiEventManager(nil)
+		obj := newObject("any-bucket")
+		multi.Trigger(&obj, EventFinalize, nil) // must not panic
+	})
+}
