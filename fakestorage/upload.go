@@ -572,7 +572,6 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if r.Body != http.NoBody {
 		var err error
 		metadata, err = loadMetadata(r.Body)
-		
 		// io.EOF means empty body (e.g. already consumed by parseJSONBody in insertObject).
 		// Use the zero-valued metadata; object name comes from query param "name".
 		if err != nil && err != io.EOF {
