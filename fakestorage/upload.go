@@ -82,6 +82,18 @@ type contentRange struct {
 	Total      int  // Total bytes expected, -1 if unknown
 }
 
+// resumableUploadBody is the JSON body for body-based resumable uploads (e.g. gcloud CLI).
+type resumableUploadBody struct {
+	Bucket          string            `json:"bucket"`
+	Name            string            `json:"name"`
+	ContentType     string            `json:"contentType"`
+	CacheControl    string            `json:"cacheControl"`
+	ContentEncoding string            `json:"contentEncoding"`
+	CustomTime      string            `json:"customTime"` // RFC3339
+	Metadata        map[string]string `json:"metadata"`
+	PredefinedACL   string            `json:"predefinedAcl"`
+}
+
 type generationCondition struct {
 	ifGenerationMatch    *int64
 	ifGenerationNotMatch *int64
@@ -98,6 +110,22 @@ func (c generationCondition) ConditionsMet(activeGeneration int64) bool {
 }
 
 func (s *Server) insertObject(r *http.Request) jsonResponse {
+	// Only parse JSON body for resumable uploads with JSON content type
+	if r.Method == http.MethodPost &&
+		strings.Contains(r.Header.Get("Content-Type"), "application/json") &&
+		r.URL.Query().Get("uploadType") == uploadTypeResumable {
+
+		parsedBody, err := parseJSONBody(r)
+		if err != nil {
+			return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+		}
+
+		// Check if this is a body-based resumable upload (has bucket in JSON)
+		if parsedBody != nil && parsedBody.Bucket != "" {
+			return s.handleBodyBasedResumableUpload(r, parsedBody)
+		}
+	}
+
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
 
 	if _, err := s.backend.GetBucket(bucketName); err != nil {
@@ -127,6 +155,120 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 		}
 		return jsonResponse{errorMessage: "invalid uploadType", status: http.StatusBadRequest}
 	}
+}
+
+func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumableUploadBody) jsonResponse {
+	// Extract bucket name from JSON or URL
+	bucketName := body.Bucket
+	if bucketName == "" {
+		bucketName = unescapeMuxVars(mux.Vars(r))["bucketName"]
+	}
+	if bucketName == "" {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: "bucket name is required",
+		}
+	}
+
+	// Check if the bucket exists
+	if _, err := s.backend.GetBucket(bucketName); err != nil {
+		return jsonResponse{status: http.StatusNotFound}
+	}
+
+	// Parse customTime if present
+	var customTime time.Time
+	if body.CustomTime != "" {
+		if parsedTime, err := time.Parse(time.RFC3339, body.CustomTime); err == nil {
+			customTime = parsedTime
+		}
+	}
+
+	// Get predefined ACL from query parameters or JSON
+	predefinedACL := r.URL.Query().Get("predefinedAcl")
+	if predefinedACL == "" {
+		predefinedACL = body.PredefinedACL
+	}
+
+	// Create an object with the metadata
+	obj := Object{
+		ObjectAttrs: ObjectAttrs{
+			BucketName:      bucketName,
+			Name:            body.Name,
+			ContentType:     body.ContentType,
+			CacheControl:    body.CacheControl,
+			ContentEncoding: body.ContentEncoding,
+			CustomTime:      customTime,
+			ACL:             getObjectACL(predefinedACL),
+			Metadata:        body.Metadata,
+		},
+	}
+
+	// Generate upload ID and store the object for later resumable upload chunks
+	uploadID, err := generateUploadID()
+	if err != nil {
+		return jsonResponse{errorMessage: err.Error()}
+	}
+	s.uploads.Store(uploadID, obj)
+
+	// Create response headers
+	header := make(http.Header)
+	baseURL := urlhelper.GetBaseURL(r)
+	if baseURL == "" {
+		baseURL = s.URL()
+	}
+	location := fmt.Sprintf(
+		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
+		baseURL,
+		bucketName,
+		url.PathEscape(body.Name),
+		uploadID,
+	)
+	header.Set("Location", location)
+
+	// Set gcloud CLI specific headers
+	if r.Header.Get("X-Goog-Upload-Command") == "start" {
+		header.Set("X-Goog-Upload-URL", location)
+		header.Set("X-Goog-Upload-Status", "active")
+	}
+
+	return jsonResponse{
+		data:   newObjectResponse(obj.ObjectAttrs, s.externalURL),
+		header: header,
+	}
+}
+
+func parseJSONBody(r *http.Request) (*resumableUploadBody, error) {
+	if !strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		return nil, nil
+	}
+	if r.Body == nil {
+		return nil, nil
+	}
+
+	// Read the entire body
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read request body: %w", err)
+	}
+
+	// Always close the original body and create a new one for downstream processing
+	r.Body.Close()
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	// Return nil for empty body without error
+	if len(bodyBytes) == 0 {
+		return nil, nil
+	}
+
+	// Parse JSON into typed struct
+	var body resumableUploadBody
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+		// For invalid JSON, we return nil without error to allow other upload types
+		// to be processed. This maintains backward compatibility.
+		return nil, nil
+	}
+
+	return &body, nil
 }
 
 func (s *Server) insertFormObject(r *http.Request) xmlResponse {
@@ -430,7 +572,9 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if r.Body != http.NoBody {
 		var err error
 		metadata, err = loadMetadata(r.Body)
-		if err != nil {
+		// io.EOF means empty body (e.g. already consumed by parseJSONBody in insertObject).
+		// Use the zero-valued metadata; object name comes from query param "name".
+		if err != nil && err != io.EOF {
 			return jsonResponse{errorMessage: err.Error()}
 		}
 	}

@@ -1160,6 +1160,205 @@ func TestParseContentTypeParamsGsutilEdgeCases(t *testing.T) {
 	}
 }
 
+func TestBodyBasedResumableUpload(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		bucketName := "test-bucket"
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+
+		tests := []struct {
+			name        string
+			requestBody map[string]interface{}
+			useURLPath  bool // whether to include bucket in URL path
+			expectError bool
+		}{
+			{
+				name: "complete_metadata",
+				requestBody: map[string]interface{}{
+					"bucket":          bucketName,
+					"name":            "test-object.txt",
+					"contentType":     "text/plain",
+					"cacheControl":    "no-cache",
+					"contentEncoding": "gzip",
+					"customTime":      time.Now().UTC().Format(time.RFC3339),
+					"metadata": map[string]interface{}{
+						"author":  "test-user",
+						"version": "1.0",
+					},
+					"predefinedAcl": "publicRead",
+				},
+				useURLPath:  false,
+				expectError: false,
+			},
+			{
+				name: "minimal_metadata",
+				requestBody: map[string]interface{}{
+					"bucket": bucketName,
+					"name":   "minimal-object.txt",
+				},
+				useURLPath:  false,
+				expectError: false,
+			},
+			{
+				name: "missing_bucket_no_url_path",
+				requestBody: map[string]interface{}{
+					"name": "no-bucket-object.txt",
+				},
+				useURLPath:  false, // No bucket in URL path and no bucket in JSON
+				expectError: true,
+			},
+			{
+				name: "missing_bucket_with_url_path",
+				requestBody: map[string]interface{}{
+					"name": "no-bucket-but-url-object.txt",
+				},
+				useURLPath:  true, // Bucket in URL path but not in JSON (should work)
+				expectError: false,
+			},
+		}
+
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				// Prepare JSON request body
+				jsonBody, err := json.Marshal(test.requestBody)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				// Create HTTP request - vary URL based on test case
+				var url string
+				if test.useURLPath {
+					url = fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=resumable", server.URL(), bucketName)
+				} else {
+					// Use a generic URL without bucket name to test body-based bucket extraction
+					url = fmt.Sprintf("%s/upload/storage/v1/b/dummy/o?uploadType=resumable", server.URL())
+				}
+
+				req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(jsonBody))
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Goog-Upload-Command", "start")
+
+				// Execute request
+				client := server.HTTPClient()
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer resp.Body.Close()
+
+				if test.expectError {
+					if resp.StatusCode == http.StatusOK {
+						body, _ := io.ReadAll(resp.Body)
+						t.Errorf("expected error but got success status %d. Body: %s", resp.StatusCode, string(body))
+					}
+					return
+				}
+
+				// Verify successful response
+				if resp.StatusCode != http.StatusOK {
+					body, _ := io.ReadAll(resp.Body)
+					t.Errorf("expected status 200, got %d. Body: %s", resp.StatusCode, string(body))
+					return
+				}
+
+				// Verify response headers
+				location := resp.Header.Get("Location")
+				if location == "" {
+					t.Error("Location header should be set")
+				}
+
+				if !strings.Contains(location, "upload_id=") {
+					t.Error("Location header should contain upload_id")
+				}
+
+				if !strings.Contains(location, "uploadType=resumable") {
+					t.Error("Location header should contain uploadType=resumable")
+				}
+
+				// Verify gcloud CLI specific headers
+				if req.Header.Get("X-Goog-Upload-Command") == "start" {
+					if uploadURL := resp.Header.Get("X-Goog-Upload-URL"); uploadURL == "" {
+						t.Error("X-Goog-Upload-URL header should be set for gcloud requests")
+					}
+					if uploadStatus := resp.Header.Get("X-Goog-Upload-Status"); uploadStatus != "active" {
+						t.Errorf("X-Goog-Upload-Status should be 'active', got '%s'", uploadStatus)
+					}
+				}
+
+				// Read response body
+				respBody, err := io.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				// Verify response body contains object metadata
+				var responseObj objectResponse
+				if err := json.Unmarshal(respBody, &responseObj); err != nil {
+					t.Fatalf("failed to unmarshal response: %v. Body: %s", err, string(respBody))
+				}
+
+				// Check that metadata was properly extracted
+				if name, ok := test.requestBody["name"]; ok {
+					if responseObj.Name != name.(string) {
+						t.Errorf("wrong object name: want %s, got %s", name, responseObj.Name)
+					}
+				}
+
+				if contentType, ok := test.requestBody["contentType"]; ok {
+					if responseObj.ContentType != contentType.(string) {
+						t.Errorf("wrong content type: want %s, got %s", contentType, responseObj.ContentType)
+					}
+				}
+
+				if cacheControl, ok := test.requestBody["cacheControl"]; ok {
+					if responseObj.CacheControl != cacheControl.(string) {
+						t.Errorf("wrong cache control: want %s, got %s", cacheControl, responseObj.CacheControl)
+					}
+				}
+
+				if contentEncoding, ok := test.requestBody["contentEncoding"]; ok {
+					if responseObj.ContentEncoding != contentEncoding.(string) {
+						t.Errorf("wrong content encoding: want %s, got %s", contentEncoding, responseObj.ContentEncoding)
+					}
+				}
+
+				if customTimeStr, ok := test.requestBody["customTime"]; ok {
+					expectedTimeStr := customTimeStr.(string)
+					if responseObj.CustomTime != expectedTimeStr {
+						t.Errorf("wrong custom time: want %v, got %v", expectedTimeStr, responseObj.CustomTime)
+					}
+				}
+
+				if metadata, ok := test.requestBody["metadata"]; ok {
+					metaMap := metadata.(map[string]interface{})
+					for key, value := range metaMap {
+						if responseObj.Metadata[key] != value.(string) {
+							t.Errorf("wrong metadata[%s]: want %s, got %s", key, value, responseObj.Metadata[key])
+						}
+					}
+				}
+
+				if predefinedAcl, ok := test.requestBody["predefinedAcl"]; ok && predefinedAcl == "publicRead" {
+					// Check that ACL was set correctly for publicRead
+					found := false
+					for _, rule := range responseObj.ACL {
+						if rule.Entity == "allUsers" && rule.Role == "READER" {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Error("publicRead ACL not properly set")
+					}
+				}
+			})
+		}
+	})
+}
+
 func TestResumableUploadContentType(t *testing.T) {
 	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const bucketName = "test-bucket"
