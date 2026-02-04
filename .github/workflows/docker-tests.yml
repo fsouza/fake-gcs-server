@@ -26,4 +26,4 @@ jobs:
           context: .
           push: false
           tags: fsouza/fake-gcs-server:latest
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
