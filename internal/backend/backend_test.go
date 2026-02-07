@@ -374,6 +374,272 @@ func TestBucketDuplication(t *testing.T) {
 	})
 }
 
+func TestParallelUploadsDifferentObjects(t *testing.T) {
+	testForStorageBackends(t, func(t *testing.T, storage Storage) {
+		const bucketName = "parallel-test-bucket"
+		const numObjects = 10
+
+		err := storage.CreateBucket(bucketName, BucketAttrs{})
+		noError(t, err)
+
+		// Use a channel to synchronize goroutines starting together
+		start := make(chan struct{})
+		errCh := make(chan error, numObjects)
+
+		for i := 0; i < numObjects; i++ {
+			go func(idx int) {
+				<-start // Wait for signal to start
+				objectName := fmt.Sprintf("object-%d", idx)
+				content := []byte(fmt.Sprintf("content for object %d", idx))
+				obj := StreamingObject{
+					ObjectAttrs: ObjectAttrs{
+						BucketName: bucketName,
+						Name:       objectName,
+					},
+					Content: newStreamingContent(content),
+				}
+				created, err := storage.CreateObject(obj, NoConditions{})
+				if err != nil {
+					errCh <- fmt.Errorf("failed to create object %d: %w", idx, err)
+					return
+				}
+				created.Close()
+				errCh <- nil
+			}(i)
+		}
+
+		// Start all goroutines at once
+		close(start)
+
+		// Wait for all to complete
+		for i := 0; i < numObjects; i++ {
+			if err := <-errCh; err != nil {
+				t.Error(err)
+			}
+		}
+
+		// Verify all objects were created
+		objects, err := storage.ListObjects(bucketName, "", false)
+		noError(t, err)
+		if len(objects) != numObjects {
+			t.Errorf("expected %d objects, got %d", numObjects, len(objects))
+		}
+	})
+}
+
+func TestParallelDownloadsSameObject(t *testing.T) {
+	testForStorageBackends(t, func(t *testing.T, storage Storage) {
+		const bucketName = "parallel-download-bucket"
+		const objectName = "shared-object"
+		const numReaders = 10
+		content := []byte("shared content for parallel reads")
+
+		err := storage.CreateBucket(bucketName, BucketAttrs{})
+		noError(t, err)
+
+		obj := StreamingObject{
+			ObjectAttrs: ObjectAttrs{
+				BucketName: bucketName,
+				Name:       objectName,
+			},
+			Content: newStreamingContent(content),
+		}
+		created, err := storage.CreateObject(obj, NoConditions{})
+		noError(t, err)
+		created.Close()
+
+		// Use a channel to synchronize goroutines starting together
+		start := make(chan struct{})
+		errCh := make(chan error, numReaders)
+
+		for i := 0; i < numReaders; i++ {
+			go func(idx int) {
+				<-start // Wait for signal to start
+				retrieved, err := storage.GetObject(bucketName, objectName)
+				if err != nil {
+					errCh <- fmt.Errorf("reader %d failed to get object: %w", idx, err)
+					return
+				}
+				defer retrieved.Close()
+
+				data, err := io.ReadAll(retrieved.Content)
+				if err != nil {
+					errCh <- fmt.Errorf("reader %d failed to read content: %w", idx, err)
+					return
+				}
+				if !bytes.Equal(data, content) {
+					errCh <- fmt.Errorf("reader %d got wrong content: %q", idx, data)
+					return
+				}
+				errCh <- nil
+			}(i)
+		}
+
+		// Start all goroutines at once
+		close(start)
+
+		// Wait for all to complete
+		for i := 0; i < numReaders; i++ {
+			if err := <-errCh; err != nil {
+				t.Error(err)
+			}
+		}
+	})
+}
+
+func TestParallelUploadAndDownloadDifferentObjects(t *testing.T) {
+	testForStorageBackends(t, func(t *testing.T, storage Storage) {
+		const bucketName = "parallel-mixed-bucket"
+		const existingObject = "existing-object"
+		const newObject = "new-object"
+		existingContent := []byte("existing content")
+		newContent := []byte("new content being uploaded")
+
+		err := storage.CreateBucket(bucketName, BucketAttrs{})
+		noError(t, err)
+
+		// Create an existing object to download
+		obj := StreamingObject{
+			ObjectAttrs: ObjectAttrs{
+				BucketName: bucketName,
+				Name:       existingObject,
+			},
+			Content: newStreamingContent(existingContent),
+		}
+		created, err := storage.CreateObject(obj, NoConditions{})
+		noError(t, err)
+		created.Close()
+
+		// Use a channel to synchronize goroutines starting together
+		start := make(chan struct{})
+		errCh := make(chan error, 2)
+
+		// Goroutine 1: Download existing object
+		go func() {
+			<-start
+			retrieved, err := storage.GetObject(bucketName, existingObject)
+			if err != nil {
+				errCh <- fmt.Errorf("download failed: %w", err)
+				return
+			}
+			defer retrieved.Close()
+
+			data, err := io.ReadAll(retrieved.Content)
+			if err != nil {
+				errCh <- fmt.Errorf("read failed: %w", err)
+				return
+			}
+			if !bytes.Equal(data, existingContent) {
+				errCh <- fmt.Errorf("wrong content: %q", data)
+				return
+			}
+			errCh <- nil
+		}()
+
+		// Goroutine 2: Upload new object
+		go func() {
+			<-start
+			newObj := StreamingObject{
+				ObjectAttrs: ObjectAttrs{
+					BucketName: bucketName,
+					Name:       newObject,
+				},
+				Content: newStreamingContent(newContent),
+			}
+			created, err := storage.CreateObject(newObj, NoConditions{})
+			if err != nil {
+				errCh <- fmt.Errorf("upload failed: %w", err)
+				return
+			}
+			created.Close()
+			errCh <- nil
+		}()
+
+		// Start both goroutines at once
+		close(start)
+
+		// Wait for both to complete
+		for i := 0; i < 2; i++ {
+			if err := <-errCh; err != nil {
+				t.Error(err)
+			}
+		}
+
+		// Verify both objects exist
+		objects, err := storage.ListObjects(bucketName, "", false)
+		noError(t, err)
+		if len(objects) != 2 {
+			t.Errorf("expected 2 objects, got %d", len(objects))
+		}
+	})
+}
+
+func TestParallelUploadsSameObject(t *testing.T) {
+	testForStorageBackends(t, func(t *testing.T, storage Storage) {
+		const bucketName = "parallel-same-object-bucket"
+		const objectName = "contested-object"
+		const numWriters = 10
+
+		err := storage.CreateBucket(bucketName, BucketAttrs{})
+		noError(t, err)
+
+		// Use a channel to synchronize goroutines starting together
+		start := make(chan struct{})
+		errCh := make(chan error, numWriters)
+
+		for i := 0; i < numWriters; i++ {
+			go func(idx int) {
+				<-start // Wait for signal to start
+				content := []byte(fmt.Sprintf("content from writer %d", idx))
+				obj := StreamingObject{
+					ObjectAttrs: ObjectAttrs{
+						BucketName: bucketName,
+						Name:       objectName,
+					},
+					Content: newStreamingContent(content),
+				}
+				created, err := storage.CreateObject(obj, NoConditions{})
+				if err != nil {
+					errCh <- fmt.Errorf("writer %d failed: %w", idx, err)
+					return
+				}
+				created.Close()
+				errCh <- nil
+			}(i)
+		}
+
+		// Start all goroutines at once
+		close(start)
+
+		// Wait for all to complete - all should succeed (last write wins)
+		for i := 0; i < numWriters; i++ {
+			if err := <-errCh; err != nil {
+				t.Error(err)
+			}
+		}
+
+		// Verify exactly one object exists
+		objects, err := storage.ListObjects(bucketName, "", false)
+		noError(t, err)
+		if len(objects) != 1 {
+			t.Errorf("expected 1 object, got %d", len(objects))
+		}
+	})
+}
+
+// newStreamingContent creates a ReadSeekCloser from a byte slice
+func newStreamingContent(data []byte) io.ReadSeekCloser {
+	return &bytesReadSeekCloser{Reader: bytes.NewReader(data)}
+}
+
+type bytesReadSeekCloser struct {
+	*bytes.Reader
+}
+
+func (b *bytesReadSeekCloser) Close() error {
+	return nil
+}
+
 func compareStreamingObjects(o1, o2 StreamingObject) error {
 	if o1.BucketName != o2.BucketName {
 		return fmt.Errorf("bucket name differs:\nmain %q\narg  %q", o1.BucketName, o2.BucketName)
