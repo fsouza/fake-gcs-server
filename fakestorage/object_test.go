@@ -800,7 +800,7 @@ func TestServerClientObjectReaderError(t *testing.T) {
 
 func TestServerClientObjectReadBucketCNAME(t *testing.T) {
 	url := "https://mybucket.mydomain.com:4443/files/txt/text-01.txt"
-	expectedHeaders := map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-meta-marco": "Polo"}
+	expectedHeaders := map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-stored-content-length": "9", "x-goog-meta-marco": "Polo"}
 	expectedBody := "something"
 	opts := Options{
 		InitialObjects: []Object{
