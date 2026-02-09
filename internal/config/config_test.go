@@ -398,8 +398,18 @@ func TestLoadConfig(t *testing.T) {
 			expectErr: true,
 		},
 		{
+			name:      "event.config empty topic",
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project;topic=;events=finalize"},
+			expectErr: true,
+		},
+		{
 			name:      "event.config missing project",
 			args:      []string{"-event.config", "bucket=my-bucket;topic=my-topic;events=finalize"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config empty project",
+			args:      []string{"-event.config", "bucket=my-bucket;project=;topic=my-topic;events=finalize"},
 			expectErr: true,
 		},
 		{
@@ -415,6 +425,11 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name:      "event.config missing bucket",
 			args:      []string{"-event.config", "topic=projects/p/topics/t;events=finalize"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config empty bucket",
+			args:      []string{"-event.config", "bucket=;project=test-project;topic=my-topic;events=finalize"},
 			expectErr: true,
 		},
 		{

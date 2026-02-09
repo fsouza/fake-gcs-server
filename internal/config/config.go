@@ -120,6 +120,10 @@ func parseEventConfig(raw string) (notification.EventManagerOptions, error) {
 		default:
 			return opts, fmt.Errorf("unknown event config key %q", key)
 		}
+
+		if val == "" {
+			return opts, fmt.Errorf("event config key %q must not be empty", key)
+		}
 	}
 
 	if !hasBucket {
