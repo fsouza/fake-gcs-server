@@ -277,7 +277,7 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name: "single event.config",
 			args: []string{
-				"-event.config", "bucket=my-bucket;project=my-proj;topic=my-topic;events=finalize;prefix=uploads/",
+				"-event.config", "bucket=my-bucket;project=test-project;topic=gcs-events;events=finalize;prefix=uploads/",
 			},
 			expectedConfig: Config{
 				backend:        "filesystem",
@@ -288,13 +288,13 @@ func TestLoadConfig(t *testing.T) {
 				Port:           4443,
 				Scheme:         "https",
 				event:          EventConfig{list: []string{"finalize"}},
-				events:         eventConfigFlag{"bucket=my-bucket;project=my-proj;topic=my-topic;events=finalize;prefix=uploads/"},
+				events:         eventConfigFlag{"bucket=my-bucket;project=test-project;topic=gcs-events;events=finalize;prefix=uploads/"},
 				bucketLocation: "US-CENTRAL1",
 				LogLevel:       slog.LevelInfo,
 				parsedEvents: []notification.EventManagerOptions{
 					{
-						ProjectID:    "my-proj",
-						TopicName:    "my-topic",
+						ProjectID:    "test-project",
+						TopicName:    "gcs-events",
 						Bucket:       "my-bucket",
 						ObjectPrefix: "uploads/",
 						NotifyOn:     notification.EventNotificationOptions{Finalize: true},
@@ -394,47 +394,47 @@ func TestLoadConfig(t *testing.T) {
 		},
 		{
 			name:      "event.config missing topic",
-			args:      []string{"-event.config", "bucket=my-bucket;events=finalize"},
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project"},
 			expectErr: true,
 		},
 		{
 			name:      "event.config empty topic",
-			args:      []string{"-event.config", "bucket=my-bucket;project=test-project;topic=;events=finalize"},
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project;topic=;"},
 			expectErr: true,
 		},
 		{
 			name:      "event.config missing project",
-			args:      []string{"-event.config", "bucket=my-bucket;topic=my-topic;events=finalize"},
+			args:      []string{"-event.config", "bucket=my-bucket;topic=gcs-events"},
 			expectErr: true,
 		},
 		{
 			name:      "event.config empty project",
-			args:      []string{"-event.config", "bucket=my-bucket;project=;topic=my-topic;events=finalize"},
+			args:      []string{"-event.config", "bucket=my-bucket;project=;topic=gcs-events"},
 			expectErr: true,
 		},
 		{
 			name:      "event.config invalid event name",
-			args:      []string{"-event.config", "bucket=my-bucket;topic=projects/p/topics/t;events=bogus"},
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project;topic=gcs-events;events=bogus"},
 			expectErr: true,
 		},
 		{
 			name:      "event.config unknown key",
-			args:      []string{"-event.config", "bucket=my-bucket;topic=projects/p/topics/t;events=finalize;unknown=x"},
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project;topic=gcs-events;unknown=x"},
 			expectErr: true,
 		},
 		{
 			name:      "event.config missing bucket",
-			args:      []string{"-event.config", "topic=projects/p/topics/t;events=finalize"},
+			args:      []string{"-event.config", "project=test-project;topic=gcs-events"},
 			expectErr: true,
 		},
 		{
 			name:      "event.config empty bucket",
-			args:      []string{"-event.config", "bucket=;project=test-project;topic=my-topic;events=finalize"},
+			args:      []string{"-event.config", "bucket=;project=test-project;topic=gcs-events"},
 			expectErr: true,
 		},
 		{
 			name: "event.config defaults events to finalize",
-			args: []string{"-event.config", "bucket=my-bucket;project=my-proj;topic=my-topic"},
+			args: []string{"-event.config", "bucket=my-bucket;project=test-project;topic=gcs-events"},
 			expectedConfig: Config{
 				backend:        "filesystem",
 				fsRoot:         "/storage",
@@ -444,13 +444,13 @@ func TestLoadConfig(t *testing.T) {
 				Port:           4443,
 				Scheme:         "https",
 				event:          EventConfig{list: []string{"finalize"}},
-				events:         eventConfigFlag{"bucket=my-bucket;project=my-proj;topic=my-topic"},
+				events:         eventConfigFlag{"bucket=my-bucket;project=test-project;topic=gcs-events"},
 				bucketLocation: "US-CENTRAL1",
 				LogLevel:       slog.LevelInfo,
 				parsedEvents: []notification.EventManagerOptions{
 					{
-						ProjectID: "my-proj",
-						TopicName: "my-topic",
+						ProjectID: "test-project",
+						TopicName: "gcs-events",
 						Bucket:    "my-bucket",
 						NotifyOn:  notification.EventNotificationOptions{Finalize: true},
 					},
