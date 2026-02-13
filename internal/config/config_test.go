@@ -414,23 +414,7 @@ func TestLoadConfig(t *testing.T) {
 			envVars: map[string]string{
 				"FAKE_GCS_PORT": "not-a-number",
 			},
-			expectedConfig: Config{
-				Seed:               "",
-				backend:            "filesystem",
-				fsRoot:             "/storage",
-				publicHost:         "storage.googleapis.com",
-				externalURL:        "https://0.0.0.0:4443",
-				allowedCORSHeaders: nil,
-				Host:               "0.0.0.0",
-				Port:               4443,
-				PortHTTP:           0,
-				Scheme:             "https",
-				event: EventConfig{
-					list: []string{"finalize"},
-				},
-				bucketLocation: "US-CENTRAL1",
-				LogLevel:       slog.LevelInfo,
-			},
+			expectErr: true,
 		},
 		{
 			name:      "invalid port value type",
@@ -519,6 +503,7 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestToFakeGcsOptions(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		config   Config
@@ -629,6 +614,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 		defaultValue string
 		envValue     string
 		expected     string
+		expectErr    bool
 		parser       func(string) (string, error)
 	}{
 		{
@@ -637,9 +623,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 			defaultValue: "default",
 			envValue:     "",
 			expected:     "default",
-			parser: func(s string) (string, error) {
-				return s, nil
-			},
+			parser:       nopConverter,
 		},
 		{
 			name:         "environment variables are set",
@@ -647,9 +631,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 			defaultValue: "https",
 			envValue:     "both",
 			expected:     "both",
-			parser: func(s string) (string, error) {
-				return s, nil
-			},
+			parser:       nopConverter,
 		},
 		{
 			name:         "environment variables are empty",
@@ -657,9 +639,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 			defaultValue: "https",
 			envValue:     "",
 			expected:     "https",
-			parser: func(s string) (string, error) {
-				return s, nil
-			},
+			parser:       nopConverter,
 		},
 		{
 			name:         "uint value is set in environment",
@@ -680,7 +660,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 			envKey:       "FAKE_GCS_TEST_UINT",
 			defaultValue: "4443",
 			envValue:     "not-a-number",
-			expected:     "4443",
+			expectErr:    true,
 			parser: func(s string) (string, error) {
 				_, err := strconv.ParseUint(s, 10, 16)
 				if err != nil {
@@ -694,7 +674,7 @@ func TestEnvVarOrDefault(t *testing.T) {
 			envKey:       "FAKE_GCS_TEST_UINT",
 			defaultValue: "4443",
 			envValue:     "65536",
-			expected:     "4443",
+			expectErr:    true,
 			parser: func(s string) (string, error) {
 				val, err := strconv.ParseUint(s, 10, 16)
 				if err != nil || val > math.MaxUint16 {
@@ -719,8 +699,13 @@ func TestEnvVarOrDefault(t *testing.T) {
 					os.Setenv(parts[0], parts[1])
 				}
 			})
-			got := envVarOrDefault(test.envKey, test.defaultValue, test.parser)
-			if got != test.expected {
+			got, err := envVarOrDefault(test.envKey, test.defaultValue, test.parser)
+			if err != nil && !test.expectErr {
+				t.Fatalf("unexpected error: %v", err)
+			} else if err == nil && test.expectErr {
+				t.Fatal("expected error but got nil")
+			}
+			if !test.expectErr && got != test.expected {
 				t.Errorf("want %q, got %q", test.expected, got)
 			}
 		})

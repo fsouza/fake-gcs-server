@@ -62,15 +62,22 @@ type EventConfig struct {
 	list            []string
 }
 
+func nopConverter(s string) (string, error) {
+	return s, nil
+}
+
 // envVarOrDefault retrieves an environment variable value and converts it to type T,
-// or returns the default value if the environment variable is not set or cannot be converted.
-func envVarOrDefault[T string | uint](key string, defaultValue T, convert func(string) (T, error)) T {
+// or returns the default value if the environment variable is not set.
+// Returns an error if the environment variable is set but cannot be converted.
+func envVarOrDefault[T string | uint](key string, defaultValue T, convert func(string) (T, error)) (T, error) {
 	if val, ok := os.LookupEnv(key); ok && val != "" {
-		if converted, err := convert(val); err == nil {
-			return converted
+		converted, err := convert(val)
+		if err != nil {
+			return defaultValue, fmt.Errorf("invalid value for environment variable %s=%q: %w", key, val, err)
 		}
+		return converted, nil
 	}
-	return defaultValue
+	return defaultValue, nil
 }
 
 // Load parses the given arguments list and return a config object (and/or an
@@ -81,71 +88,61 @@ func Load(args []string) (Config, error) {
 	var eventList string
 	var logLevel string
 
-	envVarOrDefaultPort := envVarOrDefault("FAKE_GCS_PORT", defaultHTTPSPort, func(s string) (uint, error) {
+	parseUint := func(s string) (uint, error) {
 		val, err := strconv.ParseUint(s, 10, 32)
 		return uint(val), err
-	})
-	envVarOrDefaultPortHTTP := envVarOrDefault("FAKE_GCS_PORT_HTTP", defaultHTTPPort, func(s string) (uint, error) {
-		val, err := strconv.ParseUint(s, 10, 32)
-		return uint(val), err
-	})
+	}
+
+	envPort, err := envVarOrDefault("FAKE_GCS_PORT", defaultHTTPSPort, parseUint)
+	if err != nil {
+		return cfg, err
+	}
+	envPortHTTP, err := envVarOrDefault("FAKE_GCS_PORT_HTTP", defaultHTTPPort, parseUint)
+	if err != nil {
+		return cfg, err
+	}
+
+	// nopConverter never returns an error, so we can safely ignore the error value.
+	backend, _ := envVarOrDefault("FAKE_GCS_BACKEND", filesystemBackend, nopConverter)
+	fsRoot, _ := envVarOrDefault("FAKE_GCS_FILESYSTEM_ROOT", "/storage", nopConverter)
+	publicHost, _ := envVarOrDefault("FAKE_GCS_PUBLIC_HOST", "storage.googleapis.com", nopConverter)
+	externalURL, _ := envVarOrDefault("FAKE_GCS_EXTERNAL_URL", "", nopConverter)
+	scheme, _ := envVarOrDefault("FAKE_GCS_SCHEME", schemeHTTPS, nopConverter)
+	host, _ := envVarOrDefault("FAKE_GCS_HOST", "0.0.0.0", nopConverter)
+	data, _ := envVarOrDefault("FAKE_GCS_DATA", "", nopConverter)
+	corsHeaders, _ := envVarOrDefault("FAKE_GCS_CORS_HEADERS", "", nopConverter)
+	pubsubProjectID, _ := envVarOrDefault("FAKE_GCS_EVENT_PUBSUB_PROJECT_ID", "", nopConverter)
+	pubsubTopic, _ := envVarOrDefault("FAKE_GCS_EVENT_PUBSUB_TOPIC", "", nopConverter)
+	eventBucket, _ := envVarOrDefault("FAKE_GCS_EVENT_BUCKET", "", nopConverter)
+	eventPrefix, _ := envVarOrDefault("FAKE_GCS_EVENT_OBJECT_PREFIX", "", nopConverter)
+	eventListDefault, _ := envVarOrDefault("FAKE_GCS_EVENT_LIST", eventFinalize, nopConverter)
+	location, _ := envVarOrDefault("FAKE_GCS_LOCATION", "US-CENTRAL1", nopConverter)
+	certLocation, _ := envVarOrDefault("FAKE_GCS_CERT_LOCATION", "", nopConverter)
+	privateKeyLocation, _ := envVarOrDefault("FAKE_GCS_PRIVATE_KEY_LOCATION", "", nopConverter)
+	logLevelDefault, _ := envVarOrDefault("FAKE_GCS_LOG_LEVEL", "info", nopConverter)
 
 	fs := flag.NewFlagSet("fake-gcs-server", flag.ContinueOnError)
-	fs.StringVar(&cfg.backend, "backend", envVarOrDefault("FAKE_GCS_BACKEND", filesystemBackend, func(s string) (string, error) {
-		return s, nil
-	}), "storage backend (memory or filesystem)")
-	fs.StringVar(&cfg.fsRoot, "filesystem-root", envVarOrDefault("FAKE_GCS_FILESYSTEM_ROOT", "/storage", func(s string) (string, error) {
-		return s, nil
-	}), "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
-	fs.StringVar(&cfg.publicHost, "public-host", envVarOrDefault("FAKE_GCS_PUBLIC_HOST", "storage.googleapis.com", func(s string) (string, error) {
-		return s, nil
-	}), "Optional URL for public host")
-	fs.StringVar(&cfg.externalURL, "external-url", envVarOrDefault("FAKE_GCS_EXTERNAL_URL", "", func(s string) (string, error) {
-		return s, nil
-	}), "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
-	fs.StringVar(&cfg.Scheme, "scheme", envVarOrDefault("FAKE_GCS_SCHEME", schemeHTTPS, func(s string) (string, error) {
-		return s, nil
-	}), "using 'http' or 'https' or 'both'")
-	fs.StringVar(&cfg.Host, "host", envVarOrDefault("FAKE_GCS_HOST", "0.0.0.0", func(s string) (string, error) {
-		return s, nil
-	}), "host to bind to")
-	fs.StringVar(&cfg.Seed, "data", envVarOrDefault("FAKE_GCS_DATA", "", func(s string) (string, error) {
-		return s, nil
-	}), "where to load data from (provided that the directory exists)")
-	fs.StringVar(&allowedCORSHeaders, "cors-headers", envVarOrDefault("FAKE_GCS_CORS_HEADERS", "", func(s string) (string, error) {
-		return s, nil
-	}), "comma separated list of headers to add to the CORS allowlist")
-	fs.UintVar(&cfg.Port, "port", envVarOrDefaultPort, "port to bind to")
-	fs.UintVar(&cfg.PortHTTP, flagPortHTTP, envVarOrDefaultPortHTTP, "used only when scheme is 'both' as the port to bind http to")
-	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", envVarOrDefault("FAKE_GCS_EVENT_PUBSUB_PROJECT_ID", "", func(s string) (string, error) {
-		return s, nil
-	}), "project ID containing the pubsub topic")
-	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", envVarOrDefault("FAKE_GCS_EVENT_PUBSUB_TOPIC", "", func(s string) (string, error) {
-		return s, nil
-	}), "pubsub topic name to publish events on")
-	fs.StringVar(&cfg.event.bucket, "event.bucket", envVarOrDefault("FAKE_GCS_EVENT_BUCKET", "", func(s string) (string, error) {
-		return s, nil
-	}), "if not empty, only objects in this bucket will generate trigger events")
-	fs.StringVar(&cfg.event.prefix, "event.object-prefix", envVarOrDefault("FAKE_GCS_EVENT_OBJECT_PREFIX", "", func(s string) (string, error) {
-		return s, nil
-	}), "if not empty, only objects having this prefix will generate trigger events")
-	fs.StringVar(&eventList, "event.list", envVarOrDefault("FAKE_GCS_EVENT_LIST", eventFinalize, func(s string) (string, error) {
-		return s, nil
-	}), "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
-	fs.StringVar(&cfg.bucketLocation, "location", envVarOrDefault("FAKE_GCS_LOCATION", "US-CENTRAL1", func(s string) (string, error) {
-		return s, nil
-	}), "location for buckets")
-	fs.StringVar(&cfg.CertificateLocation, "cert-location", envVarOrDefault("FAKE_GCS_CERT_LOCATION", "", func(s string) (string, error) {
-		return s, nil
-	}), "location for server certificate")
-	fs.StringVar(&cfg.PrivateKeyLocation, "private-key-location", envVarOrDefault("FAKE_GCS_PRIVATE_KEY_LOCATION", "", func(s string) (string, error) {
-		return s, nil
-	}), "location for private key")
-	fs.StringVar(&logLevel, "log-level", envVarOrDefault("FAKE_GCS_LOG_LEVEL", "info", func(s string) (string, error) {
-		return s, nil
-	}), "level for logging. Options same as for logrus: trace, debug, info, warn, error, fatal, and panic")
+	fs.StringVar(&cfg.backend, "backend", backend, "storage backend (memory or filesystem)")
+	fs.StringVar(&cfg.fsRoot, "filesystem-root", fsRoot, "filesystem root (required for the filesystem backend). folder will be created if it doesn't exist")
+	fs.StringVar(&cfg.publicHost, "public-host", publicHost, "Optional URL for public host")
+	fs.StringVar(&cfg.externalURL, "external-url", externalURL, "optional external URL, returned in the Location header for uploads. Defaults to the address where the server is running")
+	fs.StringVar(&cfg.Scheme, "scheme", scheme, "using 'http' or 'https' or 'both'")
+	fs.StringVar(&cfg.Host, "host", host, "host to bind to")
+	fs.StringVar(&cfg.Seed, "data", data, "where to load data from (provided that the directory exists)")
+	fs.StringVar(&allowedCORSHeaders, "cors-headers", corsHeaders, "comma separated list of headers to add to the CORS allowlist")
+	fs.UintVar(&cfg.Port, "port", envPort, "port to bind to")
+	fs.UintVar(&cfg.PortHTTP, flagPortHTTP, envPortHTTP, "used only when scheme is 'both' as the port to bind http to")
+	fs.StringVar(&cfg.event.pubsubProjectID, "event.pubsub-project-id", pubsubProjectID, "project ID containing the pubsub topic")
+	fs.StringVar(&cfg.event.pubsubTopic, "event.pubsub-topic", pubsubTopic, "pubsub topic name to publish events on")
+	fs.StringVar(&cfg.event.bucket, "event.bucket", eventBucket, "if not empty, only objects in this bucket will generate trigger events")
+	fs.StringVar(&cfg.event.prefix, "event.object-prefix", eventPrefix, "if not empty, only objects having this prefix will generate trigger events")
+	fs.StringVar(&eventList, "event.list", eventListDefault, "comma separated list of events to publish on cloud function URl. Options are: finalize, delete, and metadataUpdate")
+	fs.StringVar(&cfg.bucketLocation, "location", location, "location for buckets")
+	fs.StringVar(&cfg.CertificateLocation, "cert-location", certLocation, "location for server certificate")
+	fs.StringVar(&cfg.PrivateKeyLocation, "private-key-location", privateKeyLocation, "location for private key")
+	fs.StringVar(&logLevel, "log-level", logLevelDefault, "level for logging. Options same as for logrus: trace, debug, info, warn, error, fatal, and panic")
 
-	err := fs.Parse(args)
+	err = fs.Parse(args)
 	if err != nil {
 		return cfg, err
 	}
@@ -160,12 +157,12 @@ func Load(args []string) (Config, error) {
 
 	// setting default values, if not provided, for port - mind that the default port is 4443 regardless of the scheme
 	if _, ok := setFlags[flagPort]; !ok {
-		cfg.Port = envVarOrDefaultPort
+		cfg.Port = envPort
 	}
 
 	if _, ok := setFlags[flagPortHTTP]; !ok {
 		if cfg.Scheme == schemeBoth {
-			cfg.PortHTTP = envVarOrDefaultPortHTTP
+			cfg.PortHTTP = envPortHTTP
 		} else {
 			cfg.PortHTTP = 0
 		}
