@@ -87,14 +87,16 @@ type contentRange struct {
 
 // resumableUploadBody is the JSON body for body-based resumable uploads (e.g. gcloud CLI).
 type resumableUploadBody struct {
-	Bucket          string            `json:"bucket"`
-	Name            string            `json:"name"`
-	ContentType     string            `json:"contentType"`
-	CacheControl    string            `json:"cacheControl"`
-	ContentEncoding string            `json:"contentEncoding"`
-	CustomTime      string            `json:"customTime"` // RFC3339
-	Metadata        map[string]string `json:"metadata"`
-	PredefinedACL   string            `json:"predefinedAcl"`
+	Bucket             string            `json:"bucket"`
+	Name               string            `json:"name"`
+	ContentType        string            `json:"contentType"`
+	CacheControl       string            `json:"cacheControl"`
+	ContentEncoding    string            `json:"contentEncoding"`
+	ContentDisposition string            `json:"contentDisposition"`
+	ContentLanguage    string            `json:"contentLanguage"`
+	CustomTime         string            `json:"customTime"` // RFC3339
+	Metadata           map[string]string `json:"metadata"`
+	PredefinedACL      string            `json:"predefinedAcl"`
 }
 
 type generationCondition struct {
@@ -195,14 +197,16 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 	// Create an object with the metadata
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
-			BucketName:      bucketName,
-			Name:            body.Name,
-			ContentType:     body.ContentType,
-			CacheControl:    body.CacheControl,
-			ContentEncoding: body.ContentEncoding,
-			CustomTime:      customTime,
-			ACL:             getObjectACL(predefinedACL),
-			Metadata:        body.Metadata,
+			BucketName:         bucketName,
+			Name:               body.Name,
+			ContentType:        body.ContentType,
+			CacheControl:       body.CacheControl,
+			ContentEncoding:    body.ContentEncoding,
+			ContentDisposition: body.ContentDisposition,
+			ContentLanguage:    body.ContentLanguage,
+			CustomTime:         customTime,
+			ACL:                getObjectACL(predefinedACL),
+			Metadata:           body.Metadata,
 		},
 	}
 
