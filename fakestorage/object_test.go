@@ -233,7 +233,6 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 func TestServerClientObjectAttrs(t *testing.T) {
 	tests := getObjectTestCases()
 	for _, test := range tests {
-		test := test
 		runServersTest(t, runServersOptions{objs: []Object{test.obj}}, func(t *testing.T, server *Server) {
 			t.Run(test.testCase, func(t *testing.T) {
 				client := server.Client()
@@ -251,7 +250,6 @@ func TestServerClientObjectAttrs(t *testing.T) {
 func TestServerClientObjectAttrsAfterCreateObject(t *testing.T) {
 	tests := getObjectTestCases()
 	for _, test := range tests {
-		test := test
 		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			server.CreateObject(test.obj)
 			client := server.Client()
@@ -356,7 +354,6 @@ func TestServerClientObjectAttrsErrors(t *testing.T) {
 			},
 		}
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				objHandle := server.Client().Bucket(test.bucketName).Object(test.objectName)
 				attrs, err := objHandle.Attrs(context.TODO())
@@ -613,7 +610,6 @@ func TestServerClientObjectRangeReader(t *testing.T) {
 			},
 		}
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				client := server.Client()
 				objHandle := client.Bucket(bucketName).Object(objectName)
@@ -783,7 +779,6 @@ func TestServerClientObjectReaderError(t *testing.T) {
 			},
 		}
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				objHandle := server.Client().Bucket(test.bucketName).Object(test.objectName)
 				reader, err := objHandle.NewReader(context.TODO())
@@ -1120,7 +1115,6 @@ func TestXMLClientListObjects(t *testing.T) {
 		defer cancel()
 
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				keys := []string{}
 
@@ -1145,7 +1139,6 @@ func TestServiceClientListObjects(t *testing.T) {
 		tests := getTestCasesForListTests(false, false)
 		client := server.Client()
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				iter := client.Bucket(test.bucketName).Objects(context.TODO(), test.query)
 				var prefixes []string
@@ -1195,7 +1188,6 @@ func TestServerClientListAfterCreate(t *testing.T) {
 				tests := getTestCasesForListTests(versioningEnabled, withOverwrites)
 				client := server.Client()
 				for _, test := range tests {
-					test := test
 					t.Run(test.testCase, func(t *testing.T) {
 						iter := client.Bucket(test.bucketName).Objects(context.TODO(), test.query)
 						var prefixes []string
@@ -1230,7 +1222,6 @@ func TestObjectStoragePagination(t *testing.T) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
 		tests := getTestCasesForPaginationTests()
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				response, err := server.ListObjectsWithOptionsPaginated(test.bucketName, *test.query)
 				if err != nil {
@@ -1380,7 +1371,6 @@ func TestServerClientListAfterCreateQueryingAllVersions(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 			for _, bucketName := range []string{"some-bucket", "other-bucket", "empty-bucket"} {
 				server.CreateBucketWithOpts(CreateBucketOpts{
@@ -1490,7 +1480,6 @@ func TestServiceClientRewriteObject(t *testing.T) {
 			},
 		}
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				client := server.Client()
 				sourceObject := client.Bucket("first-bucket").Object("files/some-file.txt")
@@ -1614,7 +1603,6 @@ func TestServiceClientRewriteObjectWithGenerations(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.testCase, func(t *testing.T) {
 			runServersTest(t, runServersOptions{objs: []Object{}}, func(t *testing.T, server *Server) {
 				server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket", VersioningEnabled: false})
@@ -1753,7 +1741,6 @@ func TestServerClientObjectDeleteErrors(t *testing.T) {
 			},
 		}
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				objHandle := server.Client().Bucket(test.bucketName).Object(test.objectName)
 				err := objHandle.Delete(context.TODO())
@@ -2209,7 +2196,6 @@ func TestParseRangeRequest(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run("", func(t *testing.T) {
 			t.Parallel()
 			start, length := test.Start, test.Length
@@ -2346,7 +2332,6 @@ func TestServiceClientComposeObject(t *testing.T) {
 			},
 		}
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				client := server.Client()
 

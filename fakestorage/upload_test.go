@@ -67,7 +67,6 @@ func TestServerClientObjectWriter(t *testing.T) {
 		}
 
 		for _, test := range tests {
-			test := test
 			t.Run(test.testCase, func(t *testing.T) {
 				const contentType = "text/plain; charset=utf-8"
 				cacheControl := "public, max-age=3600"
@@ -798,7 +797,6 @@ func TestParseContentRange(t *testing.T) {
 	}
 
 	for _, test := range goodHeaderTests {
-		test := test
 		t.Run(test.header, func(t *testing.T) {
 			t.Parallel()
 			output, err := parseContentRange(test.header)
@@ -820,7 +818,6 @@ func TestParseContentRange(t *testing.T) {
 		"bytes 100-200/total", // Non-integer size
 	}
 	for _, test := range badHeaderTests {
-		test := test
 		t.Run(test, func(t *testing.T) {
 			t.Parallel()
 			_, err := parseContentRange(test)
@@ -1099,7 +1096,6 @@ func TestParseContentTypeParams(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			params, err := parseContentTypeParams(test.input)

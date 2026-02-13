@@ -331,7 +331,6 @@ func TestLoadConfig(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			cfg, err := Load(test.args)
@@ -440,7 +439,6 @@ func TestToFakeGcsOptions(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			opts := test.config.ToFakeGcsOptions(slognil.NewLogger(), test.config.Scheme)

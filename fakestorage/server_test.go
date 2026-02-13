@@ -193,7 +193,6 @@ func TestGenerateObjectsFromFiles(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -356,7 +355,6 @@ func TestPublicURL(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			server, err := NewServerWithOptions(test.options)
@@ -542,7 +540,6 @@ func testDownloadObject(t *testing.T, server *Server) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			// The tests cannot be run in parallel, because if one of them
 			// fails early, the parent test will close the server, failing the
@@ -591,7 +588,6 @@ func testDownloadObjectRange(t *testing.T, server *Server) {
 		{"Too-long range specified", map[string]string{"Range": "bytes=0-100"}, http.StatusPartialContent, "bytes 0-8/9", "something"},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			client := server.HTTPClient()
 			req, err := http.NewRequest("GET", server.scheme()+"://storage.googleapis.com/some-bucket/files/txt/text-01.txt", nil)
@@ -663,7 +659,6 @@ func TestUpdateServerConfig(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			client := server.HTTPClient()
 			configJson := strings.NewReader(test.requestBody)
@@ -781,7 +776,6 @@ func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 		t.Fatalf("Expected PublicURL \"%s\", is \"%s\".", expected, server.PublicURL())
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			client := server.HTTPClient()
 			req, err := http.NewRequest(test.method, test.url, nil)
@@ -852,7 +846,6 @@ func TestCORSRequests(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			client := server.HTTPClient()
 			req, err := http.NewRequest(http.MethodOptions, "https://127.0.0.1/", nil)
@@ -1048,7 +1041,6 @@ func TestServerEventNotification(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			opts := Options{}
