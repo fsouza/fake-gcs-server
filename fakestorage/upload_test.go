@@ -643,7 +643,6 @@ func TestServerClientMultipartUploadWithContentEncodingQueryParam(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
 	// Fix the content type to be multipart/related instead of multipart/form-data
 	req.Header.Set("Content-Type", "multipart/related; boundary="+writer.Boundary())
 
