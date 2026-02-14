@@ -69,6 +69,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 		for _, test := range tests {
 			t.Run(test.testCase, func(t *testing.T) {
 				const contentType = "text/plain; charset=utf-8"
+				const contentLanguage = "en-US"
 				cacheControl := "public, max-age=3600"
 				server.CreateBucketWithOpts(CreateBucketOpts{Name: test.bucketName})
 				client := server.Client()
@@ -83,6 +84,7 @@ func TestServerClientObjectWriter(t *testing.T) {
 					"foo": "bar",
 				}
 				w.CacheControl = cacheControl
+				w.ContentLanguage = contentLanguage
 				w.Write([]byte(content))
 				err := w.Close()
 				if err != nil {
@@ -126,6 +128,9 @@ func TestServerClientObjectWriter(t *testing.T) {
 				}
 				if obj.CacheControl != cacheControl {
 					t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
+				}
+				if obj.ContentLanguage != contentLanguage {
+					t.Errorf("wrong content language\nwant %q\ngot  %q", contentLanguage, obj.ContentLanguage)
 				}
 
 				reader, err := client.Bucket(test.bucketName).Object(test.objectName).NewReader(context.Background())
@@ -531,6 +536,149 @@ func TestServerClientSimpleUpload(t *testing.T) {
 	checkChecksum(t, []byte(data), obj)
 }
 
+func TestServerClientSimpleUploadWithMetadataHeaders(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
+
+	const data = "some nice content"
+	const contentType = "text/plain"
+	const cacheControl = "public, max-age=3600"
+	const contentDisposition = "attachment; filename=test.txt"
+	const contentLanguage = "en-US"
+	req, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/other-bucket/o?uploadType=media&name=some/nice/object.txt", strings.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Cache-Control", cacheControl)
+	req.Header.Set("Content-Disposition", contentDisposition)
+	req.Header.Set("Content-Language", contentLanguage)
+	req.Header.Set("X-Goog-Meta-Custom-Key", "custom-value")
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	expectedStatus := http.StatusOK
+	if resp.StatusCode != expectedStatus {
+		t.Errorf("wrong status code\nwant %d\ngot  %d", expectedStatus, resp.StatusCode)
+	}
+
+	obj, err := server.GetObject("other-bucket", "some/nice/object.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(obj.Content) != data {
+		t.Errorf("wrong content\nwant %q\ngot  %q", string(obj.Content), data)
+	}
+	if obj.ContentType != contentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+	}
+	if obj.CacheControl != cacheControl {
+		t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
+	}
+	if obj.ContentDisposition != contentDisposition {
+		t.Errorf("wrong content disposition\nwant %q\ngot  %q", contentDisposition, obj.ContentDisposition)
+	}
+	if obj.ContentLanguage != contentLanguage {
+		t.Errorf("wrong content language\nwant %q\ngot  %q", contentLanguage, obj.ContentLanguage)
+	}
+	if want := map[string]string{"custom-key": "custom-value"}; !reflect.DeepEqual(obj.Metadata, want) {
+		t.Errorf("wrong metadata\nwant %q\ngot  %q", want, obj.Metadata)
+	}
+	checkChecksum(t, []byte(data), obj)
+}
+
+func TestServerClientMultipartUploadWithContentEncodingQueryParam(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
+
+	const data = "some nice content"
+	const contentType = "text/plain"
+	const contentEncoding = "gzip"
+	const cacheControl = "public, max-age=3600"
+
+	// Create multipart request body
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// First part: JSON metadata (without contentEncoding - we'll pass it via query param)
+	metadataHeader := make(map[string][]string)
+	metadataHeader["Content-Type"] = []string{"application/json; charset=UTF-8"}
+	metadataPart, err := writer.CreatePart(metadataHeader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata := map[string]interface{}{
+		"name":         "some/nice/object.txt",
+		"contentType":  contentType,
+		"cacheControl": cacheControl,
+	}
+	if err := json.NewEncoder(metadataPart).Encode(metadata); err != nil {
+		t.Fatal(err)
+	}
+
+	// Second part: file content
+	fileHeader := make(map[string][]string)
+	fileHeader["Content-Type"] = []string{contentType}
+	filePart, err := writer.CreatePart(fileHeader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := filePart.Write([]byte(data)); err != nil {
+		t.Fatal(err)
+	}
+
+	writer.Close()
+
+	// Send request with contentEncoding as query parameter (not in metadata JSON)
+	req, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/other-bucket/o?uploadType=multipart&contentEncoding="+contentEncoding, &buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Fix the content type to be multipart/related instead of multipart/form-data
+	req.Header.Set("Content-Type", "multipart/related; boundary="+writer.Boundary())
+
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("wrong status code\nwant %d\ngot  %d\nbody: %s", http.StatusOK, resp.StatusCode, body)
+	}
+
+	obj, err := server.GetObject("other-bucket", "some/nice/object.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(obj.Content) != data {
+		t.Errorf("wrong content\nwant %q\ngot  %q", data, string(obj.Content))
+	}
+	if obj.ContentType != contentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+	}
+	if obj.ContentEncoding != contentEncoding {
+		t.Errorf("wrong content encoding\nwant %q\ngot  %q", contentEncoding, obj.ContentEncoding)
+	}
+	if obj.CacheControl != cacheControl {
+		t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
+	}
+}
+
 func TestServerClientSignedUpload(t *testing.T) {
 	server, err := NewServerWithOptions(Options{PublicHost: "127.0.0.1"})
 	if err != nil {
@@ -540,12 +688,18 @@ func TestServerClientSignedUpload(t *testing.T) {
 	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
 	const data = "some nice content"
 	const contentType = "text/plain"
+	const cacheControl = "private, max-age=7200"
+	const contentDisposition = "inline"
+	const contentLanguage = "fr"
 	req, err := http.NewRequest("PUT", server.URL()+"/other-bucket/some/nice/object.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256", strings.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Cache-Control", cacheControl)
+	req.Header.Set("Content-Disposition", contentDisposition)
+	req.Header.Set("Content-Language", contentLanguage)
 	req.Header.Set("X-Goog-Meta-Key", "Value")
 	client := http.Client{
 		Transport: &http.Transport{
@@ -571,6 +725,15 @@ func TestServerClientSignedUpload(t *testing.T) {
 	}
 	if obj.ContentType != contentType {
 		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+	}
+	if obj.CacheControl != cacheControl {
+		t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
+	}
+	if obj.ContentDisposition != contentDisposition {
+		t.Errorf("wrong content disposition\nwant %q\ngot  %q", contentDisposition, obj.ContentDisposition)
+	}
+	if obj.ContentLanguage != contentLanguage {
+		t.Errorf("wrong content language\nwant %q\ngot  %q", contentLanguage, obj.ContentLanguage)
 	}
 	if want := map[string]string{"key": "Value"}; !reflect.DeepEqual(obj.Metadata, want) {
 		t.Errorf("wrong metadata\nwant %q\ngot  %q", want, obj.Metadata)
@@ -1040,6 +1203,130 @@ func TestFormDataUpload(t *testing.T) {
 	}
 	if obj.ContentType != contentType {
 		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+	}
+	if want := map[string]string{"key": "Value"}; !reflect.DeepEqual(obj.Metadata, want) {
+		t.Errorf("wrong metadata\nwant %q\ngot  %q", want, obj.Metadata)
+	}
+	checkChecksum(t, []byte(content), obj)
+}
+
+func TestFormDataUploadWithMetadata(t *testing.T) {
+	server, err := NewServerWithOptions(Options{PublicHost: "127.0.0.1"})
+	if err != nil {
+		t.Fatalf("could not start server: %v", err)
+	}
+	defer server.Stop()
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "other-bucket"})
+
+	var buf bytes.Buffer
+	const content = "some weird content"
+	const contentType = "text/plain"
+	const cacheControl = "public, max-age=3600"
+	const contentDisposition = "attachment; filename=test.txt"
+	const contentLanguage = "de"
+	successActionStatus := http.StatusNoContent
+	writer := multipart.NewWriter(&buf)
+
+	var fieldWriter io.Writer
+	if fieldWriter, err = writer.CreateFormField("key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte("object.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("Content-Type"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(contentType)); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("Cache-Control"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(cacheControl)); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("Content-Disposition"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(contentDisposition)); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("Content-Language"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(contentLanguage)); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("success_action_status"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(strconv.Itoa(successActionStatus))); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormField("x-goog-meta-key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte("Value")); err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldWriter, err = writer.CreateFormFile("file", "object.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fieldWriter.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", server.URL()+"/other-bucket", &buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != successActionStatus {
+		t.Errorf("wrong status code\nwant %d\ngot  %d", successActionStatus, resp.StatusCode)
+	}
+
+	obj, err := server.GetObject("other-bucket", "object.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(obj.Content) != content {
+		t.Errorf("wrong content\nwant %q\ngot  %q", string(obj.Content), content)
+	}
+	if obj.ContentType != contentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+	}
+	if obj.CacheControl != cacheControl {
+		t.Errorf("wrong cache control\nwant %q\ngot  %q", cacheControl, obj.CacheControl)
+	}
+	if obj.ContentDisposition != contentDisposition {
+		t.Errorf("wrong content disposition\nwant %q\ngot  %q", contentDisposition, obj.ContentDisposition)
+	}
+	if obj.ContentLanguage != contentLanguage {
+		t.Errorf("wrong content language\nwant %q\ngot  %q", contentLanguage, obj.ContentLanguage)
 	}
 	if want := map[string]string{"key": "Value"}; !reflect.DeepEqual(obj.Metadata, want) {
 		t.Errorf("wrong metadata\nwant %q\ngot  %q", want, obj.Metadata)

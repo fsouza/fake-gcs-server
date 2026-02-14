@@ -114,8 +114,11 @@ func (g *Server) GetObject(ctx context.Context, req *pb.GetObjectRequest) (*pb.O
 		Md5Hash:            obj.ObjectAttrs.Md5Hash,
 		Generation:         obj.ObjectAttrs.Generation,
 		ContentType:        obj.ObjectAttrs.ContentType,
+		ContentEncoding:    obj.ObjectAttrs.ContentEncoding,
 		ContentDisposition: obj.ObjectAttrs.ContentDisposition,
 		ContentLanguage:    obj.ObjectAttrs.ContentLanguage,
+		CacheControl:       obj.ObjectAttrs.CacheControl,
+		Metadata:           obj.ObjectAttrs.Metadata,
 	}, nil
 }
 
@@ -126,7 +129,12 @@ func (g *Server) DeleteObject(ctx context.Context, req *pb.DeleteObjectRequest) 
 
 func (g *Server) UpdateObject(ctx context.Context, req *pb.UpdateObjectRequest) (*pb.Object, error) {
 	attrs := backend.ObjectAttrs{
-		Metadata: req.Metadata.Metadata,
+		Metadata:           req.Metadata.Metadata,
+		ContentType:        req.Metadata.ContentType,
+		ContentEncoding:    req.Metadata.ContentEncoding,
+		ContentDisposition: req.Metadata.ContentDisposition,
+		ContentLanguage:    req.Metadata.ContentLanguage,
+		CacheControl:       req.Metadata.CacheControl,
 	}
 	obj, err := g.backend.UpdateObject(req.Bucket, req.Object, attrs)
 	return makeObject(obj), err
@@ -139,18 +147,19 @@ func (g *Server) PatchObject(ctx context.Context, req *pb.PatchObjectRequest) (*
 		ContentEncoding:    req.Metadata.ContentEncoding,
 		ContentDisposition: req.Metadata.ContentDisposition,
 		ContentLanguage:    req.Metadata.ContentLanguage,
+		CacheControl:       req.Metadata.CacheControl,
 	}
 	obj, err := g.backend.PatchObject(req.Bucket, req.Object, attrs)
 	return makeObject(obj), err
 }
 
-// ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentDisposition string, contentLanguage string)
+// ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentEncoding string, contentDisposition string, contentLanguage string, cacheControl string)
 func (g *Server) ComposeObject(ctx context.Context, req *pb.ComposeObjectRequest) (*pb.Object, error) {
 	sourceObjNames := make([]string, 2)
 	for i := 0; i < len(req.SourceObjects); i++ {
 		sourceObjNames[i] = req.SourceObjects[i].Name
 	}
-	obj, err := g.backend.ComposeObject(req.DestinationBucket, sourceObjNames, req.DestinationObject, map[string]string{}, "", "", "")
+	obj, err := g.backend.ComposeObject(req.DestinationBucket, sourceObjNames, req.DestinationObject, map[string]string{}, "", "", "", "", "")
 	return makeObject(obj), err
 }
 
@@ -163,11 +172,17 @@ func (g *Server) ListObjects(ctx context.Context, req *pb.ListObjectsRequest) (*
 	var resp pb.ListObjectsResponse
 	for _, obj := range objs {
 		resp.Items = append(resp.Items, &pb.Object{
-			Name:        obj.Name,
-			Bucket:      obj.BucketName,
-			Md5Hash:     obj.Md5Hash,
-			Generation:  obj.Generation,
-			ContentType: obj.ContentType,
+			Name:               obj.Name,
+			Bucket:             obj.BucketName,
+			StorageClass:       obj.StorageClass,
+			Md5Hash:            obj.Md5Hash,
+			Generation:         obj.Generation,
+			ContentType:        obj.ContentType,
+			ContentEncoding:    obj.ContentEncoding,
+			ContentDisposition: obj.ContentDisposition,
+			ContentLanguage:    obj.ContentLanguage,
+			CacheControl:       obj.CacheControl,
+			Metadata:           obj.Metadata,
 		})
 	}
 
@@ -176,10 +191,16 @@ func (g *Server) ListObjects(ctx context.Context, req *pb.ListObjectsRequest) (*
 
 func makeObject(obj backend.StreamingObject) *pb.Object {
 	return &pb.Object{
-		Name:        obj.Name,
-		Bucket:      obj.BucketName,
-		Md5Hash:     obj.Md5Hash,
-		Generation:  obj.Generation,
-		ContentType: obj.ContentType,
+		Name:               obj.Name,
+		Bucket:             obj.BucketName,
+		StorageClass:       obj.StorageClass,
+		Md5Hash:            obj.Md5Hash,
+		Generation:         obj.Generation,
+		ContentType:        obj.ContentType,
+		ContentEncoding:    obj.ContentEncoding,
+		ContentDisposition: obj.ContentDisposition,
+		ContentLanguage:    obj.ContentLanguage,
+		CacheControl:       obj.CacheControl,
+		Metadata:           obj.Metadata,
 	}
 }
