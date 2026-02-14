@@ -275,6 +275,74 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "single event.config",
+			args: []string{
+				"-event.config", "bucket=my-bucket;project=test-project;topic=gcs-events;events=finalize;prefix=uploads/",
+			},
+			expectedConfig: Config{
+				backend:        "filesystem",
+				fsRoot:         "/storage",
+				publicHost:     "storage.googleapis.com",
+				externalURL:    "https://0.0.0.0:4443",
+				Host:           "0.0.0.0",
+				Port:           4443,
+				Scheme:         "https",
+				event:          EventConfig{list: []string{"finalize"}},
+				events:         eventConfigFlag{"bucket=my-bucket;project=test-project;topic=gcs-events;events=finalize;prefix=uploads/"},
+				bucketLocation: "US-CENTRAL1",
+				LogLevel:       slog.LevelInfo,
+				parsedEvents: []notification.EventManagerOptions{
+					{
+						ProjectID:    "test-project",
+						TopicName:    "gcs-events",
+						Bucket:       "my-bucket",
+						ObjectPrefix: "uploads/",
+						NotifyOn:     notification.EventNotificationOptions{Finalize: true},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple event.config",
+			args: []string{
+				"-event.config", "bucket=bucket-a;project=proj1;topic=topic-a;events=finalize,delete",
+				"-event.config", "bucket=bucket-b;project=proj2;topic=topic-b;events=metadataUpdate",
+			},
+			expectedConfig: Config{
+				backend:        "filesystem",
+				fsRoot:         "/storage",
+				publicHost:     "storage.googleapis.com",
+				externalURL:    "https://0.0.0.0:4443",
+				Host:           "0.0.0.0",
+				Port:           4443,
+				Scheme:         "https",
+				event:          EventConfig{list: []string{"finalize"}},
+				bucketLocation: "US-CENTRAL1",
+				LogLevel:       slog.LevelInfo,
+				events: eventConfigFlag{
+					"bucket=bucket-a;project=proj1;topic=topic-a;events=finalize,delete",
+					"bucket=bucket-b;project=proj2;topic=topic-b;events=metadataUpdate",
+				},
+				parsedEvents: []notification.EventManagerOptions{
+					{
+						ProjectID: "proj1",
+						TopicName: "topic-a",
+						Bucket:    "bucket-a",
+						NotifyOn: notification.EventNotificationOptions{
+							Finalize: true,
+							Delete:   true,
+						},
+					},
+					{
+						ProjectID: "proj2",
+						TopicName: "topic-b",
+						Bucket:    "bucket-b",
+						NotifyOn:  notification.EventNotificationOptions{MetadataUpdate: true},
+					},
+				},
+			},
+		},
+		{
 			name:      "invalid port value type",
 			args:      []string{"-port", "not-a-number"},
 			expectErr: true,
@@ -323,6 +391,71 @@ func TestLoadConfig(t *testing.T) {
 			name:      "invalid events",
 			args:      []string{"-event.list", "invalid,stuff", "-event.pubsub-topic", "gcs-events", "-event.pubsub-project-id", "test-project"},
 			expectErr: true,
+		},
+		{
+			name:      "event.config missing topic",
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config empty topic",
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project;topic=;"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config missing project",
+			args:      []string{"-event.config", "bucket=my-bucket;topic=gcs-events"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config empty project",
+			args:      []string{"-event.config", "bucket=my-bucket;project=;topic=gcs-events"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config invalid event name",
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project;topic=gcs-events;events=bogus"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config unknown key",
+			args:      []string{"-event.config", "bucket=my-bucket;project=test-project;topic=gcs-events;unknown=x"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config missing bucket",
+			args:      []string{"-event.config", "project=test-project;topic=gcs-events"},
+			expectErr: true,
+		},
+		{
+			name:      "event.config empty bucket",
+			args:      []string{"-event.config", "bucket=;project=test-project;topic=gcs-events"},
+			expectErr: true,
+		},
+		{
+			name: "event.config defaults events to finalize",
+			args: []string{"-event.config", "bucket=my-bucket;project=test-project;topic=gcs-events"},
+			expectedConfig: Config{
+				backend:        "filesystem",
+				fsRoot:         "/storage",
+				publicHost:     "storage.googleapis.com",
+				externalURL:    "https://0.0.0.0:4443",
+				Host:           "0.0.0.0",
+				Port:           4443,
+				Scheme:         "https",
+				event:          EventConfig{list: []string{"finalize"}},
+				events:         eventConfigFlag{"bucket=my-bucket;project=test-project;topic=gcs-events"},
+				bucketLocation: "US-CENTRAL1",
+				LogLevel:       slog.LevelInfo,
+				parsedEvents: []notification.EventManagerOptions{
+					{
+						ProjectID: "test-project",
+						TopicName: "gcs-events",
+						Bucket:    "my-bucket",
+						NotifyOn:  notification.EventNotificationOptions{Finalize: true},
+					},
+				},
+			},
 		},
 		{
 			name:      "invalid log level",
@@ -434,6 +567,54 @@ func TestToFakeGcsOptions(t *testing.T) {
 				Port:        443,
 				Scheme:      "https",
 				NoListener:  true,
+			},
+		},
+		{
+			"event configs via parsedEvents",
+			Config{
+				backend:     "memory",
+				publicHost:  "storage.googleapis.com",
+				externalURL: "https://0.0.0.0:4443",
+				Host:        "0.0.0.0",
+				Port:        4443,
+				Scheme:      "https",
+				parsedEvents: []notification.EventManagerOptions{
+					{
+						ProjectID: "proj-a",
+						TopicName: "topic-a",
+						Bucket:    "bucket-a",
+						NotifyOn:  notification.EventNotificationOptions{Finalize: true},
+					},
+					{
+						ProjectID: "proj-b",
+						TopicName: "topic-b",
+						Bucket:    "bucket-b",
+						NotifyOn:  notification.EventNotificationOptions{Delete: true},
+					},
+				},
+			},
+			fakestorage.Options{
+				StorageRoot: "",
+				PublicHost:  "storage.googleapis.com",
+				ExternalURL: "https://0.0.0.0:4443",
+				Host:        "0.0.0.0",
+				Port:        4443,
+				Scheme:      "https",
+				EventConfigs: []notification.EventManagerOptions{
+					{
+						ProjectID: "proj-a",
+						TopicName: "topic-a",
+						Bucket:    "bucket-a",
+						NotifyOn:  notification.EventNotificationOptions{Finalize: true},
+					},
+					{
+						ProjectID: "proj-b",
+						TopicName: "topic-b",
+						Bucket:    "bucket-b",
+						NotifyOn:  notification.EventNotificationOptions{Delete: true},
+					},
+				},
+				NoListener: true,
 			},
 		},
 	}

@@ -57,6 +57,24 @@ type EventManager interface {
 	Trigger(o *backend.StreamingObject, eventType EventType, extraEventAttr map[string]string)
 }
 
+// MultiEventManager fans out Trigger calls to multiple underlying EventManagers.
+// A nil or empty managers slice is a no-op.
+type MultiEventManager struct {
+	managers []EventManager
+}
+
+// NewMultiEventManager creates a new MultiEventManager that dispatches events
+// to all provided managers.
+func NewMultiEventManager(managers []EventManager) *MultiEventManager {
+	return &MultiEventManager{managers: managers}
+}
+
+func (m *MultiEventManager) Trigger(o *backend.StreamingObject, eventType EventType, extraEventAttr map[string]string) {
+	for _, mgr := range m.managers {
+		mgr.Trigger(o, eventType, extraEventAttr)
+	}
+}
+
 // PubsubEventManager checks if an event should be published.
 type PubsubEventManager struct {
 	// publishSynchronously is a flag that if true, events will be published

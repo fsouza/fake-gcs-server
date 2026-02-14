@@ -117,6 +117,11 @@ type Options struct {
 	// of the Google cloud function such events should be published to.
 	EventOptions EventManagerOptions
 
+	// EventConfigs specifies multiple per-bucket Pub/Sub notification
+	// configurations. Each entry defines a topic, a set of event types, and
+	// the bucket it applies to. When non-empty this replaces EventOptions.
+	EventConfigs []EventManagerOptions
+
 	// Location used for buckets in the server.
 	BucketsLocation string
 
@@ -158,10 +163,19 @@ func NewServerWithOptions(options Options) (*Server, error) {
 	s.handler = requestCompressHandler(s.handler)
 	s.transport = &muxTransport{handler: s.handler}
 
-	s.eventManager, err = notification.NewPubsubEventManager(options.EventOptions, options.Writer)
-	if err != nil {
-		return nil, err
+	configs := options.EventConfigs
+	if len(configs) == 0 {
+		configs = []EventManagerOptions{options.EventOptions}
 	}
+	var managers []notification.EventManager
+	for _, cfg := range configs {
+		mgr, err := notification.NewPubsubEventManager(cfg, options.Writer)
+		if err != nil {
+			return nil, err
+		}
+		managers = append(managers, mgr)
+	}
+	s.eventManager = notification.NewMultiEventManager(managers)
 
 	if options.NoListener {
 		return s, nil
@@ -225,7 +239,7 @@ func newServer(options Options) (*Server, error) {
 		externalURL:  options.ExternalURL,
 		publicHost:   publicHost,
 		options:      options,
-		eventManager: &notification.PubsubEventManager{},
+		eventManager: notification.NewMultiEventManager(nil),
 	}
 	s.buildMuxer()
 	_, err = s.seed()

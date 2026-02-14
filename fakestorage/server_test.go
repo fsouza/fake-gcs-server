@@ -1068,6 +1068,114 @@ func TestServerEventNotification(t *testing.T) {
 	}
 }
 
+func TestServerMultiEventNotification(t *testing.T) {
+	t.Parallel()
+
+	objA := Object{
+		ObjectAttrs: ObjectAttrs{BucketName: "bucket-a", Name: "file-a.txt"},
+		Content:     []byte("content-a"),
+	}
+	objB := Object{
+		ObjectAttrs: ObjectAttrs{BucketName: "bucket-b", Name: "file-b.txt"},
+		Content:     []byte("content-b"),
+	}
+
+	t.Run("fan-out to multiple managers", func(t *testing.T) {
+		t.Parallel()
+		server, err := NewServerWithOptions(Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer server.Stop()
+
+		managerA := &fakeEventManager{}
+		managerB := &fakeEventManager{}
+		server.eventManager = notification.NewMultiEventManager([]notification.EventManager{managerA, managerB})
+
+		if err := server.backend.CreateBucket("bucket-a", backend.BucketAttrs{}); err != nil {
+			t.Fatal(err)
+		}
+		if err := server.backend.CreateBucket("bucket-b", backend.BucketAttrs{}); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := createObjectAction(objA)(server.Client()); err != nil {
+			t.Fatal(err)
+		}
+		if err := createObjectAction(objB)(server.Client()); err != nil {
+			t.Fatal(err)
+		}
+
+		// Both managers should have seen both Finalize events (no bucket filter on fakeEventManager).
+		expectedEvents := []fakeEvent{
+			{obj: fakeEventFieldsFromObject(objA), eventType: notification.EventFinalize},
+			{obj: fakeEventFieldsFromObject(objB), eventType: notification.EventFinalize},
+		}
+		assert.ElementsMatch(t, expectedEvents, managerA.events)
+		assert.ElementsMatch(t, expectedEvents, managerB.events)
+	})
+
+	t.Run("events carry correct bucket names", func(t *testing.T) {
+		t.Parallel()
+		server, err := NewServerWithOptions(Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer server.Stop()
+
+		manager := &fakeEventManager{}
+		server.eventManager = notification.NewMultiEventManager([]notification.EventManager{manager})
+
+		if err := server.backend.CreateBucket("bucket-a", backend.BucketAttrs{}); err != nil {
+			t.Fatal(err)
+		}
+		if err := server.backend.CreateBucket("bucket-b", backend.BucketAttrs{}); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := createObjectAction(objA)(server.Client()); err != nil {
+			t.Fatal(err)
+		}
+		if err := createObjectAction(objB)(server.Client()); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(manager.events) != 2 {
+			t.Fatalf("expected 2 events, got %d", len(manager.events))
+		}
+
+		buckets := map[string]bool{}
+		for _, ev := range manager.events {
+			buckets[ev.obj.BucketName] = true
+		}
+		if !buckets["bucket-a"] {
+			t.Error("expected an event for bucket-a")
+		}
+		if !buckets["bucket-b"] {
+			t.Error("expected an event for bucket-b")
+		}
+	})
+
+	t.Run("empty managers list is no-op", func(t *testing.T) {
+		t.Parallel()
+		server, err := NewServerWithOptions(Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer server.Stop()
+
+		server.eventManager = notification.NewMultiEventManager(nil)
+
+		if err := server.backend.CreateBucket("bucket-a", backend.BucketAttrs{}); err != nil {
+			t.Fatal(err)
+		}
+		// Must not panic.
+		if err := createObjectAction(objA)(server.Client()); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestServerBatchRequest(t *testing.T) {
 	objects := []Object{
 		{
