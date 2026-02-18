@@ -1156,6 +1156,83 @@ func TestServerBatchRequest(t *testing.T) {
 	}
 }
 
+func TestServerBatchRequest_withNoBody(t *testing.T) {
+	objects := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-01.txt"},
+			Content:     []byte("something1"),
+		},
+		{
+			ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-02.txt"},
+			Content:     []byte("something2"),
+		},
+		{
+			ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "files/txt/text-03.txt"},
+			Content:     []byte("something3"),
+		},
+	}
+
+	opts := Options{}
+	server, err := NewServerWithOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = server.backend.CreateBucket("some-bucket", backend.BucketAttrs{VersioningEnabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, obj := range objects {
+		if err := createObjectAction(obj)(server.Client()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	body := "--===============7330845974216740156==\r\n" +
+		"Content-Type: application/http\r\n" +
+		"Content-Transfer-Encoding: binary\r\n" +
+		"Content-ID: <b29c5de2-0db4-490b-b421-6a51b598bd22+1>\r\n" +
+		"\r\n" +
+		"DELETE /storage/v1/b/some-bucket/o/files/txt/text-01.txt HTTP/1.1\r\n" +
+		"--===============7330845974216740156==\r\n" +
+		"Content-Type: application/http\r\n" +
+		"Content-Transfer-Encoding: binary\r\n" +
+		"Content-ID: <b29c5de2-0db4-490b-b421-6a51b598bd22+2>\r\n" +
+		"\r\n" +
+		"DELETE /storage/v1/b/some-bucket/o/files/txt/text-02.txt HTTP/1.1\r\n" +
+		"Host: localhost:4443\r\n" +
+		"--===============7330845974216740156==\r\n" +
+		"Content-Type: application/http\r\n" +
+		"Content-Transfer-Encoding: binary\r\n" +
+		"Content-ID: <b29c5de2-0db4-490b-b421-6a51b598bd22+3>\r\n" +
+		"\r\n" +
+		"DELETE /storage/v1/b/some-bucket/o/files/txt/text-03.txt HTTP/1.1\r\n\r\n" +
+		"--===============7330845974216740156==--\r\n"
+
+	client := server.HTTPClient()
+	req, err := http.NewRequest(http.MethodPost, "https://127.0.0.1/batch/storage/v1", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Origin", "http://example.com")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	req.Header.Set("Content-Type", "multipart/mixed; boundary=\"===============7330845974216740156==\"")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+	}
+
+	it := server.Client().Bucket("some-bucket").Objects(context.Background(), nil)
+	_, err = it.Next()
+	if err != iterator.Done {
+		t.Errorf("Objects didn't get deleted by batch call")
+	}
+}
+
 type fakeEventFields struct {
 	BucketName string
 	Name       string
