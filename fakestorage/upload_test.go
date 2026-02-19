@@ -603,6 +603,19 @@ func TestServerClientSignedUploadBucketCNAME(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
 	}
+
+	const expectedName = "files/txt/text-02.txt"
+	const expectedContentType = "text/plain"
+	obj, err := server.GetObject("mybucket.mydomain.com", expectedName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obj.Name != expectedName {
+		t.Errorf("wrong name\nwant %q\ngot  %q", expectedName, obj.Name)
+	}
+	if obj.ContentType != expectedContentType {
+		t.Errorf("wrong content type\nwant %q\ngot  %q", expectedContentType, obj.ContentType)
+	}
 }
 
 func TestServerClientUploadWithPredefinedAclPublicRead(t *testing.T) {
@@ -736,12 +749,9 @@ func TestServerXMLPut(t *testing.T) {
 	server.CreateBucketWithOpts(CreateBucketOpts{Name: "bucket2"})
 
 	const data = "some nice content"
-	req, err := http.NewRequest("PUT", server.URL()+"/bucket1/path", strings.NewReader(data))
+	req, _ := http.NewRequest("PUT", server.URL()+"/bucket1/path", strings.NewReader(data))
 	req.Host = "test"
 
-	if err != nil {
-		t.Fatal(err)
-	}
 	client := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -757,7 +767,7 @@ func TestServerXMLPut(t *testing.T) {
 		t.Errorf("got %d expected %d", resp.StatusCode, http.StatusOK)
 	}
 
-	req, err = http.NewRequest("PUT", server.URL()+"/bucket2/path", nil)
+	req, _ = http.NewRequest("PUT", server.URL()+"/bucket2/path", nil)
 	req.Host = "test"
 	req.Header.Set("x-goog-copy-source", "bucket1/path")
 
@@ -770,7 +780,7 @@ func TestServerXMLPut(t *testing.T) {
 		t.Errorf("got %d expected %d", resp.StatusCode, http.StatusOK)
 	}
 
-	req, err = http.NewRequest("PUT", server.URL()+"/bucket2/path2", nil)
+	req, _ = http.NewRequest("PUT", server.URL()+"/bucket2/path2", nil)
 	req.Host = "test"
 	req.Header.Set("x-goog-copy-source", "bucket1/nonexistent")
 
