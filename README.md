@@ -105,6 +105,29 @@ instructions
 docker run --rm fsouza/fake-gcs-server -help
 ```
 
+### Environment Variables
+
+All server flags can also be configured using environment variables. The environment variable names are prefixed with `FAKE_GCS_` and use uppercase with underscores. For example:
+
+- `-port`: `FAKE_GCS_PORT`
+- `-port-http`: `FAKE_GCS_PORT_HTTP`
+- `-scheme`: `FAKE_GCS_SCHEME`
+- `-backend`: `FAKE_GCS_BACKEND`
+- `-filesystem-root`: `FAKE_GCS_FILESYSTEM_ROOT`
+- `-public-host`: `FAKE_GCS_PUBLIC_HOST`
+- `-external-url`: `FAKE_GCS_EXTERNAL_URL`
+
+Example using environment variables:
+
+```shell
+docker run -d --name fake-gcs-server -e FAKE_GCS_SCHEME=http -p 4443:4443 fsouza/fake-gcs-server
+```
+
+Notes:
+
+- Command line flags take precedence over environment variables
+- Invalid values (e.g., non-numeric values for ports) will cause an error and the server will not start
+
 ## Client library examples
 
 For examples using SDK from multiple languages, check out the
