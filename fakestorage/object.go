@@ -791,7 +791,6 @@ func (s *Server) xmlPutObject(r *http.Request) xmlResponse {
 	}
 
 	obj, err := s.createObject(obj, backend.NoConditions{})
-
 	if err != nil {
 		return xmlResponse{
 			status:       http.StatusInternalServerError,

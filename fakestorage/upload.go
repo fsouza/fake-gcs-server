@@ -35,8 +35,6 @@ const (
 	contentLanguageHeader    = "Content-Language"
 )
 
-const contentEncodingHeader = "Content-Encoding"
-
 const (
 	uploadTypeMedia     = "media"
 	uploadTypeMultipart = "multipart"
