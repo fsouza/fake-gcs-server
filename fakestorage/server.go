@@ -50,7 +50,8 @@ type Server struct {
 	options      Options
 	externalURL  string
 	publicHost   string
-	eventManager notification.EventManager
+	eventManager         notification.EventManager
+	notificationRegistry *notification.NotificationRegistry
 }
 
 // NewServer creates a new instance of the server, pre-loaded with the given
@@ -225,7 +226,8 @@ func newServer(options Options) (*Server, error) {
 		externalURL:  options.ExternalURL,
 		publicHost:   publicHost,
 		options:      options,
-		eventManager: &notification.PubsubEventManager{},
+		eventManager:         &notification.PubsubEventManager{},
+		notificationRegistry: notification.NewNotificationRegistry(options.Writer),
 	}
 	s.buildMuxer()
 	_, err = s.seed()
@@ -282,6 +284,10 @@ func (s *Server) buildMuxer() {
 		r.Path("/b/{sourceBucket}/o/{sourceObject:.+}/{copyType:rewriteTo|copyTo}/b/{destinationBucket}/o/{destinationObject:.+}").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.rewriteObject))
 		r.Path("/b/{bucketName}/o/{destinationObject:.+}/compose").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.composeObject))
 		r.Path("/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.updateObject))
+		r.Path("/b/{bucketName}/notificationConfigs").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertNotification))
+		r.Path("/b/{bucketName}/notificationConfigs").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.listNotifications))
+		r.Path("/b/{bucketName}/notificationConfigs/{notificationId}").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.getNotification))
+		r.Path("/b/{bucketName}/notificationConfigs/{notificationId}").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteNotification))
 	}
 
 	// Internal / update server configuration

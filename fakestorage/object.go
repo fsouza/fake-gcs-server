@@ -7,6 +7,7 @@ package fakestorage
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -329,13 +330,16 @@ func (s *Server) createObject(obj StreamingObject, conditions backend.Conditions
 		bucket, _ := s.backend.GetBucket(obj.BucketName)
 		if bucket.VersioningEnabled {
 			s.eventManager.Trigger(&oldBackendObj, notification.EventArchive, oldObjEventAttr)
+			s.notificationRegistry.Trigger(context.Background(), &oldBackendObj, notification.EventArchive, oldObjEventAttr)
 		} else {
 			s.eventManager.Trigger(&oldBackendObj, notification.EventDelete, oldObjEventAttr)
+			s.notificationRegistry.Trigger(context.Background(), &oldBackendObj, notification.EventDelete, oldObjEventAttr)
 		}
 	}
 
 	newObj := fromBackendObjects([]backend.StreamingObject{newBackendObj})[0]
 	s.eventManager.Trigger(&newBackendObj, notification.EventFinalize, newObjEventAttr)
+	s.notificationRegistry.Trigger(context.Background(), &newBackendObj, notification.EventFinalize, newObjEventAttr)
 	return newObj, nil
 }
 
@@ -804,8 +808,10 @@ func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	backendObj := toBackendObjects([]StreamingObject{obj})[0]
 	if bucket.VersioningEnabled {
 		s.eventManager.Trigger(&backendObj, notification.EventArchive, nil)
+		s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventArchive, nil)
 	} else {
 		s.eventManager.Trigger(&backendObj, notification.EventDelete, nil)
+		s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventDelete, nil)
 	}
 	return jsonResponse{}
 }
@@ -1295,9 +1301,9 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	defer backendObj.Close()
 
 	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
+	s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
 }
-
 func (s *Server) updateObject(r *http.Request) jsonResponse {
 	if r.Method == http.MethodPost && r.Header.Get("X-HTTP-Method-Override") == "PATCH" {
 		return s.patchObject(r)
@@ -1360,6 +1366,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	defer backendObj.Close()
 
 	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
+	s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
 }
 
@@ -1417,6 +1424,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 	obj := fromBackendObjects([]backend.StreamingObject{backendObj})[0]
 
 	s.eventManager.Trigger(&backendObj, notification.EventFinalize, nil)
+	s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventFinalize, nil)
 
 	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, urlhelper.GetBaseURL(r))}
 }
