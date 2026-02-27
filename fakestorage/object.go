@@ -1304,6 +1304,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
 }
+
 func (s *Server) updateObject(r *http.Request) jsonResponse {
 	if r.Method == http.MethodPost && r.Header.Get("X-HTTP-Method-Override") == "PATCH" {
 		return s.patchObject(r)

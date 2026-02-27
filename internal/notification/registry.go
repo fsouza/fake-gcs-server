@@ -176,4 +176,3 @@ func splitTopic(topic string) (string, string, error) {
 	}
 	return parts[1], parts[3], nil
 }
-

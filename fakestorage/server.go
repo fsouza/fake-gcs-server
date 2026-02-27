@@ -42,14 +42,14 @@ const defaultPublicHost = "storage.googleapis.com"
 //
 // It provides a fake implementation of the Google Cloud Storage API.
 type Server struct {
-	backend      backend.Storage
-	uploads      sync.Map
-	transport    *muxTransport
-	ts           *httptest.Server
-	handler      http.Handler
-	options      Options
-	externalURL  string
-	publicHost   string
+	backend              backend.Storage
+	uploads              sync.Map
+	transport            *muxTransport
+	ts                   *httptest.Server
+	handler              http.Handler
+	options              Options
+	externalURL          string
+	publicHost           string
 	eventManager         notification.EventManager
 	notificationRegistry *notification.NotificationRegistry
 }
@@ -221,11 +221,11 @@ func newServer(options Options) (*Server, error) {
 	}
 
 	s := Server{
-		backend:      backendStorage,
-		uploads:      sync.Map{},
-		externalURL:  options.ExternalURL,
-		publicHost:   publicHost,
-		options:      options,
+		backend:              backendStorage,
+		uploads:              sync.Map{},
+		externalURL:          options.ExternalURL,
+		publicHost:           publicHost,
+		options:              options,
 		eventManager:         &notification.PubsubEventManager{},
 		notificationRegistry: notification.NewNotificationRegistry(options.Writer),
 	}
