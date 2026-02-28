@@ -76,14 +76,13 @@ func TestNotificationRegistry_MatchesConfig(t *testing.T) {
 		},
 	}
 
-	r := NewNotificationRegistry(nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			o := backend.Object{ObjectAttrs: backend.ObjectAttrs{BucketName: "b", Name: tt.objName}, Content: []byte("x")}
 			so := o.StreamingObject()
-			if got := r.matchesConfig(tt.cfg, &so, tt.eventType); got != tt.want {
-				t.Errorf("matchesConfig() = %v, want %v", got, tt.want)
+			if got := matchesNotificationConfig(tt.cfg, &so, tt.eventType); got != tt.want {
+				t.Errorf("matchesNotificationConfig() = %v, want %v", got, tt.want)
 			}
 		})
 	}

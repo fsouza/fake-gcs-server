@@ -24,7 +24,7 @@ func (s *Server) insertNotification(r *http.Request) jsonResponse {
 	}
 
 	created := s.notificationRegistry.Insert(bucketName, cfg)
-	return jsonResponse{status: http.StatusOK, data: created}
+	return jsonResponse{status: http.StatusCreated, data: created}
 }
 
 func (s *Server) getNotification(r *http.Request) jsonResponse {
@@ -50,7 +50,7 @@ func (s *Server) listNotifications(r *http.Request) jsonResponse {
 	if cfgs == nil {
 		cfgs = []notification.NotificationConfig{}
 	}
-	return jsonResponse{data: map[string]interface{}{"items": cfgs}}
+	return jsonResponse{data: map[string]interface{}{"kind": "storage#notifications", "items": cfgs}}
 }
 
 func (s *Server) deleteNotification(r *http.Request) jsonResponse {

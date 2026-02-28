@@ -13,9 +13,12 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
+const publishTimeout = 10 * time.Second
+
 // NotificationConfig mirrors the GCS Pub/Sub notification resource.
-// See https://cloud.google.com/storage/docs/reference/rest/v1/notifications.
+// See https://cloud.google.com/storage/docs/json_api/v1/notifications#resource.
 type NotificationConfig struct {
+	Kind             string            `json:"kind"`
 	ID               string            `json:"id"`
 	Topic            string            `json:"topic"`
 	EventTypes       []EventType       `json:"event_types,omitempty"`
@@ -44,6 +47,7 @@ func NewNotificationRegistry(w io.Writer) *NotificationRegistry {
 }
 
 func (r *NotificationRegistry) Insert(bucket string, cfg NotificationConfig) NotificationConfig {
+	cfg.Kind = "storage#notification"
 	cfg.ID = fmt.Sprintf("%d", r.nextID.Add(1))
 	if cfg.PayloadFormat == "" {
 		cfg.PayloadFormat = "JSON_API_V1"
@@ -90,6 +94,25 @@ func (r *NotificationRegistry) Delete(bucket, id string) bool {
 	return false
 }
 
+func (r *NotificationRegistry) DeleteBucket(bucket string) {
+	r.mu.Lock()
+	delete(r.configs, bucket)
+	r.mu.Unlock()
+}
+
+func (r *NotificationRegistry) Close() error {
+	r.clientMu.Lock()
+	defer r.clientMu.Unlock()
+	var firstErr error
+	for projectID, c := range r.clients {
+		if err := c.Close(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("notification registry: closing pubsub client for project %q: %w", projectID, err)
+		}
+		delete(r.clients, projectID)
+	}
+	return firstErr
+}
+
 func (r *NotificationRegistry) Trigger(ctx context.Context, o *backend.StreamingObject, eventType EventType, extraEventAttr map[string]string) {
 	r.mu.RLock()
 	local := make([]NotificationConfig, len(r.configs[o.BucketName]))
@@ -97,11 +120,13 @@ func (r *NotificationRegistry) Trigger(ctx context.Context, o *backend.Streaming
 	r.mu.RUnlock()
 
 	for _, cfg := range local {
-		if !r.matchesConfig(cfg, o, eventType) {
+		if !matchesNotificationConfig(cfg, o, eventType) {
 			continue
 		}
 		go func() {
-			if err := r.publish(ctx, cfg, o, eventType, extraEventAttr); err != nil {
+			pubCtx, cancel := context.WithTimeout(ctx, publishTimeout)
+			defer cancel()
+			if err := r.publish(pubCtx, cfg, o, eventType, extraEventAttr); err != nil {
 				if r.writer != nil {
 					fmt.Fprintf(r.writer, "error publishing notification (id=%s): %v\n", cfg.ID, err)
 				}
@@ -110,7 +135,7 @@ func (r *NotificationRegistry) Trigger(ctx context.Context, o *backend.Streaming
 	}
 }
 
-func (r *NotificationRegistry) matchesConfig(cfg NotificationConfig, o *backend.StreamingObject, eventType EventType) bool {
+func matchesNotificationConfig(cfg NotificationConfig, o *backend.StreamingObject, eventType EventType) bool {
 	if cfg.ObjectNamePrefix != "" && !strings.HasPrefix(o.Name, cfg.ObjectNamePrefix) {
 		return false
 	}

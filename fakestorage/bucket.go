@@ -166,6 +166,7 @@ func (s *Server) deleteBucket(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{status: http.StatusInternalServerError, errorMessage: err.Error()}
 	}
+	s.notificationRegistry.DeleteBucket(bucketName)
 	return jsonResponse{}
 }
 

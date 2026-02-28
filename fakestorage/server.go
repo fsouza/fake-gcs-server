@@ -464,6 +464,7 @@ func (s *Server) Stop() {
 	if s.ts != nil {
 		s.ts.Close()
 	}
+	s.notificationRegistry.Close()
 }
 
 // URL returns the server URL.

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"testing"
 
@@ -30,10 +29,10 @@ func postNotification(t *testing.T, client *http.Client, bucket string, cfg noti
 		bytes.NewReader(body),
 	)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	var created notification.NotificationConfig
-	if resp.StatusCode == http.StatusOK {
+	if resp.StatusCode == http.StatusCreated {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&created))
-		resp.Body.Close()
 	}
 	return resp, created
 }
@@ -43,8 +42,9 @@ func TestInsertNotification(t *testing.T) {
 	cfg := notification.NotificationConfig{Topic: "projects/p/topics/t", PayloadFormat: "JSON_API_V1"}
 
 	resp, created := postNotification(t, srv.HTTPClient(), "test-bucket", cfg)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	assert.NotEmpty(t, created.ID)
+	assert.Equal(t, "storage#notification", created.Kind)
 	assert.Equal(t, cfg.Topic, created.Topic)
 }
 
@@ -109,8 +109,7 @@ func TestListNotifications(t *testing.T) {
 
 	// insert two
 	for i := 0; i < 2; i++ {
-		r, _ := postNotification(t, client, "test-bucket", cfg)
-		io.Copy(io.Discard, r.Body)
+		postNotification(t, client, "test-bucket", cfg)
 	}
 
 	resp2, err := client.Get(listURL)
