@@ -34,28 +34,38 @@ func (s *Server) CreateBucket(name string) {
 
 func (s *Server) updateBucket(r *http.Request) jsonResponse {
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
-	attrsToUpdate := getBucketAttrsToUpdate(r.Body)
-	err := s.backend.UpdateBucket(bucketName, attrsToUpdate)
+	attrsToUpdate, err := getBucketAttrsToUpdate(r.Body)
 	if err != nil {
-		panic(err)
+		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
 	}
-	return jsonResponse{}
+	err = s.backend.UpdateBucket(bucketName, attrsToUpdate)
+	if err == backend.BucketNotFound {
+		return jsonResponse{status: http.StatusNotFound}
+	}
+	if err != nil {
+		return jsonResponse{errorMessage: err.Error(), status: http.StatusInternalServerError}
+	}
+	bucket, err := s.backend.GetBucket(bucketName)
+	if err != nil {
+		return jsonResponse{errorMessage: err.Error(), status: http.StatusInternalServerError}
+	}
+	return jsonResponse{data: newBucketResponse(bucket, s.options.BucketsLocation, s.externalURL)}
 }
 
-func getBucketAttrsToUpdate(body io.ReadCloser) backend.BucketAttrs {
+func getBucketAttrsToUpdate(body io.ReadCloser) (backend.BucketAttrs, error) {
 	var data struct {
 		DefaultEventBasedHold bool             `json:"defaultEventBasedHold,omitempty"`
 		Versioning            bucketVersioning `json:"versioning,omitempty"`
 	}
 	err := json.NewDecoder(body).Decode(&data)
 	if err != nil {
-		panic(err)
+		return backend.BucketAttrs{}, err
 	}
 	attrsToUpdate := backend.BucketAttrs{
 		DefaultEventBasedHold: data.DefaultEventBasedHold,
 		VersioningEnabled:     data.Versioning.Enabled,
 	}
-	return attrsToUpdate
+	return attrsToUpdate, nil
 }
 
 // CreateBucketOpts defines the properties of a bucket you can create with
