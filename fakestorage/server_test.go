@@ -6,6 +6,7 @@ package fakestorage
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -500,42 +502,42 @@ func testDownloadObject(t *testing.T, server *Server) {
 			"GET: bucket in the path",
 			http.MethodGet,
 			"://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
-			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-stored-content-length": "9"},
 			"something",
 		},
 		{
 			"GET: bucket in the host",
 			http.MethodGet,
 			"://other-bucket.storage.googleapis.com/static/css/website.css",
-			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "21", "x-goog-stored-content-length": "21"},
 			"body {display: none;}",
 		},
 		{
 			"GET: using storage api",
 			http.MethodGet,
 			"://storage.googleapis.com/storage/v1/b/some-bucket/o/files/txt/text-01.txt?alt=media",
-			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-stored-content-length": "9"},
 			"something",
 		},
 		{
 			"HEAD: using storage api",
 			http.MethodHead,
 			"://storage.googleapis.com/storage/v1/b/some-bucket/o/files/txt/text-01.txt",
-			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-stored-content-length": "9"},
 			"",
 		},
 		{
 			"HEAD: bucket in the path",
 			http.MethodHead,
 			"://storage.googleapis.com/some-bucket/files/txt/text-01.txt",
-			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-stored-content-length": "9"},
 			"",
 		},
 		{
 			"HEAD: bucket in the host",
 			http.MethodHead,
 			"://other-bucket.storage.googleapis.com/static/css/website.css",
-			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "21", "x-goog-stored-content-length": "21"},
 			"",
 		},
 	}
@@ -734,28 +736,28 @@ func TestDownloadObjectAlternatePublicHost(t *testing.T) {
 			"GET: bucket in the path",
 			http.MethodGet,
 			"https://storage.gcs.127.0.0.1.nip.io:4443/some-bucket/files/txt/text-01.txt",
-			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-stored-content-length": "9"},
 			"something",
 		},
 		{
 			"GET: bucket in the host",
 			http.MethodGet,
 			"https://other-bucket.storage.gcs.127.0.0.1.nip.io:4443/static/css/website.css",
-			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "21", "x-goog-stored-content-length": "21"},
 			"body {display: none;}",
 		},
 		{
 			"HEAD: bucket in the path",
 			http.MethodHead,
 			"https://storage.gcs.127.0.0.1.nip.io:4443/some-bucket/files/txt/text-01.txt",
-			map[string]string{"accept-ranges": "bytes", "content-length": "9"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "9", "x-goog-stored-content-length": "9"},
 			"",
 		},
 		{
 			"HEAD: bucket in the host",
 			http.MethodHead,
 			"https://other-bucket.storage.gcs.127.0.0.1.nip.io:4443/static/css/website.css",
-			map[string]string{"accept-ranges": "bytes", "content-length": "21"},
+			map[string]string{"accept-ranges": "bytes", "content-length": "21", "x-goog-stored-content-length": "21"},
 			"",
 		},
 	}
@@ -1280,4 +1282,134 @@ func TestServerStartStop(t *testing.T) {
 
 	_, err = client.Bucket("some-bucket").Object("text-01.txt").NewReader(ctx)
 	assert.EqualError(t, err, `Get "https://storage.googleapis.com/some-bucket/text-01.txt": server closed`)
+}
+
+func TestStoredContentLengthHeader(t *testing.T) {
+	const (
+		bucket    = "some-bucket"
+		plainPath = "files/plain.txt"
+		gzipPath  = "files/compressed.txt"
+	)
+
+	plainContent := "hello, this is some plain text content"
+	uncompressed := "hello, this is some content that will be stored gzip-compressed"
+	gzipContent := gzipBytes(t, uncompressed)
+
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucket,
+				Name:        plainPath,
+				ContentType: "text/plain",
+			},
+			Content: []byte(plainContent),
+		},
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:      bucket,
+				Name:            gzipPath,
+				ContentType:     "text/plain",
+				ContentEncoding: "gzip",
+			},
+			Content: gzipContent,
+		},
+	}
+
+	tests := []struct {
+		name      string
+		path      string
+		acceptEnc string
+		wantLen   int
+		wantBody  []byte
+	}{
+		{
+			name:     "plain object: stored length equals content length",
+			path:     plainPath,
+			wantLen:  len(plainContent),
+			wantBody: []byte(plainContent),
+		},
+		{
+			name:     "gzip object: transcoded to plain text by default",
+			path:     gzipPath,
+			wantLen:  len(gzipContent),
+			wantBody: []byte(uncompressed),
+		},
+		{
+			name:      "gzip object: returned as-is when gzip accepted",
+			path:      gzipPath,
+			acceptEnc: "gzip",
+			wantLen:   len(gzipContent),
+			wantBody:  gzipContent,
+		},
+	}
+
+	opts := runServersOptions{objs: objs}
+	runServersTest(t, opts, func(t *testing.T, server *Server) {
+		client := server.HTTPClient()
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				url := fmt.Sprintf("%s://storage.googleapis.com/%s/%s", server.scheme(), bucket, tc.path)
+
+				resp := doGet(t, client, url, tc.acceptEnc)
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("GET %s: expected 200 OK, got %d", url, resp.StatusCode)
+				}
+
+				assertHeader(t, resp, "X-Goog-Stored-Content-Length", strconv.Itoa(tc.wantLen))
+
+				gotBody := mustReadAll(t, resp.Body)
+				if !bytes.Equal(gotBody, tc.wantBody) {
+					t.Errorf("body mismatch\nwant: %q\ngot:  %q", tc.wantBody, gotBody)
+				}
+			})
+		}
+	})
+}
+
+func gzipBytes(t *testing.T, s string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	if _, err := gw.Write([]byte(s)); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func doGet(t *testing.T, client *http.Client, url, enc string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enc != "" {
+		req.Header.Set("Accept-Encoding", enc)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func assertHeader(t *testing.T, resp *http.Response, key, want string) {
+	t.Helper()
+	if got := resp.Header.Get(key); got != want {
+		t.Errorf("Header %q: got %q, want %q", key, got, want)
+	}
+}
+
+func mustReadAll(t *testing.T, r io.Reader) []byte {
+	t.Helper()
+	b, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
