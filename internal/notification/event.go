@@ -184,6 +184,10 @@ type gcsEvent struct {
 }
 
 func generateEvent(o *backend.StreamingObject, eventType EventType, eventTime string, extraEventAttr map[string]string) ([]byte, map[string]string, error) {
+	return generateEventWithAttrs(o, eventType, eventTime, extraEventAttr, nil)
+}
+
+func generateEventWithAttrs(o *backend.StreamingObject, eventType EventType, eventTime string, extraEventAttr map[string]string, seed map[string]string) ([]byte, map[string]string, error) {
 	payload := gcsEvent{
 		Kind:            "storage#object",
 		ID:              o.ID(),
@@ -200,14 +204,16 @@ func generateEvent(o *backend.StreamingObject, eventType EventType, eventTime st
 		CRC32c:          o.Crc32c,
 		MetaData:        o.Metadata,
 	}
-	attributes := map[string]string{
-		"bucketId":         o.BucketName,
-		"eventTime":        eventTime,
-		"eventType":        string(eventType),
-		"objectGeneration": strconv.FormatInt(o.Generation, 10),
-		"objectId":         o.Name,
-		"payloadFormat":    "JSON_API_V1",
+	attributes := make(map[string]string, len(seed)+6+len(extraEventAttr))
+	for k, v := range seed {
+		attributes[k] = v
 	}
+	attributes["bucketId"] = o.BucketName
+	attributes["eventTime"] = eventTime
+	attributes["eventType"] = string(eventType)
+	attributes["objectGeneration"] = strconv.FormatInt(o.Generation, 10)
+	attributes["objectId"] = o.Name
+	attributes["payloadFormat"] = "JSON_API_V1"
 	for k, v := range extraEventAttr {
 		if _, exists := attributes[k]; exists {
 			return nil, nil, fmt.Errorf("cannot overwrite duplicate event attribute %s", k)
