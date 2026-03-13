@@ -166,13 +166,11 @@ func (r *NotificationRegistry) publish(ctx context.Context, cfg NotificationConf
 		attrs[k] = v
 	}
 
+	eventTime := time.Now().Format(time.RFC3339)
 	var data []byte
-	if cfg.PayloadFormat != "NONE" {
-		eventTime := time.Now().Format(time.RFC3339)
-		data, attrs, err = generateEventWithAttrs(o, eventType, eventTime, extraEventAttr, attrs)
-		if err != nil {
-			return err
-		}
+	data, attrs, err = generateEventWithAttrs(o, eventType, cfg.PayloadFormat, eventTime, extraEventAttr, attrs)
+	if err != nil {
+		return err
 	}
 
 	res := client.Publisher(topicName).Publish(ctx, &pubsub.Message{Data: data, Attributes: attrs})
