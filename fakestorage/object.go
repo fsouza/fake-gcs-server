@@ -329,18 +329,20 @@ func (s *Server) createObject(obj StreamingObject, conditions backend.Conditions
 
 		bucket, _ := s.backend.GetBucket(obj.BucketName)
 		if bucket.VersioningEnabled {
-			s.eventManager.Trigger(&oldBackendObj, notification.EventArchive, oldObjEventAttr)
-			s.notificationRegistry.Trigger(context.Background(), &oldBackendObj, notification.EventArchive, oldObjEventAttr)
+			s.triggerEvent(&oldBackendObj, notification.EventArchive, oldObjEventAttr)
 		} else {
-			s.eventManager.Trigger(&oldBackendObj, notification.EventDelete, oldObjEventAttr)
-			s.notificationRegistry.Trigger(context.Background(), &oldBackendObj, notification.EventDelete, oldObjEventAttr)
+			s.triggerEvent(&oldBackendObj, notification.EventDelete, oldObjEventAttr)
 		}
 	}
 
 	newObj := fromBackendObjects([]backend.StreamingObject{newBackendObj})[0]
-	s.eventManager.Trigger(&newBackendObj, notification.EventFinalize, newObjEventAttr)
-	s.notificationRegistry.Trigger(context.Background(), &newBackendObj, notification.EventFinalize, newObjEventAttr)
+	s.triggerEvent(&newBackendObj, notification.EventFinalize, newObjEventAttr)
 	return newObj, nil
+}
+
+func (s *Server) triggerEvent(obj *backend.StreamingObject, eventType notification.EventType, attrs map[string]string) {
+	s.eventManager.Trigger(obj, eventType, attrs)
+	s.notificationRegistry.Trigger(context.Background(), obj, eventType, attrs)
 }
 
 type ListOptions struct {
@@ -807,11 +809,9 @@ func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	bucket, _ := s.backend.GetBucket(obj.BucketName)
 	backendObj := toBackendObjects([]StreamingObject{obj})[0]
 	if bucket.VersioningEnabled {
-		s.eventManager.Trigger(&backendObj, notification.EventArchive, nil)
-		s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventArchive, nil)
+		s.triggerEvent(&backendObj, notification.EventArchive, nil)
 	} else {
-		s.eventManager.Trigger(&backendObj, notification.EventDelete, nil)
-		s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventDelete, nil)
+		s.triggerEvent(&backendObj, notification.EventDelete, nil)
 	}
 	return jsonResponse{}
 }
@@ -1300,8 +1300,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	}
 	defer backendObj.Close()
 
-	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
-	s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventMetadata, nil)
+	s.triggerEvent(&backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
 }
 
@@ -1366,8 +1365,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	}
 	defer backendObj.Close()
 
-	s.eventManager.Trigger(&backendObj, notification.EventMetadata, nil)
-	s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventMetadata, nil)
+	s.triggerEvent(&backendObj, notification.EventMetadata, nil)
 	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
 }
 
@@ -1424,8 +1422,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 
 	obj := fromBackendObjects([]backend.StreamingObject{backendObj})[0]
 
-	s.eventManager.Trigger(&backendObj, notification.EventFinalize, nil)
-	s.notificationRegistry.Trigger(context.Background(), &backendObj, notification.EventFinalize, nil)
+	s.triggerEvent(&backendObj, notification.EventFinalize, nil)
 
 	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, urlhelper.GetBaseURL(r))}
 }
