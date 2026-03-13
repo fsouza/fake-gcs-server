@@ -1,7 +1,7 @@
 module github.com/fsouza/fake-gcs-server
 
 require (
-	cloud.google.com/go/storage v1.61.2
+	cloud.google.com/go/storage v1.61.3
 	github.com/fsouza/slognil v0.4.3
 	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/handlers v1.5.2
