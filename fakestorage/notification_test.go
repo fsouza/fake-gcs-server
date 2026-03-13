@@ -17,6 +17,7 @@ func newNotificationServer(t *testing.T) *Server {
 	srv, err := NewServerWithOptions(Options{NoListener: true})
 	require.NoError(t, err)
 	srv.CreateBucketWithOpts(CreateBucketOpts{Name: "test-bucket"})
+	t.Cleanup(srv.Stop)
 	return srv
 }
 
