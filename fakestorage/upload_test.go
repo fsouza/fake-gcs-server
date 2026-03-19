@@ -1473,6 +1473,16 @@ func TestBodyBasedResumableUpload(t *testing.T) {
 				expectError: false,
 			},
 			{
+				name: "metadata_with_storage_class",
+				requestBody: map[string]interface{}{
+					"bucket":       bucketName,
+					"name":         "coldline-object.txt",
+					"storageClass": "COLDLINE",
+				},
+				useURLPath:  false,
+				expectError: false,
+			},
+			{
 				name: "minimal_metadata",
 				requestBody: map[string]interface{}{
 					"bucket": bucketName,
@@ -1605,6 +1615,12 @@ func TestBodyBasedResumableUpload(t *testing.T) {
 				if contentEncoding, ok := test.requestBody["contentEncoding"]; ok {
 					if responseObj.ContentEncoding != contentEncoding.(string) {
 						t.Errorf("wrong content encoding: want %s, got %s", contentEncoding, responseObj.ContentEncoding)
+					}
+				}
+
+				if storageClass, ok := test.requestBody["storageClass"]; ok {
+					if responseObj.StorageClass != storageClass.(string) {
+						t.Errorf("wrong storage class: want %s, got %s", storageClass, responseObj.StorageClass)
 					}
 				}
 

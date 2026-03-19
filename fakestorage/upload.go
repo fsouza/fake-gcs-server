@@ -94,6 +94,7 @@ type resumableUploadBody struct {
 	ContentEncoding    string            `json:"contentEncoding"`
 	ContentDisposition string            `json:"contentDisposition"`
 	ContentLanguage    string            `json:"contentLanguage"`
+	StorageClass       string            `json:"storageClass"`
 	CustomTime         string            `json:"customTime"` // RFC3339
 	Metadata           map[string]string `json:"metadata"`
 	PredefinedACL      string            `json:"predefinedAcl"`
@@ -199,6 +200,7 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 		ObjectAttrs: ObjectAttrs{
 			BucketName:         bucketName,
 			Name:               body.Name,
+			StorageClass:       body.StorageClass,
 			ContentType:        body.ContentType,
 			CacheControl:       body.CacheControl,
 			ContentEncoding:    body.ContentEncoding,
@@ -630,6 +632,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 		ObjectAttrs: ObjectAttrs{
 			BucketName:         bucketName,
 			Name:               objName,
+			StorageClass:       metadata.StorageClass,
 			ContentType:        metadata.ContentType,
 			CacheControl:       metadata.CacheControl,
 			ContentEncoding:    contentEncoding,
