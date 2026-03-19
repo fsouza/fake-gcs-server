@@ -1251,6 +1251,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		ContentDisposition string
 		ContentLanguage    string
 		CacheControl       string
+		StorageClass       string            `json:"storageClass"`
 		Metadata           map[string]string `json:"metadata"`
 		CustomTime         string
 		Acl                []acls
@@ -1276,6 +1277,7 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	attrsToUpdate.ContentDisposition = payload.ContentDisposition
 	attrsToUpdate.ContentLanguage = payload.ContentLanguage
 	attrsToUpdate.CacheControl = payload.CacheControl
+	attrsToUpdate.StorageClass = payload.StorageClass
 	attrsToUpdate.Metadata = payload.Metadata
 	attrsToUpdate.CustomTime = payload.CustomTime
 
@@ -1320,6 +1322,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 		ContentDisposition string            `json:"contentDisposition"`
 		ContentLanguage    string            `json:"contentLanguage"`
 		CacheControl       string            `json:"cacheControl"`
+		StorageClass       string            `json:"storageClass"`
 		CustomTime         string
 		Acl                []acls
 		Retention          *jsonRetention `json:"retention"`
@@ -1345,6 +1348,7 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	attrsToUpdate.ContentDisposition = payload.ContentDisposition
 	attrsToUpdate.ContentLanguage = payload.ContentLanguage
 	attrsToUpdate.CacheControl = payload.CacheControl
+	attrsToUpdate.StorageClass = payload.StorageClass
 	if len(payload.Acl) > 0 {
 		attrsToUpdate.ACL = []storage.ACLRule{}
 		for _, aclData := range payload.Acl {
@@ -1381,6 +1385,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 			ContentDisposition string
 			ContentLanguage    string
 			CacheControl       string
+			StorageClass       string `json:"storageClass"`
 			Metadata           map[string]string
 		}
 	}
@@ -1407,7 +1412,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 		sourceNames = append(sourceNames, n.Name)
 	}
 
-	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType, composeRequest.Destination.ContentEncoding, composeRequest.Destination.ContentDisposition, composeRequest.Destination.ContentLanguage, composeRequest.Destination.CacheControl)
+	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType, composeRequest.Destination.ContentEncoding, composeRequest.Destination.ContentDisposition, composeRequest.Destination.ContentLanguage, composeRequest.Destination.CacheControl, composeRequest.Destination.StorageClass)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusInternalServerError,
