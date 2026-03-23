@@ -349,7 +349,7 @@ func (s *storageMemory) UpdateObject(bucketName, objectName string, attrsToUpdat
 	return obj, nil
 }
 
-func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentEncoding string, contentDisposition string, contentLanguage string, cacheControl string) (StreamingObject, error) {
+func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentEncoding string, contentDisposition string, contentLanguage string, cacheControl string, storageClass string) (StreamingObject, error) {
 	var data []byte
 	for _, n := range objectNames {
 		obj, err := s.GetObject(bucketName, n)
@@ -376,6 +376,7 @@ func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, d
 				ContentDisposition: contentDisposition,
 				ContentLanguage:    contentLanguage,
 				CacheControl:       cacheControl,
+				StorageClass:       storageClass,
 				Created:            now,
 				Updated:            now,
 			},

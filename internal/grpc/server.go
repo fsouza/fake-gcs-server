@@ -159,7 +159,7 @@ func (g *Server) ComposeObject(ctx context.Context, req *pb.ComposeObjectRequest
 	for i := 0; i < len(req.SourceObjects); i++ {
 		sourceObjNames[i] = req.SourceObjects[i].Name
 	}
-	obj, err := g.backend.ComposeObject(req.DestinationBucket, sourceObjNames, req.DestinationObject, map[string]string{}, "", "", "", "", "")
+	obj, err := g.backend.ComposeObject(req.DestinationBucket, sourceObjNames, req.DestinationObject, map[string]string{}, "", "", "", "", "", "")
 	return makeObject(obj), err
 }
 
