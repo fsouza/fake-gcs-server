@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -63,6 +64,9 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 	}
 
 	s := &storageFS{rootDir: rootDir, mh: mh}
+	if _, ok := mh.(metadataFile); ok {
+		cleanupRecursiveMetadataFiles(rootDir)
+	}
 	for _, o := range objects {
 		obj, err := s.CreateObject(o, NoConditions{})
 		if err != nil {
@@ -71,6 +75,35 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 		obj.Close()
 	}
 	return s, nil
+}
+
+// cleanupRecursiveMetadataFiles removes files with chained .metadata suffixes
+// (e.g. "file.txt.metadata.metadata") that were created by a bug where the
+// server re-ingested its own .metadata files as objects on each restart.
+// See https://github.com/fsouza/fake-gcs-server/issues/1933
+func cleanupRecursiveMetadataFiles(rootDir string) {
+	chainedSuffix := metadataSuffix + metadataSuffix
+	removed := 0
+	_ = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		if strings.Contains(info.Name(), chainedSuffix) {
+			if removeErr := os.Remove(path); removeErr == nil {
+				removed++
+			}
+		}
+		return nil
+	})
+	if removed > 0 {
+		slog.Warn("removed stale recursive metadata files",
+			"count", removed,
+			"root", rootDir,
+		)
+	}
 }
 
 // CreateBucket creates a bucket in the fs backend. A bucket is a folder in the
@@ -199,6 +232,10 @@ func (s *storageFS) DeleteBucket(name string) error {
 func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (StreamingObject, error) {
 	if obj.Generation > 0 {
 		return StreamingObject{}, errors.New("not implemented: fs storage type does not support objects generation yet")
+	}
+
+	if s.mh.isSpecialFile(obj.Name) {
+		return StreamingObject{}, fmt.Errorf("object name %q conflicts with internal metadata files", obj.Name)
 	}
 
 	// Note: this was a quick fix for issue #701. Now that we have a way to

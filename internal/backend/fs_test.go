@@ -5,9 +5,11 @@
 package backend
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -71,5 +73,81 @@ func TestGetAttributes(t *testing.T) {
 				t.Errorf("incorrect attributes returned\nwant: %#v\ngot:  %#v\ndiff: %s", test.expectedAttrs, attrs, diff)
 			}
 		})
+	}
+}
+
+func TestCreateObjectRejectsMetadataName(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	// Force the metadataFile handler so the guard is exercised regardless
+	// of whether the host filesystem supports xattrs.
+	s := &storageFS{rootDir: tempDir + "/", mh: metadataFile{}}
+
+	obj := StreamingObject{
+		ObjectAttrs: ObjectAttrs{
+			BucketName: "test-bucket",
+			Name:       "file.txt.metadata",
+		},
+		Content: noopSeekCloser{bytes.NewReader([]byte("data"))},
+	}
+	_, err := s.CreateObject(obj, NoConditions{})
+	if err == nil {
+		t.Fatal("expected error when creating object with .metadata name, got nil")
+	}
+	if !strings.Contains(err.Error(), "conflicts with internal metadata files") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestCleanupRecursiveMetadataFiles(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	bucketDir := filepath.Join(rootDir, "test-bucket")
+	if err := os.MkdirAll(bucketDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create legitimate files.
+	legitimate := []string{
+		"file.txt",
+		"file.txt.metadata",
+		"other.csv",
+		"other.csv.metadata",
+	}
+	for _, name := range legitimate {
+		if err := os.WriteFile(filepath.Join(bucketDir, name), []byte("ok"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Create recursive metadata chains that the bug would have produced.
+	bogus := []string{
+		"file.txt.metadata.metadata",
+		"file.txt.metadata.metadata.metadata",
+		".DS_Store.metadata.metadata",
+		".DS_Store.metadata.metadata.metadata.metadata",
+	}
+	for _, name := range bogus {
+		if err := os.WriteFile(filepath.Join(bucketDir, name), []byte("bogus"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cleanupRecursiveMetadataFiles(rootDir)
+
+	// Verify legitimate files still exist.
+	for _, name := range legitimate {
+		if _, err := os.Stat(filepath.Join(bucketDir, name)); err != nil {
+			t.Errorf("legitimate file %q was removed: %v", name, err)
+		}
+	}
+
+	// Verify bogus files were removed.
+	for _, name := range bogus {
+		if _, err := os.Stat(filepath.Join(bucketDir, name)); !os.IsNotExist(err) {
+			t.Errorf("bogus file %q should have been removed, err=%v", name, err)
+		}
 	}
 }
