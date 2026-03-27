@@ -201,6 +201,10 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, errors.New("not implemented: fs storage type does not support objects generation yet")
 	}
 
+	if s.mh.isSpecialFile(obj.Name) {
+		return StreamingObject{}, fmt.Errorf("object name %q conflicts with internal metadata files", obj.Name)
+	}
+
 	// Note: this was a quick fix for issue #701. Now that we have a way to
 	// persist object attributes, we should implement versioning in the
 	// filesystem backend and handle generations outside of the backends.
