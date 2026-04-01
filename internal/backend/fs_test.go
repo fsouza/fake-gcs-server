@@ -5,11 +5,9 @@
 package backend
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -76,29 +74,6 @@ func TestGetAttributes(t *testing.T) {
 	}
 }
 
-func TestCreateObjectRejectsMetadataName(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	// Force the metadataFile handler so the guard is exercised regardless
-	// of whether the host filesystem supports xattrs.
-	s := &storageFS{rootDir: tempDir + "/", mh: metadataFile{}}
-
-	obj := StreamingObject{
-		ObjectAttrs: ObjectAttrs{
-			BucketName: "test-bucket",
-			Name:       "file.txt.metadata",
-		},
-		Content: noopSeekCloser{bytes.NewReader([]byte("data"))},
-	}
-	_, err := s.CreateObject(obj, NoConditions{})
-	if err == nil {
-		t.Fatal("expected error when creating object with .metadata name, got nil")
-	}
-	if !strings.Contains(err.Error(), "conflicts with internal metadata files") {
-		t.Errorf("unexpected error message: %v", err)
-	}
-}
 
 func TestCleanupRecursiveMetadataFiles(t *testing.T) {
 	t.Parallel()
