@@ -1413,3 +1413,37 @@ func mustReadAll(t *testing.T, r io.Reader) []byte {
 	}
 	return b
 }
+
+func TestSeedSkipsMetadataFiles(t *testing.T) {
+	t.Parallel()
+
+	// Set up a fake seed directory with a normal file and a .metadata file
+	// that simulates what the fs backend leaves behind.
+	seedDir := t.TempDir()
+	bucketDir := filepath.Join(seedDir, "my-bucket")
+	if err := os.MkdirAll(bucketDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bucketDir, "file.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate leftover metadata files from the fs backend.
+	if err := os.WriteFile(filepath.Join(bucketDir, "file.txt.metadata"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bucketDir, "file.txt.metadata.metadata"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	objs, err := objectsFromBucket(bucketDir, "my-bucket")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(objs) != 1 {
+		t.Fatalf("expected 1 object, got %d: %v", len(objs), objs)
+	}
+	if objs[0].Name != "file.txt" {
+		t.Errorf("expected object name %q, got %q", "file.txt", objs[0].Name)
+	}
+}
