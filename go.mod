@@ -10,7 +10,7 @@ require (
 	github.com/pkg/xattr v0.4.12
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/oauth2 v0.36.0
-	google.golang.org/api v0.275.0
+	google.golang.org/api v0.276.0
 	google.golang.org/grpc v1.80.0
 )
 
