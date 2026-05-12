@@ -416,6 +416,12 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]Object, error) {
 	var objects []Object
 	err := filepath.Walk(localBucketPath, func(path string, info os.FileInfo, _ error) error {
 		if info.Mode().IsRegular() {
+			// Skip internal metadata files so they don't get re-ingested as
+			// objects on restart, which would cause recursive
+			// .metadata.metadata.metadata... chains (see #1933).
+			if strings.HasSuffix(info.Name(), ".metadata") {
+				return nil
+			}
 			// Rel() should never return error since path always descend from localBucketPath
 			relPath, _ := filepath.Rel(localBucketPath, path)
 			objectKey := filepath.ToSlash(relPath)
