@@ -61,6 +61,18 @@ type bucketVersioning struct {
 	Enabled bool `json:"enabled"`
 }
 
+type bucketStorageLayoutHierarchicalNamespace struct {
+	Enabled bool `json:"enabled"`
+}
+
+type bucketStorageLayoutResponse struct {
+	Kind                  string                                    `json:"kind"`
+	Bucket                string                                    `json:"bucket"`
+	Location              string                                    `json:"location,omitempty"`
+	LocationType          string                                    `json:"locationType,omitempty"`
+	HierarchicalNamespace *bucketStorageLayoutHierarchicalNamespace `json:"hierarchicalNamespace,omitempty"`
+}
+
 func newBucketResponse(bucket backend.Bucket, location string, externalURL string) bucketResponse {
 	return bucketResponse{
 		Kind:                  "storage#bucket",

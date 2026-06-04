@@ -6,7 +6,9 @@ package fakestorage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -370,4 +372,62 @@ func TestServerClientListObjects(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetBucketStorageLayout(t *testing.T) {
+	t.Parallel()
+	server, err := NewServerWithOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Stop()
+	const bucketName = "test-bucket"
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+	client := server.HTTPClient()
+
+	t.Run("existing bucket", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, server.URL()+"/storage/v1/b/"+bucketName+"/storageLayout", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("wrong status code\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+		}
+		var layout bucketStorageLayoutResponse
+		if err := json.NewDecoder(resp.Body).Decode(&layout); err != nil {
+			t.Fatal(err)
+		}
+		if layout.Kind != "storage#storageLayout" {
+			t.Errorf("wrong kind\nwant %q\ngot  %q", "storage#storageLayout", layout.Kind)
+		}
+		if layout.Bucket != bucketName {
+			t.Errorf("wrong bucket\nwant %q\ngot  %q", bucketName, layout.Bucket)
+		}
+		if layout.LocationType != "region" {
+			t.Errorf("wrong locationType\nwant %q\ngot  %q", "region", layout.LocationType)
+		}
+		if layout.HierarchicalNamespace == nil || layout.HierarchicalNamespace.Enabled {
+			t.Errorf("expected hierarchicalNamespace.enabled = false")
+		}
+	})
+
+	t.Run("non-existent bucket", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, server.URL()+"/storage/v1/b/does-not-exist/storageLayout", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("wrong status code\nwant %d\ngot  %d", http.StatusNotFound, resp.StatusCode)
+		}
+	})
 }

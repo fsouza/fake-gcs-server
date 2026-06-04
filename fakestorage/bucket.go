@@ -154,6 +154,21 @@ func (s *Server) getBucket(r *http.Request) jsonResponse {
 	return jsonResponse{data: newBucketResponse(bucket, s.options.BucketsLocation, s.externalURL)}
 }
 
+func (s *Server) getBucketStorageLayout(r *http.Request) jsonResponse {
+	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
+	_, err := s.backend.GetBucket(bucketName)
+	if err != nil {
+		return jsonResponse{status: http.StatusNotFound}
+	}
+	return jsonResponse{data: bucketStorageLayoutResponse{
+		Kind:                  "storage#storageLayout",
+		Bucket:                bucketName,
+		Location:              s.options.BucketsLocation,
+		LocationType:          "region",
+		HierarchicalNamespace: &bucketStorageLayoutHierarchicalNamespace{Enabled: false},
+	}}
+}
+
 func (s *Server) deleteBucket(r *http.Request) jsonResponse {
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
 	err := s.backend.DeleteBucket(bucketName)
