@@ -160,13 +160,7 @@ func (s *Server) getBucketStorageLayout(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	return jsonResponse{data: bucketStorageLayoutResponse{
-		Kind:                  "storage#storageLayout",
-		Bucket:                bucketName,
-		Location:              s.options.BucketsLocation,
-		LocationType:          "region",
-		HierarchicalNamespace: &bucketStorageLayoutHierarchicalNamespace{Enabled: false},
-	}}
+	return jsonResponse{data: newBucketStorageLayoutResponse(bucketName, s.options.BucketsLocation)}
 }
 
 func (s *Server) deleteBucket(r *http.Request) jsonResponse {
