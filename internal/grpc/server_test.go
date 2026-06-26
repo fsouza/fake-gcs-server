@@ -257,6 +257,55 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 	})
 }
 
+func TestComposeObjectManySources(t *testing.T) {
+	ctx := context.Background()
+
+	testForStorageBackends(t, func(t *testing.T, storage backend.Storage) {
+		grpcServer := InitServer(storage)
+		bucketName := "bucket1"
+		storage.CreateBucket(bucketName, backend.BucketAttrs{})
+
+		// Seed more than two source objects. The previous implementation
+		// allocated a fixed-length slice of 2, so composing more than two
+		// sources panicked with an index out of range.
+		sources := []struct {
+			name    string
+			content string
+		}{
+			{"source1", "a"},
+			{"source2", "b"},
+			{"source3", "c"},
+		}
+		var sourceObjects []*pb.ComposeObjectRequest_SourceObjects
+		for _, src := range sources {
+			obj := backend.Object{
+				ObjectAttrs: backend.ObjectAttrs{BucketName: bucketName, Name: src.name},
+				Content:     []byte(src.content),
+			}
+			if _, err := storage.CreateObject(obj.StreamingObject(), backend.NoConditions{}); err != nil {
+				t.Fatal(err)
+			}
+			sourceObjects = append(sourceObjects, &pb.ComposeObjectRequest_SourceObjects{Name: src.name})
+		}
+
+		composedName := "composed"
+		_, err := grpcServer.ComposeObject(ctx, &pb.ComposeObjectRequest{
+			DestinationBucket: bucketName,
+			DestinationObject: composedName,
+			SourceObjects:     sourceObjects,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		composed, err := storage.GetObject(bucketName, composedName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		contentEqual(t, composed.Content, []byte("abc"))
+	})
+}
+
 func TestBucketInsertGetListUpdateDelete(t *testing.T) {
 	ctx := context.Background()
 
