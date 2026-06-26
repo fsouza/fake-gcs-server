@@ -588,6 +588,7 @@ func testDownloadObjectRange(t *testing.T, server *Server) {
 		{"Partial range specified", map[string]string{"Range": "bytes=1-4"}, http.StatusPartialContent, "bytes 1-4/9", "omet"},
 		{"Exact range specified", map[string]string{"Range": "bytes=0-8"}, http.StatusPartialContent, "bytes 0-8/9", "something"},
 		{"Too-long range specified", map[string]string{"Range": "bytes=0-100"}, http.StatusPartialContent, "bytes 0-8/9", "something"},
+		{"Unsatisfiable range specified", map[string]string{"Range": "bytes=50-60"}, http.StatusRequestedRangeNotSatisfiable, "bytes */9", `<?xml version='1.0' encoding='UTF-8'?><Error><Code>InvalidRange</Code><Message>The requested range cannot be satisfied.</Message><Details>bytes=50-60</Details></Error>`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
