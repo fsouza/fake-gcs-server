@@ -424,7 +424,7 @@ func (s *Server) ListObjectsWithOptionsPaginated(bucketName string, options List
 	}
 	sort.Strings(respPrefixes)
 	nextPageToken := ""
-	if options.MaxResults != 0 && len(respObjects) > options.MaxResults {
+	if options.MaxResults > 0 && len(respObjects) > options.MaxResults {
 		nextPageToken = respObjects[options.MaxResults].Name
 		respObjects = respObjects[:options.MaxResults]
 	}
@@ -669,8 +669,11 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 	var err error
 	if maxResultsStr := r.URL.Query().Get("maxResults"); maxResultsStr != "" {
 		maxResults, err = strconv.Atoi(maxResultsStr)
-		if err != nil {
-			return jsonResponse{status: http.StatusBadRequest}
+		if err != nil || maxResults < 0 {
+			return jsonResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: fmt.Sprintf("invalid value for maxResults: %q", maxResultsStr),
+			}
 		}
 	}
 	response, err := s.ListObjectsWithOptionsPaginated(bucketName, ListOptions{
