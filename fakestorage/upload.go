@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -159,6 +160,19 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 				return s.signedUpload(bucketName, r)
 			}
 		}
+
+		// Support initiating resumable upload using XML API
+		var headers []string
+		switch {
+		case r.URL.Query().Has("X-Goog-SignedHeaders"):
+			headers = strings.Split(r.URL.Query().Get("X-Goog-SignedHeaders"), ";")
+		case r.URL.Query().Has("x-goog-signedheaders"):
+			headers = strings.Split(r.URL.Query().Get("x-goog-signedheaders"), ";")
+		}
+		if slices.Contains(headers, "x-goog-resumable") {
+			return s.resumableUpload(bucketName, r)
+		}
+
 		return jsonResponse{errorMessage: "invalid uploadType", status: http.StatusBadRequest}
 	}
 }
