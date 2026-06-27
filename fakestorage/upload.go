@@ -115,6 +115,16 @@ func (c generationCondition) ConditionsMet(activeGeneration int64) bool {
 	return true
 }
 
+// resumableUploadEntry holds the in-progress object for a resumable upload
+// session along with any generation preconditions supplied when the session
+// was initiated. GCS sends preconditions (e.g. ifGenerationMatch) on the
+// initiating request, but the object is only created when the upload is
+// finalized, so the preconditions must be carried across both requests.
+type resumableUploadEntry struct {
+	obj        Object
+	conditions generationCondition
+}
+
 func (s *Server) insertObject(r *http.Request) jsonResponse {
 	// Only parse JSON body for resumable uploads with JSON content type
 	if r.Method == http.MethodPost &&
@@ -212,12 +222,17 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 		},
 	}
 
+	conditions, err := s.wrapUploadPreconditions(r, bucketName, body.Name)
+	if err != nil {
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+	}
+
 	// Generate upload ID and store the object for later resumable upload chunks
 	uploadID, err := generateUploadID()
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	s.uploads.Store(uploadID, obj)
+	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions})
 
 	// Create response headers
 	header := make(http.Header)
@@ -628,6 +643,10 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if contentEncoding == "" {
 		contentEncoding = metadata.ContentEncoding
 	}
+	conditions, err := s.wrapUploadPreconditions(r, bucketName, objName)
+	if err != nil {
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+	}
 	obj := Object{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:         bucketName,
@@ -648,7 +667,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	s.uploads.Store(uploadID, obj)
+	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions})
 	header := make(http.Header)
 	location := fmt.Sprintf(
 		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
@@ -709,7 +728,8 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	if !ok {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	obj := rawObj.(Object)
+	entry := rawObj.(resumableUploadEntry)
+	obj := entry.obj
 	// TODO: stream upload file content to and from disk (when using the FS
 	// backend, at least) instead of loading the entire content into memory.
 	content, err := loadContent(r.Body)
@@ -746,7 +766,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	}
 	if commit {
 		s.uploads.Delete(uploadID)
-		streamingObject, err := s.createObject(obj.StreamingObject(), backend.NoConditions{})
+		streamingObject, err := s.createObject(obj.StreamingObject(), entry.conditions)
 		if err != nil {
 			return errToJsonResponse(err)
 		}
@@ -763,7 +783,7 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 			// Python client
 			status = http.StatusPermanentRedirect
 		}
-		s.uploads.Store(uploadID, obj)
+		s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: entry.conditions})
 	}
 	if r.Header.Get("X-Goog-Upload-Command") == "upload, finalize" {
 		responseHeader.Set("X-Goog-Upload-Status", "final")
