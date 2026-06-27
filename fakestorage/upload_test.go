@@ -330,6 +330,133 @@ func TestServerResumableUploadPrecondition(t *testing.T) {
 	})
 }
 
+// TestServerUploadChecksumValidation verifies that uploads whose client-
+// declared md5Hash/crc32c does not match the content are rejected with HTTP
+// 400, like real GCS, across the multipart and resumable upload APIs used by
+// the GCS SDKs (e.g. the Java client, via s3proxy).
+func TestServerUploadChecksumValidation(t *testing.T) {
+	const bucketName = "checksum-bucket"
+	const content = "the quick brown fox"
+	goodMd5 := checksum.EncodedMd5Hash([]byte(content))
+	goodCrc32c := checksum.EncodedCrc32cChecksum([]byte(content))
+	const badMd5 = "rL0Y20xC+Fzt72VPzMSk2A==" // valid base64, wrong for the content
+	const badCrc32c = "AAAAAA=="              // 4 zero bytes, wrong for the content
+
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		client := server.HTTPClient()
+
+		multipartUpload := func(t *testing.T, name string, metadata map[string]any) int {
+			t.Helper()
+			metadata["name"] = name
+			var buf bytes.Buffer
+			w := multipart.NewWriter(&buf)
+			metaPart, err := w.CreatePart(map[string][]string{contentTypeHeader: {"application/json; charset=UTF-8"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.NewEncoder(metaPart).Encode(metadata); err != nil {
+				t.Fatal(err)
+			}
+			dataPart, err := w.CreatePart(map[string][]string{contentTypeHeader: {"text/plain"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := dataPart.Write([]byte(content)); err != nil {
+				t.Fatal(err)
+			}
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
+			url := fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=multipart", server.URL(), bucketName)
+			req, err := http.NewRequest(http.MethodPost, url, &buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set(contentTypeHeader, "multipart/related; boundary="+w.Boundary())
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			return resp.StatusCode
+		}
+
+		resumableUpload := func(t *testing.T, name string, metadata map[string]any) int {
+			t.Helper()
+			metadata["name"] = name
+			body, err := json.Marshal(metadata)
+			if err != nil {
+				t.Fatal(err)
+			}
+			initURL := fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=resumable", server.URL(), bucketName)
+			initReq, err := http.NewRequest(http.MethodPost, initURL, bytes.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initReq.Header.Set(contentTypeHeader, "application/json")
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			location := initResp.Header.Get("Location")
+			_, _ = io.Copy(io.Discard, initResp.Body)
+			_ = initResp.Body.Close()
+			if initResp.StatusCode != http.StatusOK {
+				t.Fatalf("resumable init: expected 200, got %d", initResp.StatusCode)
+			}
+			finalizeReq, err := http.NewRequest(http.MethodPut, location, strings.NewReader(content))
+			if err != nil {
+				t.Fatal(err)
+			}
+			finalizeResp, err := client.Do(finalizeReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.Copy(io.Discard, finalizeResp.Body)
+			_ = finalizeResp.Body.Close()
+			return finalizeResp.StatusCode
+		}
+
+		modes := []struct {
+			name   string
+			upload func(*testing.T, string, map[string]any) int
+		}{
+			{"multipart", multipartUpload},
+			{"resumable", resumableUpload},
+		}
+		cases := []struct {
+			name     string
+			metadata map[string]any
+			want     int
+		}{
+			{"good md5", map[string]any{"md5Hash": goodMd5}, http.StatusOK},
+			{"bad md5", map[string]any{"md5Hash": badMd5}, http.StatusBadRequest},
+			{"good crc32c", map[string]any{"crc32c": goodCrc32c}, http.StatusOK},
+			{"bad crc32c", map[string]any{"crc32c": badCrc32c}, http.StatusBadRequest},
+			{"good md5 and crc32c", map[string]any{"md5Hash": goodMd5, "crc32c": goodCrc32c}, http.StatusOK},
+			{"no checksum", map[string]any{}, http.StatusOK},
+		}
+		for _, mode := range modes {
+			t.Run(mode.name, func(t *testing.T) {
+				for i, tc := range cases {
+					t.Run(tc.name, func(t *testing.T) {
+						name := fmt.Sprintf("%s-%d", mode.name, i)
+						metadata := make(map[string]any, len(tc.metadata))
+						for k, v := range tc.metadata {
+							metadata[k] = v
+						}
+						if got := mode.upload(t, name, metadata); got != tc.want {
+							t.Errorf("declared %v: expected status %d, got %d", tc.metadata, tc.want, got)
+						}
+					})
+				}
+			})
+		}
+	})
+}
+
 func TestServerClientObjectOperationsWithIfGenerationMatchPrecondition(t *testing.T) {
 	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const (
