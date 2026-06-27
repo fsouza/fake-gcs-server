@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 	"github.com/pkg/xattr"
 )
@@ -139,6 +140,20 @@ func (s *storageFS) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) e
 	return writeFile(path+bucketMetadataSuffix, encoded, 0o600)
 }
 
+func (s *storageFS) UpdateBucketACL(bucketName string, acl []storage.ACLRule) error {
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName))
+	attrs, err := getBucketAttributes(path)
+	if err != nil {
+		return err
+	}
+	attrs.ACL = acl
+	encoded, err := json.Marshal(attrs)
+	if err != nil {
+		return err
+	}
+	return writeFile(path+bucketMetadataSuffix, encoded, 0o600)
+}
+
 // GetBucket returns information about the given bucket, or an error if it
 // doesn't exist.
 func (s *storageFS) GetBucket(name string) (Bucket, error) {
@@ -153,7 +168,7 @@ func (s *storageFS) GetBucket(name string) (Bucket, error) {
 	if err != nil {
 		return Bucket{}, err
 	}
-	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo)), DefaultEventBasedHold: attrs.DefaultEventBasedHold}, err
+	return Bucket{Name: name, VersioningEnabled: false, TimeCreated: timespecToTime(createTimeFromFileInfo(dirInfo)), DefaultEventBasedHold: attrs.DefaultEventBasedHold, ACL: attrs.ACL}, err
 }
 
 func getBucketAttributes(path string) (BucketAttrs, error) {

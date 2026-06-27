@@ -227,6 +227,42 @@ func getAccessControlsListFromObject(obj ObjectAttrs) []*objectAccessControl {
 	return aclItems
 }
 
+type bucketAccessControl struct {
+	Bucket string `json:"bucket,omitempty"`
+	Entity string `json:"entity,omitempty"`
+	Role   string `json:"role,omitempty"`
+	Etag   string `json:"etag,omitempty"`
+	ID     string `json:"id,omitempty"`
+	Kind   string `json:"kind,omitempty"`
+}
+
+type bucketACLListResponse struct {
+	Kind  string                 `json:"kind"`
+	Items []*bucketAccessControl `json:"items"`
+}
+
+func newBucketAccessControl(bucketName string, rule storage.ACLRule) *bucketAccessControl {
+	return &bucketAccessControl{
+		Bucket: bucketName,
+		Entity: string(rule.Entity),
+		Role:   string(rule.Role),
+		Etag:   "RVRhZw==",
+		ID:     bucketName + "/" + string(rule.Entity),
+		Kind:   "storage#bucketAccessControl",
+	}
+}
+
+func newBucketACLListResponse(bucket backend.Bucket) bucketACLListResponse {
+	items := make([]*bucketAccessControl, len(bucket.ACL))
+	for idx, rule := range bucket.ACL {
+		items[idx] = newBucketAccessControl(bucket.Name, rule)
+	}
+	return bucketACLListResponse{
+		Kind:  "storage#bucketAccessControls",
+		Items: items,
+	}
+}
+
 type rewriteResponse struct {
 	Kind                string         `json:"kind"`
 	TotalBytesRewritten int64          `json:"totalBytesRewritten,string"`
