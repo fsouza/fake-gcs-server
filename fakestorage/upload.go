@@ -639,6 +639,10 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if objName == "" {
 		objName = metadata.Name
 	}
+	// For XML resumable upload, object name is the path. Omit leading slash.
+	if objName == "" {
+		objName = strings.TrimPrefix(r.URL.Path, "/")
+	}
 	if contentEncoding == "" {
 		contentEncoding = metadata.ContentEncoding
 	}
