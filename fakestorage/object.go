@@ -910,7 +910,18 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 	}
 	defer obj.Close()
 
-	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs)}
+	// The ObjectAccessControls: insert API returns the single created ACL
+	// entry, not a list.  Returning a list yields a response with no
+	// top-level "role", which makes strongly-typed clients such as the
+	// Google Cloud Storage Java SDK fail to decode the ACL role.
+	return jsonResponse{data: &objectAccessControl{
+		Bucket: obj.BucketName,
+		Entity: string(entity),
+		Object: obj.Name,
+		Role:   string(role),
+		Etag:   "RVRhZw==",
+		Kind:   "storage#objectAccessControl",
+	}}
 }
 
 func (s *Server) rewriteObject(r *http.Request) jsonResponse {
