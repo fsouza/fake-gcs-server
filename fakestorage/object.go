@@ -1088,10 +1088,16 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 
 	if ranged && !satisfiable {
 		status = http.StatusRequestedRangeNotSatisfiable
-		content = bytes.NewReader([]byte(fmt.Sprintf(`<?xml version='1.0' encoding='UTF-8'?>`+
+		body := []byte(fmt.Sprintf(`<?xml version='1.0' encoding='UTF-8'?>`+
 			`<Error><Code>InvalidRange</Code>`+
 			`<Message>The requested range cannot be satisfied.</Message>`+
-			`<Details>%s</Details></Error>`, r.Header.Get("Range"))))
+			`<Details>%s</Details></Error>`, r.Header.Get("Range")))
+		content = bytes.NewReader(body)
+		// GCS reports the unsatisfiable range against the total object size. The
+		// Content-Length set above is 0 for an unsatisfiable range, which would
+		// truncate the error body, so override it with the body length.
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", obj.Size))
+		w.Header().Set("Content-Length", strconv.FormatInt(int64(len(body)), 10))
 		w.Header().Set(contentTypeHeader, "application/xml; charset=UTF-8")
 	} else {
 		if obj.ContentType != "" {
