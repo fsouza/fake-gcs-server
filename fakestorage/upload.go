@@ -63,6 +63,8 @@ type multipartMetadata struct {
 	CustomTime         time.Time         `json:"customTime,omitempty"`
 	Name               string            `json:"name"`
 	StorageClass       string            `json:"storageClass"`
+	Md5Hash            string            `json:"md5Hash"`
+	Crc32c             string            `json:"crc32c"`
 	Metadata           map[string]string `json:"metadata"`
 	Retention          *jsonRetention    `json:"retention,omitempty"`
 }
@@ -96,6 +98,8 @@ type resumableUploadBody struct {
 	ContentLanguage    string            `json:"contentLanguage"`
 	StorageClass       string            `json:"storageClass"`
 	CustomTime         string            `json:"customTime"` // RFC3339
+	Md5Hash            string            `json:"md5Hash"`
+	Crc32c             string            `json:"crc32c"`
 	Metadata           map[string]string `json:"metadata"`
 	PredefinedACL      string            `json:"predefinedAcl"`
 }
@@ -116,13 +120,30 @@ func (c generationCondition) ConditionsMet(activeGeneration int64) bool {
 }
 
 // resumableUploadEntry holds the in-progress object for a resumable upload
-// session along with any generation preconditions supplied when the session
-// was initiated. GCS sends preconditions (e.g. ifGenerationMatch) on the
-// initiating request, but the object is only created when the upload is
-// finalized, so the preconditions must be carried across both requests.
+// session along with state supplied when the session was initiated but only
+// applied when the upload is finalized: generation preconditions (e.g.
+// ifGenerationMatch) and any client-declared MD5/CRC32C checksums. GCS sends
+// both on the initiating request, but the object is only created on finalize,
+// so they must be carried across both requests.
 type resumableUploadEntry struct {
-	obj        Object
-	conditions generationCondition
+	obj            Object
+	conditions     generationCondition
+	declaredMd5    string
+	declaredCrc32c string
+}
+
+// checkDeclaredChecksums verifies any client-declared MD5/CRC32C checksum
+// against the value computed from the uploaded content. GCS rejects an upload
+// whose declared checksum does not match the data with HTTP 400. Empty
+// declared values are not checked.
+func checkDeclaredChecksums(declaredMd5, declaredCrc32c, actualMd5, actualCrc32c string) error {
+	if declaredMd5 != "" && declaredMd5 != actualMd5 {
+		return fmt.Errorf("provided MD5 hash %q doesn't match calculated MD5 hash %q", declaredMd5, actualMd5)
+	}
+	if declaredCrc32c != "" && declaredCrc32c != actualCrc32c {
+		return fmt.Errorf("provided CRC32C %q doesn't match calculated CRC32C %q", declaredCrc32c, actualCrc32c)
+	}
+	return nil
 }
 
 func (s *Server) insertObject(r *http.Request) jsonResponse {
@@ -232,7 +253,7 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions})
+	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions, declaredMd5: body.Md5Hash, declaredCrc32c: body.Crc32c})
 
 	// Create response headers
 	header := make(http.Header)
@@ -588,6 +609,11 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		}
 	}
 
+	if err := checkDeclaredChecksums(metadata.Md5Hash, metadata.Crc32c,
+		checksum.EncodedMd5Hash(content), checksum.EncodedCrc32cChecksum(content)); err != nil {
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+	}
+
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:         bucketName,
@@ -667,7 +693,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions})
+	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions, declaredMd5: metadata.Md5Hash, declaredCrc32c: metadata.Crc32c})
 	header := make(http.Header)
 	location := fmt.Sprintf(
 		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
@@ -765,6 +791,10 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 		}
 	}
 	if commit {
+		if err := checkDeclaredChecksums(entry.declaredMd5, entry.declaredCrc32c, obj.Md5Hash, obj.Crc32c); err != nil {
+			s.uploads.Delete(uploadID)
+			return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+		}
 		s.uploads.Delete(uploadID)
 		streamingObject, err := s.createObject(obj.StreamingObject(), entry.conditions)
 		if err != nil {
