@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 )
 
@@ -33,7 +34,7 @@ type bucketInMemory struct {
 }
 
 func newBucketInMemory(name string, versioningEnabled bool, bucketAttrs BucketAttrs) bucketInMemory {
-	return bucketInMemory{Bucket{name, versioningEnabled, time.Now(), bucketAttrs.DefaultEventBasedHold}, []Object{}, []Object{}}
+	return bucketInMemory{Bucket{name, versioningEnabled, time.Now(), bucketAttrs.DefaultEventBasedHold, bucketAttrs.ACL}, []Object{}, []Object{}}
 }
 
 func (bm *bucketInMemory) addObject(obj Object) Object {
@@ -146,7 +147,7 @@ func NewStorageMemory(objects []StreamingObject) (Storage, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.CreateBucket(o.BucketName, BucketAttrs{false, false})
+		s.CreateBucket(o.BucketName, BucketAttrs{})
 		bucket := s.buckets[o.BucketName]
 		bucket.addObject(bufferedObject)
 		s.buckets[o.BucketName] = bucket
@@ -163,6 +164,18 @@ func (s *storageMemory) UpdateBucket(bucketName string, attrsToUpdate BucketAttr
 	}
 	bucketInMemory.DefaultEventBasedHold = attrsToUpdate.DefaultEventBasedHold
 	bucketInMemory.VersioningEnabled = attrsToUpdate.VersioningEnabled
+	s.buckets[bucketName] = bucketInMemory
+	return nil
+}
+
+func (s *storageMemory) UpdateBucketACL(bucketName string, acl []storage.ACLRule) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	bucketInMemory, err := s.getBucketInMemory(bucketName)
+	if err != nil {
+		return BucketNotFound
+	}
+	bucketInMemory.ACL = acl
 	s.buckets[bucketName] = bucketInMemory
 	return nil
 }
@@ -188,7 +201,7 @@ func (s *storageMemory) ListBuckets() ([]Bucket, error) {
 	defer s.mtx.RUnlock()
 	buckets := []Bucket{}
 	for _, bucketInMemory := range s.buckets {
-		buckets = append(buckets, Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated, false})
+		buckets = append(buckets, Bucket{Name: bucketInMemory.Name, VersioningEnabled: bucketInMemory.VersioningEnabled, TimeCreated: bucketInMemory.TimeCreated, ACL: bucketInMemory.ACL})
 	}
 	return buckets, nil
 }
@@ -198,7 +211,7 @@ func (s *storageMemory) GetBucket(name string) (Bucket, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	bucketInMemory, err := s.getBucketInMemory(name)
-	return Bucket{bucketInMemory.Name, bucketInMemory.VersioningEnabled, bucketInMemory.TimeCreated, bucketInMemory.DefaultEventBasedHold}, err
+	return bucketInMemory.Bucket, err
 }
 
 func (s *storageMemory) getBucketInMemory(name string) (bucketInMemory, error) {

@@ -49,6 +49,58 @@ func TestServerClientUpdateBucketAttrs(t *testing.T) {
 	})
 }
 
+func TestServerClientBucketACL(t *testing.T) {
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		const bucketName = "acl-bucket"
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		ctx := context.Background()
+		aclHandle := server.Client().Bucket(bucketName).ACL()
+
+		rules, err := aclHandle.List(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rules) != 0 {
+			t.Errorf("expected no bucket ACL rules initially, got %d: %+v", len(rules), rules)
+		}
+
+		// Grant public read, as s3proxy does for a public-read bucket ACL.
+		if err := aclHandle.Set(ctx, storage.AllUsers, storage.RoleReader); err != nil {
+			t.Fatal(err)
+		}
+		rules, err = aclHandle.List(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !hasACLRule(rules, storage.AllUsers, storage.RoleReader) {
+			t.Errorf("expected allUsers READER after Set, got %+v", rules)
+		}
+
+		// Revoke it again.
+		if err := aclHandle.Delete(ctx, storage.AllUsers); err != nil {
+			t.Fatal(err)
+		}
+		rules, err = aclHandle.List(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range rules {
+			if r.Entity == storage.AllUsers {
+				t.Errorf("expected allUsers removed after Delete, got %+v", rules)
+			}
+		}
+	})
+}
+
+func hasACLRule(rules []storage.ACLRule, entity storage.ACLEntity, role storage.ACLRole) bool {
+	for _, r := range rules {
+		if r.Entity == entity && r.Role == role {
+			return true
+		}
+	}
+	return false
+}
+
 func TestServerClientUpdateBucketNotFound(t *testing.T) {
 	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		client := server.Client()
