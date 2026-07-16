@@ -22,7 +22,7 @@ jobs:
         with:
           go-version: "1.26"
 
-      - uses: goreleaser/goreleaser-action@v7.2.2
+      - uses: goreleaser/goreleaser-action@v7.2.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
