@@ -256,6 +256,80 @@ func TestServerClientObjectWriterWithDoesNotExistPrecondition(t *testing.T) {
 	})
 }
 
+// TestServerResumableUploadPrecondition exercises the two-step resumable
+// upload API directly (init POST + finalize PUT), which is the path used by
+// the Google Cloud Storage SDKs (e.g. the Java client's createFrom). The
+// generation precondition is supplied on the initiating request but must be
+// enforced when the upload is finalized.
+func TestServerResumableUploadPrecondition(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		const bucketName = "precondition-bucket"
+		const existingName = "existing-object.txt"
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		server.CreateObject(Object{
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: existingName},
+			Content:     []byte("original"),
+		})
+
+		client := server.HTTPClient()
+
+		// resumableUpload initiates a resumable session and finalizes it,
+		// returning the HTTP status of the finalize request.
+		resumableUpload := func(t *testing.T, objectName, query string) int {
+			t.Helper()
+			initURL := fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s%s",
+				server.URL(), bucketName, objectName, query)
+			initReq, err := http.NewRequest(http.MethodPost, initURL, strings.NewReader(""))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			location := initResp.Header.Get("Location")
+			_, _ = io.Copy(io.Discard, initResp.Body)
+			_ = initResp.Body.Close()
+			if initResp.StatusCode != http.StatusOK {
+				t.Fatalf("resumable init: expected 200, got %d", initResp.StatusCode)
+			}
+			if location == "" {
+				t.Fatal("resumable init: missing Location upload URL")
+			}
+
+			finalizeReq, err := http.NewRequest(http.MethodPut, location, strings.NewReader("new content"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			finalizeResp, err := client.Do(finalizeReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.Copy(io.Discard, finalizeResp.Body)
+			_ = finalizeResp.Body.Close()
+			return finalizeResp.StatusCode
+		}
+
+		t.Run("ifGenerationMatch=0 fails when object exists", func(t *testing.T) {
+			if status := resumableUpload(t, existingName, "&ifGenerationMatch=0"); status != http.StatusPreconditionFailed {
+				t.Errorf("expected 412 Precondition Failed overwriting existing object, got %d", status)
+			}
+		})
+
+		t.Run("ifGenerationMatch=0 succeeds for new object", func(t *testing.T) {
+			if status := resumableUpload(t, "brand-new-object.txt", "&ifGenerationMatch=0"); status != http.StatusOK {
+				t.Errorf("expected 200 creating new object, got %d", status)
+			}
+		})
+
+		t.Run("no precondition overwrites existing object", func(t *testing.T) {
+			if status := resumableUpload(t, existingName, ""); status != http.StatusOK {
+				t.Errorf("expected 200 overwriting without precondition, got %d", status)
+			}
+		})
+	})
+}
+
 func TestServerClientObjectOperationsWithIfGenerationMatchPrecondition(t *testing.T) {
 	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
 		const (
