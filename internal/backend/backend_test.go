@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
 )
 
@@ -370,6 +371,48 @@ func TestBucketDuplication(t *testing.T) {
 		err = storage.CreateBucket(bucketName, BucketAttrs{VersioningEnabled: true})
 		if err == nil {
 			t.Fatal("we were expecting a bucket duplication error")
+		}
+	})
+}
+
+// TestBucketListReportsAttrs ensures ListBuckets reports the same bucket
+// attributes as GetBucket, rather than dropping the ones that live in the
+// bucket metadata.
+func TestBucketListReportsAttrs(t *testing.T) {
+	const bucketName = "attrs-bucket"
+	acl := []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
+	testForStorageBackends(t, func(t *testing.T, storageBackend Storage) {
+		if err := storageBackend.CreateBucket(bucketName, BucketAttrs{DefaultEventBasedHold: true}); err != nil {
+			t.Fatal(err)
+		}
+		if err := storageBackend.UpdateBucketACL(bucketName, acl); err != nil {
+			t.Fatal(err)
+		}
+
+		fromGet, err := storageBackend.GetBucket(bucketName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		buckets, err := storageBackend.ListBuckets()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var fromList *Bucket
+		for i, bucket := range buckets {
+			if bucket.Name == bucketName {
+				fromList = &buckets[i]
+			}
+		}
+		if fromList == nil {
+			t.Fatalf("bucket %s missing from ListBuckets", bucketName)
+		}
+		if !reflect.DeepEqual(fromList.ACL, fromGet.ACL) {
+			t.Errorf("ListBuckets ACL differs from GetBucket:\nlist %+v\nget  %+v", fromList.ACL, fromGet.ACL)
+		}
+		if fromList.DefaultEventBasedHold != fromGet.DefaultEventBasedHold {
+			t.Errorf("ListBuckets DefaultEventBasedHold differs from GetBucket:\nlist %v\nget  %v",
+				fromList.DefaultEventBasedHold, fromGet.DefaultEventBasedHold)
 		}
 	})
 }
