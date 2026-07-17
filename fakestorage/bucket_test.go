@@ -94,6 +94,36 @@ func TestServerClientBucketACL(t *testing.T) {
 	})
 }
 
+// TestServerClientBucketACLSurvivesBucketUpdate ensures that updating
+// unrelated bucket attributes does not discard the bucket's ACL. Bucket
+// updates only carry the attributes being changed, so backends must merge
+// them into the existing attributes rather than replace them wholesale.
+func TestServerClientBucketACLSurvivesBucketUpdate(t *testing.T) {
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		const bucketName = "acl-update-bucket"
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		ctx := context.Background()
+		bucket := server.Client().Bucket(bucketName)
+
+		if err := bucket.ACL().Set(ctx, storage.AllUsers, storage.RoleReader); err != nil {
+			t.Fatal(err)
+		}
+
+		// An update that says nothing about the ACL must not affect it.
+		if _, err := bucket.Update(ctx, storage.BucketAttrsToUpdate{DefaultEventBasedHold: true}); err != nil {
+			t.Fatal(err)
+		}
+
+		rules, err := bucket.ACL().List(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !hasACLRule(rules, storage.AllUsers, storage.RoleReader) {
+			t.Errorf("expected allUsers READER to survive bucket update, got %+v", rules)
+		}
+	})
+}
+
 func hasACLRule(rules []storage.ACLRule, entity storage.ACLEntity, role storage.ACLRole) bool {
 	for _, r := range rules {
 		if r.Entity == entity && r.Role == role {
