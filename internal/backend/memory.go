@@ -201,7 +201,7 @@ func (s *storageMemory) ListBuckets() ([]Bucket, error) {
 	defer s.mtx.RUnlock()
 	buckets := []Bucket{}
 	for _, bucketInMemory := range s.buckets {
-		buckets = append(buckets, Bucket{Name: bucketInMemory.Name, VersioningEnabled: bucketInMemory.VersioningEnabled, TimeCreated: bucketInMemory.TimeCreated, ACL: bucketInMemory.ACL})
+		buckets = append(buckets, bucketInMemory.Bucket)
 	}
 	return buckets, nil
 }

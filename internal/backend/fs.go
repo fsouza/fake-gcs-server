@@ -118,7 +118,17 @@ func (s *storageFS) ListBuckets() ([]Bucket, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to get file info for %s: %w", info.Name(), err)
 			}
-			buckets = append(buckets, Bucket{Name: unescaped, TimeCreated: timespecToTime(createTimeFromFileInfo(fileInfo))})
+			attrs, err := getBucketAttributes(filepath.Join(s.rootDir, info.Name()))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get bucket attributes for %s: %w", info.Name(), err)
+			}
+			buckets = append(buckets, Bucket{
+				Name:                  unescaped,
+				VersioningEnabled:     attrs.VersioningEnabled,
+				TimeCreated:           timespecToTime(createTimeFromFileInfo(fileInfo)),
+				DefaultEventBasedHold: attrs.DefaultEventBasedHold,
+				ACL:                   attrs.ACL,
+			})
 		}
 	}
 	return buckets, nil
