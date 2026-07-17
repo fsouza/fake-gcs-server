@@ -1277,8 +1277,8 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		ContentDisposition string
 		ContentLanguage    string
 		CacheControl       string
-		StorageClass       string            `json:"storageClass"`
-		Metadata           map[string]string `json:"metadata"`
+		StorageClass       string             `json:"storageClass"`
+		Metadata           map[string]*string `json:"metadata"`
 		CustomTime         string
 		Acl                []acls
 		Retention          *jsonRetention `json:"retention"`
@@ -1304,7 +1304,16 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	attrsToUpdate.ContentLanguage = payload.ContentLanguage
 	attrsToUpdate.CacheControl = payload.CacheControl
 	attrsToUpdate.StorageClass = payload.StorageClass
-	attrsToUpdate.Metadata = payload.Metadata
+	if payload.Metadata != nil {
+		attrsToUpdate.Metadata = make(map[string]string, len(payload.Metadata))
+		for key, value := range payload.Metadata {
+			if value == nil {
+				attrsToUpdate.DeleteMetadataKey(key)
+			} else {
+				attrsToUpdate.Metadata[key] = *value
+			}
+		}
+	}
 	attrsToUpdate.CustomTime = payload.CustomTime
 
 	if len(payload.Acl) > 0 {
