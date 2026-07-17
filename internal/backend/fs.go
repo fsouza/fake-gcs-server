@@ -142,6 +142,8 @@ func (s *storageFS) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) e
 	if attrsToUpdate.VersioningEnabled {
 		return errors.New("not implemented: fs storage type does not support versioning yet")
 	}
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName))
 	attrs, err := getBucketAttributes(path)
 	if err != nil {
@@ -160,6 +162,8 @@ func (s *storageFS) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) e
 }
 
 func (s *storageFS) UpdateBucketACL(bucketName string, acl []storage.ACLRule) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	path := filepath.Join(s.rootDir, url.PathEscape(bucketName))
 	attrs, err := getBucketAttributes(path)
 	if err != nil {
