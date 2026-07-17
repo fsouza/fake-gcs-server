@@ -132,11 +132,20 @@ func (s *storageFS) UpdateBucket(bucketName string, attrsToUpdate BucketAttrs) e
 	if attrsToUpdate.VersioningEnabled {
 		return errors.New("not implemented: fs storage type does not support versioning yet")
 	}
-	encoded, err := json.Marshal(attrsToUpdate)
+	path := filepath.Join(s.rootDir, url.PathEscape(bucketName))
+	attrs, err := getBucketAttributes(path)
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(s.rootDir, url.PathEscape(bucketName))
+	// Merge in only the attributes carried by the update: replacing the stored
+	// attributes wholesale would discard the ACL, which is managed separately
+	// by UpdateBucketACL.
+	attrs.DefaultEventBasedHold = attrsToUpdate.DefaultEventBasedHold
+	attrs.VersioningEnabled = attrsToUpdate.VersioningEnabled
+	encoded, err := json.Marshal(attrs)
+	if err != nil {
+		return err
+	}
 	return writeFile(path+bucketMetadataSuffix, encoded, 0o600)
 }
 
