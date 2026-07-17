@@ -268,6 +268,7 @@ func (s *Server) buildMuxer() {
 		r.Path("/b").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.createBucketByPost))
 		r.Path("/b/").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.createBucketByPost))
 		r.Path("/b/{bucketName}").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.getBucket))
+		r.Path("/b/{bucketName}/storageLayout").Methods(http.MethodGet).HandlerFunc(jsonToHTTPHandler(s.getBucketStorageLayout))
 		r.Path("/b/{bucketName}").Methods(http.MethodPatch).HandlerFunc(jsonToHTTPHandler(s.updateBucket))
 		r.Path("/b/{bucketName}").Methods(http.MethodPost).Headers("X-HTTP-Method-Override", "PATCH").HandlerFunc(jsonToHTTPHandler(s.updateBucket))
 		r.Path("/b/{bucketName}").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteBucket))
