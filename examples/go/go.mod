@@ -3,7 +3,7 @@ module github.com/fsouza/fake-gcs-server/examples/go-example
 go 1.26.0
 
 require (
-	cloud.google.com/go/storage v1.63.1
+	cloud.google.com/go/storage v1.64.0
 	google.golang.org/api v0.289.0
 )
 
