@@ -73,3 +73,56 @@ func TestGetAttributes(t *testing.T) {
 		})
 	}
 }
+
+
+func TestCleanupRecursiveMetadataFiles(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	bucketDir := filepath.Join(rootDir, "test-bucket")
+	if err := os.MkdirAll(bucketDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create legitimate files.
+	legitimate := []string{
+		"file.txt",
+		"file.txt.metadata",
+		"other.csv",
+		"other.csv.metadata",
+	}
+	for _, name := range legitimate {
+		if err := os.WriteFile(filepath.Join(bucketDir, name), []byte("ok"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Create recursive metadata chains that the bug would have produced.
+	bogus := []string{
+		"file.txt.metadata.metadata",
+		"file.txt.metadata.metadata.metadata",
+		".DS_Store.metadata.metadata",
+		".DS_Store.metadata.metadata.metadata.metadata",
+	}
+	for _, name := range bogus {
+		if err := os.WriteFile(filepath.Join(bucketDir, name), []byte("bogus"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cleanupRecursiveMetadataFiles(rootDir)
+
+	// Verify legitimate files still exist.
+	for _, name := range legitimate {
+		if _, err := os.Stat(filepath.Join(bucketDir, name)); err != nil {
+			t.Errorf("legitimate file %q was removed: %v", name, err)
+		}
+	}
+
+	// Verify bogus files were removed.
+	for _, name := range bogus {
+		if _, err := os.Stat(filepath.Join(bucketDir, name)); !os.IsNotExist(err) {
+			t.Errorf("bogus file %q should have been removed, err=%v", name, err)
+		}
+	}
+}
