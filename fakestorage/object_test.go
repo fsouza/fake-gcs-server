@@ -1892,7 +1892,7 @@ func TestObjectPatchWithMethodOverrideHeader(t *testing.T) {
 		})
 
 		client := server.HTTPClient()
-		patchMetadata := func(metadata map[string]string) error {
+		patchMetadata := func(metadata any) error {
 			payload, _ := json.Marshal(map[string]any{"metadata": metadata})
 			req, _ := http.NewRequest(http.MethodPost, server.URL()+"/storage/v1/b/bucket/o/obj", bytes.NewReader(payload))
 			req.Header.Set("Content-Type", "application/json")
@@ -1911,12 +1911,15 @@ func TestObjectPatchWithMethodOverrideHeader(t *testing.T) {
 		if err := patchMetadata(map[string]string{"k1": "v1_updated", "k3": "v3"}); err != nil {
 			t.Fatal(err)
 		}
+		if err := patchMetadata(map[string]any{"k2": nil}); err != nil {
+			t.Fatal(err)
+		}
 
 		obj, err := server.GetObject("bucket", "obj")
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkObjectMetadata(obj.Metadata, map[string]string{"k1": "v1_updated", "k2": "v2", "k3": "v3"}, t)
+		checkObjectMetadata(obj.Metadata, map[string]string{"k1": "v1_updated", "k3": "v3"}, t)
 	})
 }
 

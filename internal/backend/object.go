@@ -29,6 +29,7 @@ type ObjectAttrs struct {
 	Etag                 string
 	ACL                  []storage.ACLRule
 	Metadata             map[string]string
+	metadataKeysToDelete []string
 	Created              string
 	Deleted              string
 	Updated              string
@@ -36,6 +37,11 @@ type ObjectAttrs struct {
 	Generation           int64
 	RetentionMode        string
 	RetentionRetainUntil string
+}
+
+// DeleteMetadataKey marks a metadata key for deletion during a patch.
+func (o *ObjectAttrs) DeleteMetadataKey(key string) {
+	o.metadataKeysToDelete = append(o.metadataKeysToDelete, key)
 }
 
 // ID is used for comparing objects.
@@ -95,7 +101,9 @@ func (o *StreamingObject) patch(attrsToUpdate ObjectAttrs) {
 	currObjType := currObjValues.Type()
 	newObjValues := reflect.ValueOf(attrsToUpdate)
 	for i := 0; i < newObjValues.NumField(); i++ {
-		if reflect.Value.IsZero(newObjValues.Field(i)) {
+		if currObjType.Field(i).Name == "metadataKeysToDelete" {
+			continue
+		} else if reflect.Value.IsZero(newObjValues.Field(i)) {
 			continue
 		} else if currObjType.Field(i).Name == "Metadata" {
 			if o.Metadata == nil {
@@ -107,5 +115,8 @@ func (o *StreamingObject) patch(attrsToUpdate ObjectAttrs) {
 		} else {
 			currObjValues.Field(i).Set(newObjValues.Field(i))
 		}
+	}
+	for _, key := range attrsToUpdate.metadataKeysToDelete {
+		delete(o.Metadata, key)
 	}
 }
