@@ -1126,6 +1126,22 @@ func (s *Server) downloadObject(w http.ResponseWriter, r *http.Request) {
 			storedContentEncoding = obj.ContentEncoding
 		}
 		w.Header().Set("X-Goog-Stored-Content-Encoding", storedContentEncoding)
+
+		// response-* query parameters override the stored metadata in the
+		// response headers, see
+		// https://cloud.google.com/storage/docs/xml-api/reference-headers#query
+		for param, header := range map[string]string{
+			"response-cache-control":       cacheControlHeader,
+			"response-content-disposition": contentDispositionHeader,
+			"response-content-encoding":    contentEncodingHeader,
+			"response-content-language":    contentLanguageHeader,
+			"response-content-type":        contentTypeHeader,
+			"response-expires":             "Expires",
+		} {
+			if value := r.URL.Query().Get(param); value != "" {
+				w.Header().Set(header, value)
+			}
+		}
 	}
 
 	w.WriteHeader(status)
