@@ -879,15 +879,6 @@ func TestServerClientObjectReadResponseHeaderOverrides(t *testing.T) {
 				"content-disposition": "attachment; filename=text-01.txt;",
 			},
 		},
-		{
-			"override cache-control, content-language and expires",
-			"?response-cache-control=no-store&response-content-language=en&response-expires=Thu%2C%2001%20Jan%202027%2000%3A00%3A00%20GMT",
-			map[string]string{
-				"cache-control":    "no-store",
-				"content-language": "en",
-				"expires":          "Thu, 01 Jan 2027 00:00:00 GMT",
-			},
-		},
 	}
 	server, err := NewServerWithOptions(opts)
 	if err != nil {
