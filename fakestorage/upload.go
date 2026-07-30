@@ -463,6 +463,11 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		}
 	}
 
+	conditions, err := s.wrapUploadPreconditions(r, bucketName, name)
+	if err != nil {
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+	}
+
 	obj := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:         bucketName,
@@ -478,7 +483,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		},
 		Content: notImplementedSeeker{r.Body},
 	}
-	obj, err := s.createObject(obj, backend.NoConditions{})
+	obj, err = s.createObject(obj, conditions)
 	if err != nil {
 		return errToJsonResponse(err)
 	}

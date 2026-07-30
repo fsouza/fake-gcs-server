@@ -2056,3 +2056,75 @@ func TestResumableUploadContentType(t *testing.T) {
 		})
 	})
 }
+
+func TestServerClientSimpleUploadIfGenerationMatch(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "test-bucket"})
+
+	httpClient := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	uploadSimple := func(t *testing.T, name, data, ifGenMatch string) *http.Response {
+		t.Helper()
+		url := server.URL() + "/upload/storage/v1/b/test-bucket/o?uploadType=media&name=" + name
+		if ifGenMatch != "" {
+			url += "&ifGenerationMatch=" + ifGenMatch
+		}
+		req, err := http.NewRequest("POST", url, strings.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "text/plain")
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp
+	}
+
+	// ifGenerationMatch=0: object must not exist -- succeeds on a new object.
+	resp := uploadSimple(t, "obj.txt", "v1", "0")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("initial upload with ifGenerationMatch=0: want 200, got %d", resp.StatusCode)
+	}
+
+	// ifGenerationMatch=0 again: object now exists -- must return 412.
+	resp = uploadSimple(t, "obj.txt", "v2", "0")
+	if resp.StatusCode != http.StatusPreconditionFailed {
+		t.Fatalf("ifGenerationMatch=0 on existing object: want 412, got %d", resp.StatusCode)
+	}
+
+	// Confirm original content is unchanged after the failed write.
+	obj, err := server.GetObject("test-bucket", "obj.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(obj.Content) != "v1" {
+		t.Fatalf("content after failed write: want %q, got %q", "v1", string(obj.Content))
+	}
+
+	// ifGenerationMatch=<wrong>: must return 412.
+	resp = uploadSimple(t, "obj.txt", "v3", "999")
+	if resp.StatusCode != http.StatusPreconditionFailed {
+		t.Fatalf("ifGenerationMatch=999 (wrong): want 412, got %d", resp.StatusCode)
+	}
+
+	// ifGenerationMatch=<correct>: must succeed and update the object.
+	gen := strconv.FormatInt(obj.Generation, 10)
+	resp = uploadSimple(t, "obj.txt", "v4", gen)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("ifGenerationMatch=%s (correct): want 200, got %d", gen, resp.StatusCode)
+	}
+	obj, err = server.GetObject("test-bucket", "obj.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(obj.Content) != "v4" {
+		t.Fatalf("content after successful conditional write: want %q, got %q", "v4", string(obj.Content))
+	}
+}
