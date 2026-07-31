@@ -478,7 +478,7 @@ func concatObjectReaders(objects []StreamingObject) io.ReadSeekCloser {
 	return concatenatedContent{io.MultiReader(readers...)}
 }
 
-func (s *storageFS) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentEncoding string, contentDisposition string, contentLanguage string, cacheControl string, storageClass string) (StreamingObject, error) {
+func (s *storageFS) ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentEncoding string, contentDisposition string, contentLanguage string, cacheControl string, storageClass string, acl []storage.ACLRule) (StreamingObject, error) {
 	var sourceObjects []StreamingObject
 	for _, n := range objectNames {
 		obj, err := s.GetObject(bucketName, n)
@@ -502,6 +502,7 @@ func (s *storageFS) ComposeObject(bucketName string, objectNames []string, desti
 			StorageClass:       storageClass,
 			Created:            now,
 			Updated:            now,
+			ACL:                acl,
 		},
 	}
 

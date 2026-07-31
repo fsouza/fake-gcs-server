@@ -979,11 +979,19 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	if _, err := s.backend.GetBucket(dstBucket); err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
+	// A destination ACL named on the request replaces the one inherited
+	// from the source, as it does in the real API.
+	dstACL := obj.ACL
+	if predefinedACL := r.URL.Query().Get(
+		"destinationPredefinedAcl"); predefinedACL != "" {
+		dstACL = getObjectACL(predefinedACL)
+	}
+
 	newObject := StreamingObject{
 		ObjectAttrs: ObjectAttrs{
 			BucketName:         dstBucket,
 			Name:               vars["destinationObject"],
-			ACL:                obj.ACL,
+			ACL:                dstACL,
 			ContentType:        metadata.ContentType,
 			ContentEncoding:    metadata.ContentEncoding,
 			ContentDisposition: metadata.ContentDisposition,
@@ -1438,7 +1446,15 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 		sourceNames = append(sourceNames, n.Name)
 	}
 
-	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType, composeRequest.Destination.ContentEncoding, composeRequest.Destination.ContentDisposition, composeRequest.Destination.ContentLanguage, composeRequest.Destination.CacheControl, composeRequest.Destination.StorageClass)
+	// Absent, the destination keeps whatever ACL it already had, which for a
+	// new object is the one CreateObject assigns.
+	var acl []storage.ACLRule
+	if predefinedACL := r.URL.Query().Get(
+		"destinationPredefinedAcl"); predefinedACL != "" {
+		acl = getObjectACL(predefinedACL)
+	}
+
+	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType, composeRequest.Destination.ContentEncoding, composeRequest.Destination.ContentDisposition, composeRequest.Destination.ContentLanguage, composeRequest.Destination.CacheControl, composeRequest.Destination.StorageClass, acl)
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusInternalServerError,
