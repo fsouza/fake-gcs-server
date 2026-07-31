@@ -2502,6 +2502,85 @@ func TestServiceClientComposeObject(t *testing.T) {
 	})
 }
 
+func TestServiceClientCopyObjectPredefinedACL(t *testing.T) {
+	const bucketName = "copy-acl-bucket"
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName: bucketName,
+				Name:       "source.txt",
+				ACL: []storage.ACLRule{
+					{Entity: "projectOwner-test-project", Role: "OWNER"},
+				},
+			},
+			Content: []byte("some content"),
+		},
+	}
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		src := client.Bucket(bucketName).Object("source.txt")
+
+		// Without one, the destination inherits the source's ACL
+		dst := client.Bucket(bucketName).Object("inherited.txt")
+		if _, err := dst.CopierFrom(src).Run(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		assertObjectACL(t, dst, "projectOwner-test-project", "OWNER")
+
+		// With one, it replaces the inherited ACL
+		dst = client.Bucket(bucketName).Object("public.txt")
+		copier := dst.CopierFrom(src)
+		copier.PredefinedACL = "publicRead"
+		if _, err := copier.Run(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		assertObjectACL(t, dst, "allUsers", "READER")
+	})
+}
+
+func TestServiceClientComposeObjectPredefinedACL(t *testing.T) {
+	const bucketName = "compose-acl-bucket"
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "source1.txt"},
+			Content:     []byte("some content"),
+		},
+		{
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "source2.txt"},
+			Content:     []byte("other content"),
+		},
+	}
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		sources := []*storage.ObjectHandle{
+			client.Bucket(bucketName).Object("source1.txt"),
+			client.Bucket(bucketName).Object("source2.txt"),
+		}
+
+		dst := client.Bucket(bucketName).Object("public.txt")
+		composer := dst.ComposerFrom(sources...)
+		composer.PredefinedACL = "publicRead"
+		if _, err := composer.Run(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		assertObjectACL(t, dst, "allUsers", "READER")
+	})
+}
+
+func assertObjectACL(t *testing.T, obj *storage.ObjectHandle, entity storage.ACLEntity, role storage.ACLRole) {
+	t.Helper()
+	acls, err := obj.ACL().List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, acl := range acls {
+		if acl.Entity == entity && acl.Role == role {
+			return
+		}
+	}
+	t.Errorf("missing ACL rule\nwant %v %v\ngot  %v", entity, role, acls)
+}
+
 func TestServiceClientRewriteObjectNonExistentDestBucket(t *testing.T) {
 	const (
 		content     = "some content"

@@ -159,7 +159,8 @@ func (g *Server) ComposeObject(ctx context.Context, req *pb.ComposeObjectRequest
 	for i, src := range req.SourceObjects {
 		sourceObjNames[i] = src.Name
 	}
-	obj, err := g.backend.ComposeObject(req.DestinationBucket, sourceObjNames, req.DestinationObject, map[string]string{}, "", "", "", "", "", "")
+	// Destination attributes are not carried over here, req.DestinationPredefinedAcl among them.
+	obj, err := g.backend.ComposeObject(req.DestinationBucket, sourceObjNames, req.DestinationObject, map[string]string{}, "", "", "", "", "", "", nil)
 	return makeObject(obj), err
 }
 
