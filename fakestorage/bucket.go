@@ -89,6 +89,42 @@ func (s *Server) CreateBucketWithOpts(opts CreateBucketOpts) {
 	}
 }
 
+// bucketACLFromRequest resolves the ACL a bucket is created with. The
+// predefinedAcl query parameter and an explicit acl list are mutually
+// exclusive, as they are in the real API.
+func bucketACLFromRequest(predefinedACL string, acl []aclRule) ([]storage.ACLRule, error) {
+	if predefinedACL != "" && len(acl) > 0 {
+		return nil, errors.New("cannot provide both predefinedAcl and acl")
+	}
+	if predefinedACL != "" {
+		return predefinedBucketACL(predefinedACL)
+	}
+	rules := make([]storage.ACLRule, 0, len(acl))
+	for _, rule := range acl {
+		rules = append(rules, storage.ACLRule(rule))
+	}
+	return rules, nil
+}
+
+// predefinedBucketACL expands the predefined ACLs buckets.insert accepts.
+// Only the entries naming a public or authenticated scope are represented;
+// the project-scoped roles the real API adds have no meaning here, since the
+// emulator does not model projects.
+func predefinedBucketACL(predefinedACL string) ([]storage.ACLRule, error) {
+	switch predefinedACL {
+	case "publicRead":
+		return []storage.ACLRule{{Entity: "allUsers", Role: "READER"}}, nil
+	case "publicReadWrite":
+		return []storage.ACLRule{{Entity: "allUsers", Role: "WRITER"}}, nil
+	case "authenticatedRead":
+		return []storage.ACLRule{{Entity: "allAuthenticatedUsers", Role: "READER"}}, nil
+	case "private", "projectPrivate":
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("invalid predefinedAcl: %q", predefinedACL)
+	}
+}
+
 func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	// Minimal version of Bucket from google.golang.org/api/storage/v1
 
@@ -96,6 +132,7 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 		Name                  string            `json:"name,omitempty"`
 		Versioning            *bucketVersioning `json:"versioning,omitempty"`
 		DefaultEventBasedHold bool              `json:"defaultEventBasedHold,omitempty"`
+		ACL                   []aclRule         `json:"acl,omitempty"`
 	}
 
 	// Read the bucket props from the request body JSON
@@ -113,7 +150,12 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
 	}
 
-	_, err := s.backend.GetBucket(name)
+	acl, err := bucketACLFromRequest(r.URL.Query().Get("predefinedAcl"), data.ACL)
+	if err != nil {
+		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
+	}
+
+	_, err = s.backend.GetBucket(name)
 	if err == nil {
 		return jsonResponse{
 			errorMessage: fmt.Sprintf(
@@ -126,7 +168,7 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 	}
 
 	// Create the named bucket
-	if err := s.backend.CreateBucket(name, backend.BucketAttrs{VersioningEnabled: versioning, DefaultEventBasedHold: defaultEventBasedHold}); err != nil {
+	if err := s.backend.CreateBucket(name, backend.BucketAttrs{VersioningEnabled: versioning, DefaultEventBasedHold: defaultEventBasedHold, ACL: acl}); err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
 
