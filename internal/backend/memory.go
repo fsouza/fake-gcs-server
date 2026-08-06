@@ -78,17 +78,24 @@ func getNewGenerationIfZero(generation int64) int64 {
 	return generation
 }
 
-func (bm *bucketInMemory) deleteObject(obj Object, matchGeneration bool) {
-	index := findObject(obj, bm.activeObjects, matchGeneration)
+// deleteObject removes the named object, archiving it where the bucket keeps
+// versions, and reports whether the bucket held one.  It archives the object
+// the bucket stores rather than a copy of it, so a delete moves the content
+// between the two lists instead of duplicating it.
+func (bm *bucketInMemory) deleteObject(name string) bool {
+	wanted := Object{ObjectAttrs: ObjectAttrs{BucketName: bm.Name, Name: name}}
+	index := findObject(wanted, bm.activeObjects, false)
 	if index < 0 {
-		return
+		return false
 	}
+	obj := bm.activeObjects[index]
 	if bm.VersioningEnabled {
 		obj.Deleted = time.Now().Format(timestampFormat)
 		bm.mvToArchive(obj)
 	} else {
 		bm.deleteFromObjectList(obj, true)
 	}
+	return true
 }
 
 func (bm *bucketInMemory) cpToArchive(obj Object) {
@@ -320,21 +327,15 @@ func (s *storageMemory) GetObjectWithGeneration(bucketName, objectName string, g
 }
 
 func (s *storageMemory) DeleteObject(bucketName, objectName string) error {
-	obj, err := s.GetObject(bucketName, objectName)
-	if err != nil {
-		return err
-	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	bucketInMemory, err := s.getBucketInMemory(bucketName)
 	if err != nil {
 		return err
 	}
-	bufferedObject, err := obj.BufferedObject()
-	if err != nil {
-		return err
+	if !bucketInMemory.deleteObject(objectName) {
+		return errors.New("object not found")
 	}
-	bucketInMemory.deleteObject(bufferedObject, true)
 	s.buckets[bucketName] = bucketInMemory
 	return nil
 }
