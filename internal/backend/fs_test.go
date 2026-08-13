@@ -74,7 +74,6 @@ func TestGetAttributes(t *testing.T) {
 	}
 }
 
-
 func TestCleanupRecursiveMetadataFiles(t *testing.T) {
 	t.Parallel()
 

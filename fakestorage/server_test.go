@@ -1448,3 +1448,27 @@ func TestSeedSkipsMetadataFiles(t *testing.T) {
 		t.Errorf("expected object name %q, got %q", "file.txt", objs[0].Name)
 	}
 }
+
+func TestSeedKeepsMetadataNamedObjects(t *testing.T) {
+	t.Parallel()
+
+	// GCS allows object names ending in .metadata; with no sibling object
+	// next to it, such a file is a real object and must be seeded.
+	seedDir := t.TempDir()
+	bucketDir := filepath.Join(seedDir, "my-bucket")
+	if err := os.MkdirAll(bucketDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bucketDir, "notes.metadata"), []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	objs, err := objectsFromBucket(bucketDir, "my-bucket")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(objs) != 1 || objs[0].Name != "notes.metadata" {
+		t.Fatalf("expected [notes.metadata], got %v", objs)
+	}
+}
