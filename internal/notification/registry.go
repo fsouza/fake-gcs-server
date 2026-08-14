@@ -193,6 +193,7 @@ func (r *NotificationRegistry) getOrCreateClient(ctx context.Context, projectID 
 }
 
 func splitTopic(topic string) (string, string, error) {
+	topic = strings.TrimPrefix(topic, "//pubsub.googleapis.com/")
 	parts := strings.Split(topic, "/")
 	if len(parts) != 4 || parts[0] != "projects" || parts[2] != "topics" {
 		return "", "", fmt.Errorf("invalid topic format %q: expected projects/{project}/topics/{name}", topic)
