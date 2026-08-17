@@ -256,6 +256,35 @@ func TestBucketAttrsUpdateVersioning(t *testing.T) {
 	})
 }
 
+func TestPatchObjectDoesNotArchive(t *testing.T) {
+	const bucketName = "some-bucket"
+	storage, err := NewStorageMemory(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	noError(t, storage.CreateBucket(bucketName, BucketAttrs{VersioningEnabled: true}))
+
+	obj, err := storage.CreateObject(Object{
+		ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "patched", Generation: 1111},
+		Content:     []byte("content"),
+	}.StreamingObject(), NoConditions{})
+	noError(t, err)
+	obj.Close()
+
+	t.Log("a metadata update reusing the live generation does not archive a copy")
+	patched, err := storage.PatchObject(bucketName, "patched", ObjectAttrs{Metadata: map[string]string{"foo": "bar"}})
+	noError(t, err)
+	patched.Close()
+	if patched.Generation != obj.Generation {
+		t.Errorf("patch minted a new generation\nwant %d\ngot  %d", obj.Generation, patched.Generation)
+	}
+	objs, err := storage.ListObjects(bucketName, "", true)
+	noError(t, err)
+	if len(objs) != 1 {
+		t.Errorf("wrong number of versions after patch\nwant 1\ngot  %d", len(objs))
+	}
+}
+
 func TestBucketAttrsStoreRetrieveUpdate(t *testing.T) {
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		bucketName := "randombucket"
