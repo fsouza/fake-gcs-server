@@ -336,6 +336,37 @@ func (s *storageMemory) DeleteObject(bucketName, objectName string) error {
 	return nil
 }
 
+// DeleteObjectWithGeneration deletes the named generation of an object,
+// live or archived.  Unlike a plain delete on a versioning-enabled bucket,
+// which archives the live object, deleting a specific generation removes
+// the data outright, matching Cloud Storage.
+func (s *storageMemory) DeleteObjectWithGeneration(bucketName, objectName string, generation int64) error {
+	if generation == 0 {
+		return s.DeleteObject(bucketName, objectName)
+	}
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	bucketInMemory, err := s.getBucketInMemory(bucketName)
+	if err != nil {
+		return err
+	}
+	obj := Object{ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: objectName, Generation: generation}}
+	if index := findObject(obj, bucketInMemory.activeObjects, true); index >= 0 {
+		bucketInMemory.activeObjects = removeAt(bucketInMemory.activeObjects, index)
+	} else if index := findObject(obj, bucketInMemory.archivedObjects, true); index >= 0 {
+		bucketInMemory.archivedObjects = removeAt(bucketInMemory.archivedObjects, index)
+	} else {
+		return errors.New("object not found")
+	}
+	s.buckets[bucketName] = bucketInMemory
+	return nil
+}
+
+func removeAt(objects []Object, index int) []Object {
+	objects[index] = objects[len(objects)-1]
+	return objects[:len(objects)-1]
+}
+
 func (s *storageMemory) PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
 	obj, err := s.GetObject(bucketName, objectName)
 	if err != nil {
