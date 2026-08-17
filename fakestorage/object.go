@@ -830,12 +830,27 @@ func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	return jsonResponse{}
 }
 
-func (s *Server) listObjectACL(r *http.Request) jsonResponse {
+// objectForACLRequest resolves the object an ACL request addresses,
+// honoring its generation parameter the way object reads do.
+func (s *Server) objectForACLRequest(r *http.Request) (StreamingObject, *jsonResponse) {
 	vars := unescapeMuxVars(mux.Vars(r))
-
-	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
+	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], r.FormValue("generation"))
 	if err != nil {
-		return jsonResponse{status: http.StatusNotFound}
+		statusCode := http.StatusNotFound
+		var errMessage string
+		if errors.Is(err, errInvalidGeneration) {
+			statusCode = http.StatusBadRequest
+			errMessage = err.Error()
+		}
+		return StreamingObject{}, &jsonResponse{status: statusCode, errorMessage: errMessage}
+	}
+	return obj, nil
+}
+
+func (s *Server) listObjectACL(r *http.Request) jsonResponse {
+	obj, errResponse := s.objectForACLRequest(r)
+	if errResponse != nil {
+		return *errResponse
 	}
 	defer obj.Close()
 
@@ -845,9 +860,9 @@ func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 func (s *Server) deleteObjectACL(r *http.Request) jsonResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 
-	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
-	if err != nil {
-		return jsonResponse{status: http.StatusNotFound}
+	obj, errResponse := s.objectForACLRequest(r)
+	if errResponse != nil {
+		return *errResponse
 	}
 	defer obj.Close()
 	entity := vars["entity"]
@@ -860,7 +875,7 @@ func (s *Server) deleteObjectACL(r *http.Request) jsonResponse {
 	}
 
 	obj.ACL = newAcls
-	obj, err = s.createObject(obj, backend.NoConditions{})
+	obj, err := s.createObject(obj, backend.NoConditions{})
 	if err != nil {
 		return errToJsonResponse(err)
 	}
@@ -872,9 +887,9 @@ func (s *Server) deleteObjectACL(r *http.Request) jsonResponse {
 func (s *Server) getObjectACL(r *http.Request) jsonResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
 
-	obj, err := s.backend.GetObject(vars["bucketName"], vars["objectName"])
-	if err != nil {
-		return jsonResponse{status: http.StatusNotFound}
+	obj, errResponse := s.objectForACLRequest(r)
+	if errResponse != nil {
+		return *errResponse
 	}
 	defer obj.Close()
 	entity := vars["entity"]
@@ -896,11 +911,9 @@ func (s *Server) getObjectACL(r *http.Request) jsonResponse {
 }
 
 func (s *Server) setObjectACL(r *http.Request) jsonResponse {
-	vars := unescapeMuxVars(mux.Vars(r))
-
-	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
-	if err != nil {
-		return jsonResponse{status: http.StatusNotFound}
+	obj, errResponse := s.objectForACLRequest(r)
+	if errResponse != nil {
+		return *errResponse
 	}
 	defer obj.Close()
 
@@ -924,7 +937,7 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 		Role:   role,
 	}}
 
-	obj, err = s.createObject(obj, backend.NoConditions{})
+	obj, err := s.createObject(obj, backend.NoConditions{})
 	if err != nil {
 		return errToJsonResponse(err)
 	}

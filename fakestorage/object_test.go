@@ -1826,6 +1826,100 @@ func TestServerClientObjectDeleteErrors(t *testing.T) {
 	})
 }
 
+// The Go client operates on the latest generation only ("Selecting a
+// specific generation of an object is not currently supported by the
+// client"), so this test drives the JSON API's generation parameter
+// directly.
+func TestServerClientObjectACLWithGeneration(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		const bucketName = "some-bucket-with-ver"
+		const objectName = "per-generation-acl.txt"
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName, VersioningEnabled: true})
+		server.CreateObject(Object{
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: objectName, Generation: 1111},
+			Content:     []byte("first"),
+		})
+		server.CreateObject(Object{
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: objectName, Generation: 2222},
+			Content:     []byte("second"),
+		})
+
+		client := server.HTTPClient()
+		aclURL := server.URL() + "/storage/v1/b/" + bucketName + "/o/" + objectName + "/acl"
+		do := func(method, url string, body io.Reader) int {
+			t.Helper()
+			req, err := http.NewRequest(method, url, body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if body != nil {
+				req.Header.Set("Content-Type", "application/json")
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			return resp.StatusCode
+		}
+		listACL := func(query string) int {
+			t.Helper()
+			resp, err := client.Get(aclURL + query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("unexpected status listing acl: %d", resp.StatusCode)
+			}
+			var data struct {
+				Items []any `json:"items"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+				t.Fatal(err)
+			}
+			return len(data.Items)
+		}
+
+		t.Log("setting an acl on the archived generation")
+		payload := strings.NewReader(`{"entity": "allUsers", "role": "READER"}`)
+		if status := do(http.MethodPut, aclURL+"/allUsers?generation=1111", payload); status != http.StatusOK {
+			t.Fatalf("unexpected status setting acl: %d", status)
+		}
+
+		if rules := listACL("?generation=1111"); rules != 1 {
+			t.Errorf("wrong acl on the archived generation\nwant 1 rule\ngot  %d", rules)
+		}
+		if rules := listACL(""); rules != 0 {
+			t.Errorf("setting the archived generation's acl changed the live object's: %d rules", rules)
+		}
+
+		t.Log("the live object and the version count are untouched")
+		obj, err := server.GetObject(bucketName, objectName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if obj.Generation != 2222 || string(obj.Content) != "second" {
+			t.Errorf("live object changed: generation %d content %q", obj.Generation, obj.Content)
+		}
+		objs, _, err := server.ListObjectsWithOptions(bucketName, ListOptions{Versions: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(objs) != 2 {
+			t.Errorf("wrong number of versions after acl update\nwant 2\ngot  %d", len(objs))
+		}
+
+		t.Log("deleting the archived generation's acl")
+		if status := do(http.MethodDelete, aclURL+"/allUsers?generation=1111", nil); status != http.StatusOK {
+			t.Fatalf("unexpected status deleting acl: %d", status)
+		}
+		if rules := listACL("?generation=1111"); rules != 0 {
+			t.Errorf("acl survived deletion: %d rules", rules)
+		}
+	})
+}
+
 func TestServerClientObjectSetAclPrivate(t *testing.T) {
 	objs := []Object{
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/public-to-private.jpg"}},
