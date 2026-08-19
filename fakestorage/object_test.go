@@ -1070,7 +1070,7 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 		{
 			fmt.Sprintf("filtering MatchGlob **, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
 			"some-bucket",
-			&storage.Query{MatchGlob: "img/**.jpg"},
+			&storage.Query{MatchGlob: "img/**/*.jpg"},
 			[]string{
 				"img/brand.jpg",
 				"img/hi-res/party-01.jpg",
@@ -1133,7 +1133,7 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 		{
 			fmt.Sprintf("filtering MatchGlob ** and {abc,xyz}, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
 			"some-bucket",
-			&storage.Query{MatchGlob: "img/**{brand,party-01,party-02}.jpg"},
+			&storage.Query{MatchGlob: "img/**/{brand,party-01,party-02}.jpg"},
 			[]string{
 				"img/brand.jpg",
 				"img/hi-res/party-01.jpg",
@@ -1156,7 +1156,7 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 			nil,
 		},
 		{
-			fmt.Sprintf("filtering MatchGlob ** and \a, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			fmt.Sprintf(`filtering MatchGlob ** and \a, versioning %t and overwrites %t`, versioningEnabled, withOverwrites),
 			"some-bucket",
 			&storage.Query{MatchGlob: "img/**/party\\-*.jpg"},
 			[]string{
