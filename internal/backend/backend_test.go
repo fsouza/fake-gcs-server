@@ -296,7 +296,7 @@ func TestComposeObjectNewGeneration(t *testing.T) {
 	noError(t, err)
 	source.Close()
 
-	composed, err := storage.ComposeObject(bucketName, []string{"source"}, "dest", nil, "text/plain", "", "", "", "", "")
+	composed, err := storage.ComposeObject(bucketName, []string{"source"}, "dest", nil, "text/plain", "", "", "", "", "", nil)
 	noError(t, err)
 	composed.Close()
 	if composed.Generation == dest.Generation {
