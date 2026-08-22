@@ -167,10 +167,10 @@ func checkObjectAttrs(testObj Object, attrs *storage.ObjectAttrs, t *testing.T) 
 	if testObj.StorageClass != "" && attrs.StorageClass != testObj.StorageClass {
 		t.Errorf("wrong object storage class\nwant %q\ngot  %q", testObj.StorageClass, attrs.StorageClass)
 	}
-	if !(testObj.Created.IsZero()) && !testObj.Created.Equal(attrs.Created) {
+	if !testObj.Created.IsZero() && !testObj.Created.Equal(attrs.Created) {
 		t.Errorf("wrong created date\nwant %v\ngot   %v\nname %v", testObj.Created, attrs.Created, attrs.Name)
 	}
-	if !(testObj.Updated.IsZero()) && !testObj.Updated.Equal(attrs.Updated) {
+	if !testObj.Updated.IsZero() && !testObj.Updated.Equal(attrs.Updated) {
 		t.Errorf("wrong updated date\nwant %v\ngot   %v\nname %v", testObj.Updated, attrs.Updated, attrs.Name)
 	}
 	if testObj.Created.IsZero() && attrs.Created.IsZero() {
