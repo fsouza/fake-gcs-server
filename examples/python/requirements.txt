@@ -19,7 +19,7 @@ google-auth==2.56.0
     #   google-cloud-storage
 google-cloud-core==2.6.0
     # via google-cloud-storage
-google-cloud-storage==3.13.0
+google-cloud-storage==3.13.1
     # via -r requirements.in
 google-crc32c==1.8.0
     # via
