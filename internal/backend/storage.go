@@ -34,7 +34,7 @@ type Storage interface {
 	DeleteObjectWithGeneration(bucketName, objectName string, generation int64) error
 	PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error)
 	UpdateObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error)
-	ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentEncoding string, contentDisposition string, contentLanguage string, cacheControl string, storageClass string) (StreamingObject, error)
+	ComposeObject(bucketName string, objectNames []string, destinationName string, metadata map[string]string, contentType string, contentEncoding string, contentDisposition string, contentLanguage string, cacheControl string, storageClass string, acl []storage.ACLRule) (StreamingObject, error)
 	DeleteAllFiles() error
 }
 
