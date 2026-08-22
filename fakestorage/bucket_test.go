@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -411,6 +412,67 @@ func TestServerClientListBuckets(t *testing.T) {
 
 		if len(expectedBuckets) != numberOfBuckets {
 			t.Errorf("wrong number of buckets returned\nwant %d\ngot  %d", len(expectedBuckets), numberOfBuckets)
+		}
+	})
+}
+
+func TestServerClientListBucketsPaginated(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		client := server.Client()
+		for _, name := range []string{"pager-bucket-c", "pager-bucket-a", "pager-bucket-b", "other-bucket"} {
+			if err := client.Bucket(name).Create(context.Background(), "whatever", nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		names := func(page []*storage.BucketAttrs) []string {
+			result := make([]string, len(page))
+			for i, attrs := range page {
+				result[i] = attrs.Name
+			}
+			return result
+		}
+		prefixed := func() *storage.BucketIterator {
+			it := client.Buckets(context.Background(), "whatever")
+			it.Prefix = "pager-bucket-"
+			return it
+		}
+
+		var firstPage []*storage.BucketAttrs
+		nextPageToken, err := iterator.NewPager(prefixed(), 2, "").NextPage(&firstPage)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{"pager-bucket-a", "pager-bucket-b"}; !reflect.DeepEqual(names(firstPage), want) {
+			t.Errorf("wrong first page\nwant %v\ngot  %v", want, names(firstPage))
+		}
+		if nextPageToken == "" {
+			t.Fatal("expected a nextPageToken while more buckets remain")
+		}
+
+		var secondPage []*storage.BucketAttrs
+		nextPageToken, err = iterator.NewPager(prefixed(), 2, nextPageToken).NextPage(&secondPage)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{"pager-bucket-c"}; !reflect.DeepEqual(names(secondPage), want) {
+			t.Errorf("wrong second page\nwant %v\ngot  %v", want, names(secondPage))
+		}
+		if nextPageToken != "" {
+			t.Errorf("unexpected nextPageToken after the last page: %q", nextPageToken)
+		}
+
+		// A page the listing exactly fills carries no token to a next one.
+		var exactPage []*storage.BucketAttrs
+		nextPageToken, err = iterator.NewPager(prefixed(), 3, "").NextPage(&exactPage)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(exactPage) != 3 {
+			t.Errorf("wrong number of buckets returned\nwant 3\ngot  %d", len(exactPage))
+		}
+		if nextPageToken != "" {
+			t.Errorf("unexpected nextPageToken on an exactly-filled page: %q", nextPageToken)
 		}
 	})
 }

@@ -11,6 +11,9 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
+	"strconv"
+	"strings"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
@@ -139,11 +142,44 @@ func (s *Server) createBucketByPost(r *http.Request) jsonResponse {
 }
 
 func (s *Server) listBuckets(r *http.Request) jsonResponse {
+	var maxResults int
+	var err error
+	if maxResultsStr := r.URL.Query().Get("maxResults"); maxResultsStr != "" {
+		maxResults, err = strconv.Atoi(maxResultsStr)
+		if err != nil || maxResults < 0 {
+			return jsonResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: fmt.Sprintf("invalid value for maxResults: %q", maxResultsStr),
+			}
+		}
+	}
 	buckets, err := s.backend.ListBuckets()
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	return jsonResponse{data: newListBucketsResponse(buckets, s.options.BucketsLocation, s.externalURL)}
+	slices.SortFunc(buckets, func(left, right backend.Bucket) int {
+		return strings.Compare(left.Name, right.Name)
+	})
+	prefix := r.URL.Query().Get("prefix")
+	// The page token names the first bucket of the requested page, as the
+	// object listing's tokens do.
+	pageToken := r.URL.Query().Get("pageToken")
+	var respBuckets []backend.Bucket
+	for _, bucket := range buckets {
+		if !strings.HasPrefix(bucket.Name, prefix) {
+			continue
+		}
+		if pageToken != "" && bucket.Name < pageToken {
+			continue
+		}
+		respBuckets = append(respBuckets, bucket)
+	}
+	nextPageToken := ""
+	if maxResults > 0 && len(respBuckets) > maxResults {
+		nextPageToken = respBuckets[maxResults].Name
+		respBuckets = respBuckets[:maxResults]
+	}
+	return jsonResponse{data: newListBucketsResponse(respBuckets, s.options.BucketsLocation, s.externalURL, nextPageToken)}
 }
 
 func (s *Server) getBucket(r *http.Request) jsonResponse {
