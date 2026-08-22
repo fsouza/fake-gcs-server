@@ -407,6 +407,9 @@ func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, d
 	dest.Etag = ""
 	dest.Size = 0
 	dest.Metadata = metadata
+	// Compose creates a new generation rather than reusing the
+	// destination's, matching Cloud Storage.
+	dest.Generation = 0
 
 	result, err := s.CreateObject(dest.StreamingObject(), NoConditions{})
 	if err != nil {

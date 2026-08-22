@@ -226,6 +226,48 @@ func TestObjectQueryErrors(t *testing.T) {
 	}
 }
 
+func TestComposeObjectNewGeneration(t *testing.T) {
+	const bucketName = "some-bucket"
+	storage, err := NewStorageMemory(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	noError(t, storage.CreateBucket(bucketName, BucketAttrs{VersioningEnabled: true}))
+
+	dest, err := storage.CreateObject(Object{
+		ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "dest", Generation: 1111},
+		Content:     []byte("old"),
+	}.StreamingObject(), NoConditions{})
+	noError(t, err)
+	dest.Close()
+	source, err := storage.CreateObject(Object{
+		ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "source"},
+		Content:     []byte("source"),
+	}.StreamingObject(), NoConditions{})
+	noError(t, err)
+	source.Close()
+
+	composed, err := storage.ComposeObject(bucketName, []string{"source"}, "dest", nil, "text/plain", "", "", "", "", "")
+	noError(t, err)
+	composed.Close()
+	if composed.Generation == dest.Generation {
+		t.Errorf("compose reused the destination's generation %d", dest.Generation)
+	}
+
+	objs, err := storage.ListObjects(bucketName, "dest", true)
+	noError(t, err)
+	if len(objs) != 2 {
+		t.Errorf("wrong number of versions after compose\nwant 2\ngot  %d", len(objs))
+	}
+	generations := make(map[int64]bool)
+	for _, o := range objs {
+		if generations[o.Generation] {
+			t.Errorf("duplicate generation %d in versioned listing", o.Generation)
+		}
+		generations[o.Generation] = true
+	}
+}
+
 func TestBucketAttrsUpdateVersioning(t *testing.T) {
 	testForStorageBackends(t, func(t *testing.T, storage Storage) {
 		bucketName := "randombucket"
