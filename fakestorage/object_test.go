@@ -845,6 +845,70 @@ func TestServerClientObjectReadBucketCNAME(t *testing.T) {
 	}
 }
 
+func TestServerClientObjectReadResponseHeaderOverrides(t *testing.T) {
+	opts := Options{
+		InitialObjects: []Object{
+			{
+				ObjectAttrs: ObjectAttrs{
+					BucketName:  "mybucket.mydomain.com",
+					Name:        "files/txt/text-01.txt",
+					ContentType: "text/plain",
+				},
+				Content: []byte("something"),
+			},
+		},
+	}
+	tests := []struct {
+		testCase        string
+		query           string
+		expectedHeaders map[string]string
+	}{
+		{
+			"no overrides",
+			"",
+			map[string]string{
+				"content-type":        "text/plain",
+				"content-disposition": "",
+			},
+		},
+		{
+			"override content-disposition and content-type",
+			"?response-content-disposition=attachment%3B%20filename%3Dtext-01.txt%3B&response-content-type=application%2Foctet-stream",
+			map[string]string{
+				"content-type":        "application/octet-stream",
+				"content-disposition": "attachment; filename=text-01.txt;",
+			},
+		},
+	}
+	server, err := NewServerWithOptions(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := server.HTTPClient()
+	for _, test := range tests {
+		t.Run(test.testCase, func(t *testing.T) {
+			url := "https://mybucket.mydomain.com:4443/files/txt/text-01.txt" + test.query
+			req, err := http.NewRequest(http.MethodGet, url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status returned\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+			}
+			for k, expectedV := range test.expectedHeaders {
+				if v := resp.Header.Get(k); v != expectedV {
+					t.Errorf("wrong value for header %q:\nwant %q\ngot  %q", k, expectedV, v)
+				}
+			}
+		})
+	}
+}
+
 func getObjectsForListTests() []Object {
 	return []Object{
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/low-res/party-01.jpg"}},
