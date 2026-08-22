@@ -89,7 +89,7 @@ func (g *Server) InsertObject(server pb.Storage_InsertObjectServer) error {
 	if err != nil {
 		return err
 	}
-	insert_obj_req := *(req.GetFirstMessage().(*pb.InsertObjectRequest_InsertObjectSpec))
+	insert_obj_req := *req.GetFirstMessage().(*pb.InsertObjectRequest_InsertObjectSpec)
 	validObject := backend.Object{
 		ObjectAttrs: backend.ObjectAttrs{
 			BucketName: insert_obj_req.InsertObjectSpec.Resource.Bucket,

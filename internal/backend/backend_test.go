@@ -31,15 +31,17 @@ func makeStorageBackends(t *testing.T) (map[string]Storage, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return map[string]Storage{
-			"memory":     storageMemory,
-			"filesystem": storageFS,
-		}, func() {
-			err := os.RemoveAll(tempDir)
-			if err != nil {
-				t.Fatal(err)
-			}
+	backends := map[string]Storage{
+		"memory":     storageMemory,
+		"filesystem": storageFS,
+	}
+	cleanup := func() {
+		err := os.RemoveAll(tempDir)
+		if err != nil {
+			t.Fatal(err)
 		}
+	}
+	return backends, cleanup
 }
 
 func testForStorageBackends(t *testing.T, test func(t *testing.T, storage Storage)) {
