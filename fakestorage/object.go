@@ -799,19 +799,30 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	vars := unescapeMuxVars(mux.Vars(r))
-	obj, err := s.GetObjectStreaming(vars["bucketName"], vars["objectName"])
+	generationStr := r.FormValue("generation")
+	generation, err := strconv.ParseInt(generationStr, 10, 64)
+	if err != nil && generationStr != "" {
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: errInvalidGeneration.Error()}
+	}
+	obj, err := s.objectWithGenerationOnValidGeneration(vars["bucketName"], vars["objectName"], generationStr)
 	// Calling Close before checking err is okay on objects, and the object
 	// may need to be closed whether or not there's an error.
 	defer obj.Close() //lint:ignore SA5001 // see above
 	if err == nil {
-		err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+		if generation > 0 {
+			err = s.backend.DeleteObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
+		} else {
+			err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
+		}
 	}
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
 	bucket, _ := s.backend.GetBucket(obj.BucketName)
 	backendObj := toBackendObjects([]StreamingObject{obj})[0]
-	if bucket.VersioningEnabled {
+	// Deleting a specific generation removes it outright even on a
+	// versioning-enabled bucket; only a plain delete archives.
+	if bucket.VersioningEnabled && generation <= 0 {
 		s.triggerEvent(&backendObj, notification.EventArchive, nil)
 	} else {
 		s.triggerEvent(&backendObj, notification.EventDelete, nil)

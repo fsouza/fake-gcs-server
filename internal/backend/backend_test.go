@@ -199,6 +199,53 @@ func TestObjectCRUD(t *testing.T) {
 	}
 }
 
+func TestDeleteObjectWithGeneration(t *testing.T) {
+	const bucketName = "some-bucket"
+	const objectName = "versioned/object.txt"
+	storage, err := NewStorageMemory(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	noError(t, storage.CreateBucket(bucketName, BucketAttrs{VersioningEnabled: true}))
+
+	makeObject := func(content string, generation int64) Object {
+		return Object{
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: objectName, Generation: generation},
+			Content:     []byte(content),
+		}
+	}
+	first, err := storage.CreateObject(makeObject("first", 1111).StreamingObject(), NoConditions{})
+	noError(t, err)
+	first.Close()
+	second, err := storage.CreateObject(makeObject("second", 2222).StreamingObject(), NoConditions{})
+	noError(t, err)
+	second.Close()
+
+	t.Log("deleting a missing generation errors")
+	shouldError(t, storage.DeleteObjectWithGeneration(bucketName, objectName, 9999))
+
+	t.Log("deleting an archived generation removes it outright and keeps the live object")
+	noError(t, storage.DeleteObjectWithGeneration(bucketName, objectName, 1111))
+	_, err = storage.GetObjectWithGeneration(bucketName, objectName, 1111)
+	shouldError(t, err)
+	live, err := storage.GetObject(bucketName, objectName)
+	noError(t, err)
+	if live.Generation != 2222 {
+		t.Errorf("wrong live generation\nwant 2222\ngot  %d", live.Generation)
+	}
+	live.Close()
+
+	t.Log("deleting the live generation removes it outright rather than archiving it")
+	noError(t, storage.DeleteObjectWithGeneration(bucketName, objectName, 2222))
+	_, err = storage.GetObject(bucketName, objectName)
+	shouldError(t, err)
+	objs, err := storage.ListObjects(bucketName, "", true)
+	noError(t, err)
+	if len(objs) != 0 {
+		t.Errorf("wrong number of versions remaining\nwant 0\ngot  %d", len(objs))
+	}
+}
+
 func TestObjectQueryErrors(t *testing.T) {
 	for _, versioningEnabled := range []bool{true, false} {
 		versioningEnabled := versioningEnabled
