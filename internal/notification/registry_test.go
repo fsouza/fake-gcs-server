@@ -96,6 +96,7 @@ func TestSplitTopic(t *testing.T) {
 		wantErr   bool
 	}{
 		{"projects/my-project/topics/my-topic", "my-project", "my-topic", false},
+		{"//pubsub.googleapis.com/projects/my-project/topics/my-topic", "my-project", "my-topic", false},
 		{"bad-format", "", "", true},
 		{"projects/p/notopics/t", "", "", true},
 	}
