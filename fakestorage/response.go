@@ -29,10 +29,11 @@ type listResponse struct {
 	NextPageToken string   `json:"nextPageToken,omitempty"`
 }
 
-func newListBucketsResponse(buckets []backend.Bucket, location string, externalURL string) listResponse {
+func newListBucketsResponse(buckets []backend.Bucket, location string, externalURL string, nextPageToken string) listResponse {
 	resp := listResponse{
-		Kind:  "storage#buckets",
-		Items: make([]any, len(buckets)),
+		Kind:          "storage#buckets",
+		Items:         make([]any, len(buckets)),
+		NextPageToken: nextPageToken,
 	}
 	for i, bucket := range buckets {
 		resp.Items[i] = newBucketResponse(bucket, location, externalURL)
