@@ -78,4 +78,4 @@ require (
 	google.golang.org/protobuf v1.36.12
 )
 
-go 1.25.8
+go 1.26

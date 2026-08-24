@@ -14,8 +14,8 @@ jobs:
     strategy:
       matrix:
         go_version:
-          - "1.25"
           - "1.26"
+          - "1.27"
         goos:
           - darwin
           - freebsd
@@ -45,8 +45,8 @@ jobs:
     strategy:
       matrix:
         go_version:
-          - "1.25"
           - "1.26"
+          - "1.27"
         os:
           - macos
           - ubuntu
@@ -82,7 +82,7 @@ jobs:
       - uses: actions/setup-go@v7.0.0
         id: go
         with:
-          go-version: "1.26"
+          go-version: "1.27"
 
       - run: |
           go install honnef.co/go/tools/cmd/staticcheck@master
@@ -112,7 +112,7 @@ jobs:
       - uses: actions/setup-go@v7.0.0
         id: go
         with:
-          go-version: "1.26"
+          go-version: "1.27"
 
       - name: go-build
         run: go build -o fake-gcs-server
@@ -149,7 +149,7 @@ jobs:
             docker-image: node:20-alpine
             entrypoint: /bin/sh
           - lang: go
-            docker-image: golang:1.26-alpine
+            docker-image: golang:1.27-alpine
             entrypoint: /bin/sh
           - lang: dotnet
             docker-image: mcr.microsoft.com/dotnet/sdk:5.0-alpine
