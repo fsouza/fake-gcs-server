@@ -1059,6 +1059,148 @@ func getTestCasesForListTests(versioningEnabled, withOverwrites bool) []listTest
 			nil,
 		},
 		{
+			fmt.Sprintf("filtering MatchGlob *, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/*.jpg"},
+			[]string{
+				"img/brand.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob **, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/**/*.jpg"},
+			[]string{
+				"img/brand.jpg",
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+				"img/low-res/party-01.jpg",
+				"img/low-res/party-02.jpg",
+				"img/low-res/party-03.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob ** and *, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/**/party*.jpg"},
+			[]string{
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+				"img/low-res/party-01.jpg",
+				"img/low-res/party-02.jpg",
+				"img/low-res/party-03.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob ** and [ab], versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/**/party-0[12].jpg"},
+			[]string{
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/low-res/party-01.jpg",
+				"img/low-res/party-02.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob ** and [a-z], versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/**/party-0[2-3].jpg"},
+			[]string{
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+				"img/low-res/party-02.jpg",
+				"img/low-res/party-03.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob ** and [!abc], versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/**/party-0[!13].jpg"},
+			[]string{
+				"img/hi-res/party-02.jpg",
+				"img/low-res/party-02.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob ** and {abc,xyz}, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/**/{brand,party-01,party-02}.jpg"},
+			[]string{
+				"img/brand.jpg",
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/low-res/party-01.jpg",
+				"img/low-res/party-02.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob ** and [^abc], versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/**/party-0[^543].jpg"},
+			[]string{
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/low-res/party-01.jpg",
+				"img/low-res/party-02.jpg",
+			},
+			nil,
+		},
+		{
+			fmt.Sprintf(`filtering MatchGlob ** and \a, versioning %t and overwrites %t`, versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{MatchGlob: "img/**/party\\-*.jpg"},
+			[]string{
+				"img/hi-res/party-01.jpg",
+				"img/hi-res/party-02.jpg",
+				"img/hi-res/party-03.jpg",
+				"img/low-res/party-01.jpg",
+				"img/low-res/party-02.jpg",
+				"img/low-res/party-03.jpg",
+			},
+			nil,
+		},
+		{
+			// GCS matches the glob against collapsed prefixes as strings, not
+			// against the object names beneath them: a glob that only matches
+			// object names returns no prefixes.
+			fmt.Sprintf("filtering MatchGlob and delimiter, object-shaped glob, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{Prefix: "img/", Delimiter: "/", MatchGlob: "img/**.jpg"},
+			[]string{"img/brand.jpg"},
+			nil,
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob and delimiter, prefix-shaped glob, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{Prefix: "img/", Delimiter: "/", MatchGlob: "img/*/"},
+			[]string{},
+			[]string{"img/hi-res/", "img/low-res/"},
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob and delimiter, glob matching both, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{Prefix: "img/", Delimiter: "/", MatchGlob: "img/**"},
+			[]string{"img/brand.jpg"},
+			[]string{"img/hi-res/", "img/low-res/"},
+		},
+		{
+			fmt.Sprintf("filtering MatchGlob and delimiter, glob matching neither, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
+			"some-bucket",
+			&storage.Query{Prefix: "img/", Delimiter: "/", MatchGlob: "img/**/party-01.jpg"},
+			[]string{},
+			nil,
+		},
+		{
 			fmt.Sprintf("full prefix, versioning %t and overwrites %t", versioningEnabled, withOverwrites),
 			"some-bucket",
 			&storage.Query{Prefix: "img/brand.jpg"},
@@ -1231,6 +1373,20 @@ func TestServiceClientListObjects(t *testing.T) {
 					t.Errorf("wrong prefixes returned\nwant %#v\ngot  %#v", test.expectedPrefixes, prefixes)
 				}
 			})
+		}
+	})
+}
+
+func TestServiceClientListObjectsMatchGlobInvalidDelimiter(t *testing.T) {
+	runServersTest(t, runServersOptions{objs: getObjectsForListTests()}, func(t *testing.T, server *Server) {
+		query := &storage.Query{MatchGlob: "img/*.jpg", Delimiter: "-"}
+		iter := server.Client().Bucket("some-bucket").Objects(context.TODO(), query)
+		_, err := iter.Next()
+		if err == nil || err == iterator.Done {
+			t.Fatalf("expected an error for matchGlob with delimiter %q, got %v", query.Delimiter, err)
+		}
+		if !strings.Contains(err.Error(), "the only supported delimiter is '/'") {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 }
