@@ -554,7 +554,7 @@ func compareStreamingObjects(o1, o2 StreamingObject) error {
 		return fmt.Errorf("wrong md5:\nmain %q\narg  %q", o1.Md5Hash, o2.Md5Hash)
 	}
 	if o1.Generation != 0 && o2.Generation != 0 && o1.Generation != o2.Generation {
-		return fmt.Errorf("generations different from 0, but not equal:\nmain %q\narg  %q", o1.Generation, o2.Generation)
+		return fmt.Errorf("generations different from 0, but not equal:\nmain %#v\narg  %#v", o1.Generation, o2.Generation)
 	}
 	content1, err := io.ReadAll(o1.Content)
 	if err != nil {

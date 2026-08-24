@@ -181,7 +181,7 @@ func TestObjectInsertGetUpdateCompose(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(objs.Items) != 1 {
-			t.Errorf("Wrong object length. Expected 1, got %q", len(objs.Items))
+			t.Errorf("Wrong object length. Expected 1, got %v", len(objs.Items))
 		}
 		compareGrpcObjAttrs(t, objs.Items[0], obj.ObjectAttrs)
 

@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
-	"strconv"
 	"testing"
 
 	"cloud.google.com/go/pubsub/v2"
@@ -182,7 +181,7 @@ func TestPubsubEventManager_Trigger(t *testing.T) {
 						t.Errorf("wrong object name\nwant %q\ngot %q", obj.Name, receivedEvent.Name)
 					}
 					if int64(len(bufferedObj.Content)) != receivedEvent.Size {
-						t.Errorf("wrong object size\nwant %q\ngot %q", strconv.Itoa(len(bufferedObj.Content)), receivedEvent.Size)
+						t.Errorf("wrong object size\nwant %#v\ngot %#v", len(bufferedObj.Content), receivedEvent.Size)
 					}
 					if !reflect.DeepEqual(test.metadata, receivedEvent.MetaData) {
 						t.Errorf("wrong object metadata\nwant %q\ngot %q", test.metadata, receivedEvent.MetaData)
