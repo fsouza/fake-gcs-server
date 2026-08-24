@@ -54,12 +54,20 @@ func (bm *bucketInMemory) addObject(obj Object) Object {
 		obj.StorageClass = "STANDARD"
 	}
 	obj.Generation = getNewGenerationIfZero(obj.Generation)
+	// A write that names an existing generation is a metadata update
+	// (PatchObject, ACL changes) rather than a new version: it replaces
+	// that generation in place wherever it lives, archiving nothing.
+	if index := findObject(obj, bm.activeObjects, true); index >= 0 {
+		bm.activeObjects[index] = obj
+		return obj
+	}
+	if index := findObject(obj, bm.archivedObjects, true); index >= 0 {
+		bm.archivedObjects[index] = obj
+		return obj
+	}
 	index := findObject(obj, bm.activeObjects, false)
 	if index >= 0 {
-		// A write that reuses the live generation is a metadata update
-		// (PatchObject, the ACL handlers) rather than a new version; only
-		// a write that changes the generation archives the old one.
-		if bm.VersioningEnabled && bm.activeObjects[index].Generation != obj.Generation {
+		if bm.VersioningEnabled {
 			bm.activeObjects[index].Deleted = time.Now().Format(timestampFormat)
 			bm.cpToArchive(bm.activeObjects[index])
 		}
