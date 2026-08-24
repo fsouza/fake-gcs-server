@@ -331,6 +331,93 @@ func TestServerClientBucketAttrsAfterCreateBucketByPost(t *testing.T) {
 	}
 }
 
+func TestServerClientBucketAttrsAfterCreateBucketWithACL(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		testCase     string
+		bucketName   string
+		attrs        storage.BucketAttrs
+		expectedACL  []storage.ACLRule
+		expectFailed bool
+	}{
+		{
+			testCase:    "predefined publicRead",
+			bucketName:  "predefined-public-read",
+			attrs:       storage.BucketAttrs{PredefinedACL: "publicRead"},
+			expectedACL: []storage.ACLRule{{Entity: "allUsers", Role: "READER"}},
+		},
+		{
+			testCase:    "predefined authenticatedRead",
+			bucketName:  "predefined-authenticated-read",
+			attrs:       storage.BucketAttrs{PredefinedACL: "authenticatedRead"},
+			expectedACL: []storage.ACLRule{{Entity: "allAuthenticatedUsers", Role: "READER"}},
+		},
+		{
+			testCase:    "predefined private",
+			bucketName:  "predefined-private",
+			attrs:       storage.BucketAttrs{PredefinedACL: "private"},
+			expectedACL: nil,
+		},
+		{
+			testCase:    "explicit acl",
+			bucketName:  "explicit-acl",
+			attrs:       storage.BucketAttrs{ACL: []storage.ACLRule{{Entity: "allUsers", Role: "READER"}}},
+			expectedACL: []storage.ACLRule{{Entity: "allUsers", Role: "READER"}},
+		},
+		{
+			testCase:    "no acl",
+			bucketName:  "no-acl",
+			attrs:       storage.BucketAttrs{},
+			expectedACL: nil,
+		},
+		{
+			testCase:     "predefined and explicit acl are exclusive",
+			bucketName:   "both-acls",
+			attrs:        storage.BucketAttrs{PredefinedACL: "publicRead", ACL: []storage.ACLRule{{Entity: "allUsers", Role: "READER"}}},
+			expectFailed: true,
+		},
+		{
+			testCase:     "unknown predefined acl",
+			bucketName:   "unknown-predefined-acl",
+			attrs:        storage.BucketAttrs{PredefinedACL: "someUnknownValue"},
+			expectFailed: true,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.testCase, func(t *testing.T) {
+			runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+				client := server.Client()
+				bucket := client.Bucket(test.bucketName)
+				err := bucket.Create(context.Background(), "whatever", &test.attrs)
+				if test.expectFailed {
+					if err == nil {
+						t.Fatal("unexpected <nil> error")
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				acls, err := bucket.ACL().List(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(acls) != len(test.expectedACL) {
+					t.Fatalf("wrong number of ACL rules\nwant %d\ngot  %d", len(test.expectedACL), len(acls))
+				}
+				for i, expected := range test.expectedACL {
+					if acls[i].Entity != expected.Entity || acls[i].Role != expected.Role {
+						t.Errorf("wrong ACL rule at %d\nwant %v %v\ngot  %v %v", i, expected.Entity, expected.Role, acls[i].Entity, acls[i].Role)
+					}
+				}
+			})
+		})
+	}
+}
+
 func TestServerClientBucketCreateValidation(t *testing.T) {
 	bucketNames := []string{
 		"..what-is-this",
