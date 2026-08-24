@@ -405,14 +405,16 @@ func (s *Server) ListObjectsWithOptionsPaginated(bucketName string, options List
 			continue
 		}
 
-		if options.MatchGlob != "" && !doublestar.MatchUnvalidated(options.MatchGlob, obj.Name) {
-			continue
-		}
-
 		objName := strings.Replace(obj.Name, options.Prefix, "", 1)
 		delimPos := strings.Index(objName, options.Delimiter)
 		if options.Delimiter != "" && delimPos > -1 {
 			prefix := obj.Name[:len(options.Prefix)+delimPos+1]
+			// GCS matches the glob against the collapsed prefix itself
+			// (including its trailing delimiter), not against the object
+			// names beneath it.
+			if options.MatchGlob != "" && !doublestar.MatchUnvalidated(options.MatchGlob, prefix) {
+				continue
+			}
 			if isInOffset(prefix, startOffset, options.EndOffset) {
 				prefixes[prefix] = true
 			}
@@ -420,6 +422,9 @@ func (s *Server) ListObjectsWithOptionsPaginated(bucketName string, options List
 				respObjects = append(respObjects, obj)
 			}
 		} else {
+			if options.MatchGlob != "" && !doublestar.MatchUnvalidated(options.MatchGlob, obj.Name) {
+				continue
+			}
 			if isInOffset(obj.Name, startOffset, options.EndOffset) {
 				respObjects = append(respObjects, obj)
 			}
@@ -683,10 +688,18 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 			}
 		}
 	}
+	matchGlob := r.URL.Query().Get("matchGlob")
+	delimiter := r.URL.Query().Get("delimiter")
+	if matchGlob != "" && delimiter != "" && delimiter != "/" {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: "When listing with a glob pattern, the only supported delimiter is '/'.",
+		}
+	}
 	response, err := s.ListObjectsWithOptionsPaginated(bucketName, ListOptions{
 		Prefix:                   r.URL.Query().Get("prefix"),
-		MatchGlob:                r.URL.Query().Get("matchGlob"),
-		Delimiter:                r.URL.Query().Get("delimiter"),
+		MatchGlob:                matchGlob,
+		Delimiter:                delimiter,
 		Versions:                 r.URL.Query().Get("versions") == "true",
 		StartOffset:              r.URL.Query().Get("startOffset"),
 		EndOffset:                r.URL.Query().Get("endOffset"),
@@ -705,7 +718,6 @@ func (s *Server) xmlListObjects(r *http.Request) xmlResponse {
 
 	opts := ListOptions{
 		Prefix:    r.URL.Query().Get("prefix"),
-		MatchGlob: r.URL.Query().Get("matchGlob"),
 		Delimiter: r.URL.Query().Get("delimiter"),
 		Versions:  r.URL.Query().Get("versions") == "true",
 	}
