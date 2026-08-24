@@ -222,10 +222,10 @@ func TestServerClientBucketAttrs(t *testing.T) {
 			t.Errorf("wrong bucket storage class returned\nwant %q\ngot  %q", "STANDARD", attrs.StorageClass)
 		}
 		if attrs.ProjectNumber != 0 {
-			t.Errorf("wrong bucket project number returned\nwant %q\ngot  %q", "0", attrs.ProjectNumber)
+			t.Errorf("wrong bucket project number returned\nwant %#v\ngot  %#v", "0", attrs.ProjectNumber)
 		}
 		if attrs.MetaGeneration != 1 {
-			t.Errorf("wrong bucket metageneration returned\nwant %q\ngot  %q", "1", attrs.MetaGeneration)
+			t.Errorf("wrong bucket metageneration returned\nwant %#v\ngot  %#v", "1", attrs.MetaGeneration)
 		}
 		if attrs.Etag != "RVRhZw==" {
 			t.Errorf("wrong bucket etag returned\nwant %q\ngot  %q", "RVRhZw==", attrs.Etag)
