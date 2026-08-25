@@ -104,21 +104,6 @@ type resumableUploadBody struct {
 	PredefinedACL      string            `json:"predefinedAcl"`
 }
 
-type generationCondition struct {
-	ifGenerationMatch    *int64
-	ifGenerationNotMatch *int64
-}
-
-func (c generationCondition) ConditionsMet(activeGeneration int64) bool {
-	if c.ifGenerationMatch != nil && *c.ifGenerationMatch != activeGeneration {
-		return false
-	}
-	if c.ifGenerationNotMatch != nil && *c.ifGenerationNotMatch == activeGeneration {
-		return false
-	}
-	return true
-}
-
 // resumableUploadEntry holds the in-progress object for a resumable upload
 // session along with state supplied when the session was initiated but only
 // applied when the upload is finalized: generation preconditions (e.g.
@@ -127,7 +112,7 @@ func (c generationCondition) ConditionsMet(activeGeneration int64) bool {
 // so they must be carried across both requests.
 type resumableUploadEntry struct {
 	obj            Object
-	conditions     generationCondition
+	conditions     preconditions
 	declaredMd5    string
 	declaredCrc32c string
 }
@@ -243,7 +228,7 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 		},
 	}
 
-	conditions, err := s.wrapUploadPreconditions(r, bucketName, body.Name)
+	conditions, err := parsePreconditions(r.URL.Query(), "")
 	if err != nil {
 		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
 	}
@@ -414,34 +399,6 @@ func (s *Server) insertFormObject(r *http.Request) xmlResponse {
 	return xmlResponse{status: successActionStatus}
 }
 
-func (s *Server) wrapUploadPreconditions(r *http.Request, bucketName string, objectName string) (generationCondition, error) {
-	result := generationCondition{
-		ifGenerationMatch:    nil,
-		ifGenerationNotMatch: nil,
-	}
-	ifGenerationMatch := r.URL.Query().Get("ifGenerationMatch")
-
-	if ifGenerationMatch != "" {
-		gen, err := strconv.ParseInt(ifGenerationMatch, 10, 64)
-		if err != nil {
-			return generationCondition{}, err
-		}
-		result.ifGenerationMatch = &gen
-	}
-
-	ifGenerationNotMatch := r.URL.Query().Get("ifGenerationNotMatch")
-
-	if ifGenerationNotMatch != "" {
-		gen, err := strconv.ParseInt(ifGenerationNotMatch, 10, 64)
-		if err != nil {
-			return generationCondition{}, err
-		}
-		result.ifGenerationNotMatch = &gen
-	}
-
-	return result, nil
-}
-
 func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 	defer r.Body.Close()
 	name := r.URL.Query().Get("name")
@@ -463,7 +420,7 @@ func (s *Server) simpleUpload(bucketName string, r *http.Request) jsonResponse {
 		}
 	}
 
-	conditions, err := s.wrapUploadPreconditions(r, bucketName, name)
+	conditions, err := parsePreconditions(r.URL.Query(), "")
 	if err != nil {
 		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
 	}
@@ -606,7 +563,7 @@ func (s *Server) multipartUpload(bucketName string, r *http.Request) jsonRespons
 		contentEncoding = metadata.ContentEncoding
 	}
 
-	conditions, err := s.wrapUploadPreconditions(r, bucketName, objName)
+	conditions, err := parsePreconditions(r.URL.Query(), "")
 	if err != nil {
 		return jsonResponse{
 			status:       http.StatusBadRequest,
@@ -674,7 +631,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if contentEncoding == "" {
 		contentEncoding = metadata.ContentEncoding
 	}
-	conditions, err := s.wrapUploadPreconditions(r, bucketName, objName)
+	conditions, err := parsePreconditions(r.URL.Query(), "")
 	if err != nil {
 		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
 	}
