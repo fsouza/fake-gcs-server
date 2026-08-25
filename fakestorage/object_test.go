@@ -1391,6 +1391,20 @@ func TestServiceClientListObjectsMatchGlobInvalidDelimiter(t *testing.T) {
 	})
 }
 
+func TestServiceClientListObjectsMatchGlobInvalidPattern(t *testing.T) {
+	runServersTest(t, runServersOptions{objs: getObjectsForListTests()}, func(t *testing.T, server *Server) {
+		query := &storage.Query{MatchGlob: "img/[abc.jpg"}
+		iter := server.Client().Bucket("some-bucket").Objects(context.TODO(), query)
+		_, err := iter.Next()
+		if err == nil || err == iterator.Done {
+			t.Fatalf("expected an error for matchGlob %q, got %v", query.MatchGlob, err)
+		}
+		if !strings.Contains(err.Error(), "no closing ']' for opening '[' at index 4") {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}
+
 func TestServerClientListAfterCreate(t *testing.T) {
 	for _, versioningEnabled := range []bool{true, false} {
 		for _, withOverwrites := range []bool{true, false} {

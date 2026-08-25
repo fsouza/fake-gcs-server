@@ -696,6 +696,13 @@ func (s *Server) listObjects(r *http.Request) jsonResponse {
 			errorMessage: "When listing with a glob pattern, the only supported delimiter is '/'.",
 		}
 	}
+	// GCS checks the delimiter before it checks the pattern itself.
+	if msg := invalidMatchGlobMessage(matchGlob); msg != "" {
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: msg,
+		}
+	}
 	response, err := s.ListObjectsWithOptionsPaginated(bucketName, ListOptions{
 		Prefix:                   r.URL.Query().Get("prefix"),
 		MatchGlob:                matchGlob,
