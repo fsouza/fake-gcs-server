@@ -829,12 +829,16 @@ func (s *Server) deleteObject(r *http.Request) jsonResponse {
 	// Calling Close before checking err is okay on objects, and the object
 	// may need to be closed whether or not there's an error.
 	defer obj.Close() //lint:ignore SA5001 // see above
-	if err == nil {
-		if generation > 0 {
-			err = s.backend.DeleteObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
-		} else {
-			err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
-		}
+	if err != nil {
+		return jsonResponse{status: http.StatusNotFound}
+	}
+	if errResponse := s.checkPreconditions(r, vars["bucketName"], vars["objectName"]); errResponse != nil {
+		return *errResponse
+	}
+	if generation > 0 {
+		err = s.backend.DeleteObjectWithGeneration(vars["bucketName"], vars["objectName"], generation)
+	} else {
+		err = s.backend.DeleteObject(vars["bucketName"], vars["objectName"])
 	}
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
@@ -994,6 +998,21 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 		return jsonResponse{errorMessage: errMessage, status: statusCode}
 	}
 
+	// The ifSourceGenerationMatch family guards the object being read, the
+	// plain one the object being written; a rewrite is the only request that
+	// can name both.
+	sourceConditions, err := parsePreconditions(r.URL.Query(), "Source")
+	if err != nil {
+		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
+	}
+	if !sourceConditions.ConditionsMet(obj.Generation) {
+		return errToJsonResponse(backend.PreConditionFailed)
+	}
+	destinationConditions, err := parsePreconditions(r.URL.Query(), "")
+	if err != nil {
+		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
+	}
+
 	var metadata multipartMetadata
 	err = json.NewDecoder(r.Body).Decode(&metadata)
 	if err != nil && err != io.EOF { // The body is optional
@@ -1047,7 +1066,7 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 		Content: obj.Content,
 	}
 
-	created, err := s.createObject(newObject, backend.NoConditions{})
+	created, err := s.createObject(newObject, destinationConditions)
 	if err != nil {
 		return errToJsonResponse(err)
 	}
@@ -1380,6 +1399,10 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		}
 	}
 
+	if errResponse := s.checkPreconditions(r, bucketName, objectName); errResponse != nil {
+		return *errResponse
+	}
+
 	backendObj, err := s.backend.PatchObject(bucketName, objectName, attrsToUpdate)
 	if err != nil {
 		return jsonResponse{
@@ -1447,6 +1470,10 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 			attrsToUpdate.ACL = append(attrsToUpdate.ACL, newAcl)
 		}
 	}
+	if errResponse := s.checkPreconditions(r, bucketName, objectName); errResponse != nil {
+		return *errResponse
+	}
+
 	backendObj, err := s.backend.UpdateObject(bucketName, objectName, attrsToUpdate)
 	if err != nil {
 		return jsonResponse{
@@ -1509,6 +1536,10 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 	if predefinedACL := r.URL.Query().Get(
 		"destinationPredefinedAcl"); predefinedACL != "" {
 		acl = getObjectACL(predefinedACL)
+	}
+
+	if errResponse := s.checkPreconditions(r, bucketName, destinationObject); errResponse != nil {
+		return *errResponse
 	}
 
 	backendObj, err := s.backend.ComposeObject(bucketName, sourceNames, destinationObject, composeRequest.Destination.Metadata, composeRequest.Destination.ContentType, composeRequest.Destination.ContentEncoding, composeRequest.Destination.ContentDisposition, composeRequest.Destination.ContentLanguage, composeRequest.Destination.CacheControl, composeRequest.Destination.StorageClass, acl)
