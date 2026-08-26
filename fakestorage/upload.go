@@ -151,7 +151,10 @@ func (s *Server) insertObject(r *http.Request) jsonResponse {
 	bucketName := unescapeMuxVars(mux.Vars(r))["bucketName"]
 
 	if _, err := s.backend.GetBucket(bucketName); err != nil {
-		return jsonResponse{status: http.StatusNotFound}
+		return jsonResponse{
+			status:       http.StatusNotFound,
+			errorMessage: fmt.Sprintf("The specified bucket '%s' does not exist.", bucketName),
+		}
 	}
 	uploadType := r.URL.Query().Get("uploadType")
 	if uploadType == "" && r.Header.Get("X-Goog-Upload-Protocol") == uploadTypeResumable {
@@ -194,7 +197,10 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 
 	// Check if the bucket exists
 	if _, err := s.backend.GetBucket(bucketName); err != nil {
-		return jsonResponse{status: http.StatusNotFound}
+		return jsonResponse{
+			status:       http.StatusNotFound,
+			errorMessage: fmt.Sprintf("The specified bucket '%s' does not exist.", bucketName),
+		}
 	}
 
 	// Parse customTime if present
