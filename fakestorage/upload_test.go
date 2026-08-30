@@ -697,6 +697,44 @@ func TestServerClientObjectWriterBucketNotFound(t *testing.T) {
 	})
 }
 
+func TestServerClientUploadBucketNotFoundMessage(t *testing.T) {
+	server := NewServer(nil)
+	defer server.Stop()
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "existing-bucket"})
+
+	req, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/missing-bucket/o?uploadType=media&name=some/object.txt", strings.NewReader("data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	httpClient := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusNotFound, resp.StatusCode)
+	}
+
+	var body errorResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	wantMessage := "The specified bucket 'missing-bucket' does not exist."
+	if body.Error.Message != wantMessage {
+		t.Errorf("wrong error message\nwant %q\ngot  %q", wantMessage, body.Error.Message)
+	}
+	if len(body.Error.Errors) == 0 || body.Error.Errors[0].Reason != "notFound" {
+		t.Errorf("wrong error reason\nwant %q\ngot  %+v", "notFound", body.Error.Errors)
+	}
+}
+
 func TestServerClientSimpleUpload(t *testing.T) {
 	server := NewServer(nil)
 	defer server.Stop()
