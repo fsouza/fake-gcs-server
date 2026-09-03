@@ -64,7 +64,7 @@ require (
 require (
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/iam v1.12.0 // indirect
-	cloud.google.com/go/pubsub/v2 v2.6.2
+	cloud.google.com/go/pubsub/v2 v2.7.0
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/google/renameio/v2 v2.0.0
 	github.com/google/uuid v1.6.0 // indirect
