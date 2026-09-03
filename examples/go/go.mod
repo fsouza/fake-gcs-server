@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	cloud.google.com/go/storage v1.66.0
-	google.golang.org/api v0.295.0
+	google.golang.org/api v0.296.0
 )
 
 require (
