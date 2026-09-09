@@ -33,6 +33,7 @@ const (
 	cacheControlHeader       = "Cache-Control"
 	contentDispositionHeader = "Content-Disposition"
 	contentLanguageHeader    = "Content-Language"
+	uploadContentTypeHeader  = "X-Upload-Content-Type"
 )
 
 const (
@@ -622,6 +623,18 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 		// Use the zero-valued metadata; object name comes from query param "name".
 		if err != nil && err != io.EOF {
 			return jsonResponse{errorMessage: err.Error()}
+		}
+	}
+	// The JSON API also accepts the content type through a request header:
+	// https://cloud.google.com/storage/docs/json_api/v1/parameters#xuploadcontenttype
+	if uploadContentType := r.Header.Get(uploadContentTypeHeader); uploadContentType != "" {
+		if metadata.ContentType == "" {
+			metadata.ContentType = uploadContentType
+		} else if metadata.ContentType != uploadContentType {
+			return jsonResponse{
+				status:       http.StatusBadRequest,
+				errorMessage: fmt.Sprintf("Content-Type specified in the upload (%s) does not match Content-Type specified in metadata (%s).", uploadContentType, metadata.ContentType),
+			}
 		}
 	}
 	objName := r.URL.Query().Get("name")

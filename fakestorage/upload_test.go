@@ -1993,6 +1993,124 @@ func TestResumableUploadContentType(t *testing.T) {
 			}
 		})
 
+		// The JSON API accepts the content type as the X-Upload-Content-Type
+		// header on session initiation:
+		// https://cloud.google.com/storage/docs/json_api/v1/parameters#xuploadcontenttype
+		t.Run("content type from X-Upload-Content-Type header is honored", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+			client := server.HTTPClient()
+			const contentType = "image/png"
+			const objectName = "test-content-type-upload-header"
+
+			initReq, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=resumable&name="+objectName, strings.NewReader("{}"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initReq.Header.Set("Content-Type", "application/json")
+			initReq.Header.Set("X-Upload-Content-Type", contentType)
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer initResp.Body.Close()
+			if initResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, initResp.StatusCode)
+			}
+
+			uploadURL := initResp.Header.Get("Location")
+			uploadReq, err := http.NewRequest("PUT", uploadURL, strings.NewReader("test content"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			uploadResp, err := client.Do(uploadReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer uploadResp.Body.Close()
+			if uploadResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, uploadResp.StatusCode)
+			}
+
+			obj, err := server.GetObject(bucketName, objectName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if obj.ContentType != contentType {
+				t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+			}
+		})
+
+		// The real GCS backend takes no side on precedence: it rejects the
+		// initiation with a 400 ("Content-Type specified in the upload does not
+		// match Content-Type specified in metadata") when the header and the
+		// session metadata disagree.
+		t.Run("mismatched X-Upload-Content-Type and session metadata content type is rejected", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+			client := server.HTTPClient()
+			const objectName = "test-content-type-mismatch"
+
+			initReq, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=resumable&name="+objectName, strings.NewReader(`{"contentType": "text/csv"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initReq.Header.Set("Content-Type", "application/json")
+			initReq.Header.Set("X-Upload-Content-Type", "image/png")
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer initResp.Body.Close()
+			if initResp.StatusCode != http.StatusBadRequest {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusBadRequest, initResp.StatusCode)
+			}
+		})
+
+		// The real GCS backend accepts equal values in the header and the
+		// session metadata.
+		t.Run("matching X-Upload-Content-Type and session metadata content type is accepted", func(t *testing.T) {
+			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+			client := server.HTTPClient()
+			const contentType = "image/png"
+			const objectName = "test-content-type-match"
+
+			initReq, err := http.NewRequest("POST", server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=resumable&name="+objectName, strings.NewReader(`{"contentType": "`+contentType+`"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			initReq.Header.Set("Content-Type", "application/json")
+			initReq.Header.Set("X-Upload-Content-Type", contentType)
+			initResp, err := client.Do(initReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer initResp.Body.Close()
+			if initResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, initResp.StatusCode)
+			}
+
+			uploadURL := initResp.Header.Get("Location")
+			uploadReq, err := http.NewRequest("PUT", uploadURL, strings.NewReader("test content"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			uploadResp, err := client.Do(uploadReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer uploadResp.Body.Close()
+			if uploadResp.StatusCode != http.StatusOK {
+				t.Errorf("wrong status code\nwant %d\ngot  %d", http.StatusOK, uploadResp.StatusCode)
+			}
+
+			obj, err := server.GetObject(bucketName, objectName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if obj.ContentType != contentType {
+				t.Errorf("wrong content type\nwant %q\ngot  %q", contentType, obj.ContentType)
+			}
+		})
+
 		t.Run("multi-chunk upload preserves content type", func(t *testing.T) {
 			server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
 			client := server.HTTPClient()
