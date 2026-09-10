@@ -22,6 +22,8 @@ import (
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/fsouza/fake-gcs-server/internal/config"
 	"github.com/fsouza/fake-gcs-server/internal/grpc"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 func createListener(logger *slog.Logger, cfg *config.Config, scheme string) (net.Listener, *fakestorage.Options) {
@@ -86,16 +88,21 @@ func startServer(logger *slog.Logger, cfg *config.Config) {
 
 	grpcServer := grpc.NewServerWithBackend(httpServer.Backend())
 
+	routingHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && strings.HasPrefix(
+			r.Header.Get("Content-Type"), "application/grpc") {
+			grpcServer.ServeHTTP(w, r)
+		} else {
+			httpServer.HTTPHandler().ServeHTTP(w, r)
+		}
+	})
+	// h2c lets the plaintext listener accept HTTP/2 cleartext (grpc) connections
+	// while still serving HTTP/1.1 (the JSON API) unmodified.
+	h2cHandler := h2c.NewHandler(routingHandler, &http2.Server{})
+
 	for _, listenerAndOpts := range listenersAndOpts {
 		go func(listener net.Listener) {
-			http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.ProtoMajor == 2 && strings.HasPrefix(
-					r.Header.Get("Content-Type"), "application/grpc") {
-					grpcServer.ServeHTTP(w, r)
-				} else {
-					httpServer.HTTPHandler().ServeHTTP(w, r)
-				}
-			}))
+			http.Serve(listener, h2cHandler)
 		}(listenerAndOpts.listener)
 
 		logger.Info(fmt.Sprintf("server started at %s://%s:%d",
