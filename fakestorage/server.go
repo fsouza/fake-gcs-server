@@ -422,6 +422,15 @@ func objectsFromBucket(localBucketPath, bucketName string) ([]Object, error) {
 	var objects []Object
 	err := filepath.Walk(localBucketPath, func(path string, info os.FileInfo, _ error) error {
 		if info.Mode().IsRegular() {
+			// Skip the fs backend's own metadata sidecars so they don't get
+			// re-ingested as objects on restart, causing recursive
+			// .metadata.metadata... chains (see #1933). Only a sidecar sitting
+			// next to its object counts: GCS allows ".metadata" object names.
+			if strings.HasSuffix(path, ".metadata") {
+				if base, err := os.Stat(strings.TrimSuffix(path, ".metadata")); err == nil && base.Mode().IsRegular() {
+					return nil
+				}
+			}
 			// Rel() should never return error since path always descend from localBucketPath
 			relPath, _ := filepath.Rel(localBucketPath, path)
 			objectKey := filepath.ToSlash(relPath)
