@@ -271,7 +271,7 @@ func (s *Server) listBucketACL(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	return jsonResponse{data: newBucketACLListResponse(bucket)}
+	return jsonResponse{data: newBucketACLListResponse(bucket, s.externalURL)}
 }
 
 func (s *Server) setBucketACL(r *http.Request) jsonResponse {
@@ -308,7 +308,7 @@ func (s *Server) setBucketACL(r *http.Request) jsonResponse {
 	if err := s.backend.UpdateBucketACL(bucketName, acl); err != nil {
 		return errToJsonResponse(err)
 	}
-	return jsonResponse{data: newBucketAccessControl(bucketName, rule)}
+	return jsonResponse{data: newBucketAccessControl(bucketName, rule, s.externalURL)}
 }
 
 func (s *Server) getBucketACL(r *http.Request) jsonResponse {
@@ -320,7 +320,7 @@ func (s *Server) getBucketACL(r *http.Request) jsonResponse {
 	entity := vars["entity"]
 	for _, rule := range bucket.ACL {
 		if string(rule.Entity) == entity {
-			return jsonResponse{data: newBucketAccessControl(bucket.Name, rule)}
+			return jsonResponse{data: newBucketAccessControl(bucket.Name, rule, s.externalURL)}
 		}
 	}
 	return jsonResponse{status: http.StatusNotFound}

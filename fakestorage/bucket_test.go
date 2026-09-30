@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,6 +101,43 @@ func TestServerClientBucketACL(t *testing.T) {
 // unrelated bucket attributes does not discard the bucket's ACL. Bucket
 // updates only carry the attributes being changed, so backends must merge
 // them into the existing attributes rather than replace them wholesale.
+func TestServerBucketACLSelfLink(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		const bucketName = "acl-bucket"
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		acl := server.Client().Bucket(bucketName).ACL()
+		if err := acl.Set(context.TODO(), "user-someone@example.com", storage.RoleReader); err != nil {
+			t.Fatal(err)
+		}
+		resp, err := server.HTTPClient().Get(server.URL() + "/storage/v1/b/" + bucketName + "/acl")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var list struct {
+			Items []struct {
+				ID       string `json:"id"`
+				SelfLink string `json:"selfLink"`
+				Entity   string `json:"entity"`
+			} `json:"items"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+			t.Fatal(err)
+		}
+		if len(list.Items) == 0 {
+			t.Fatal("no bucket ACL entries")
+		}
+		for _, item := range list.Items {
+			if want := "/storage/v1/b/" + bucketName + "/acl/" + url.PathEscape(item.Entity); !strings.HasSuffix(item.SelfLink, want) {
+				t.Errorf("wrong selfLink\nwant suffix %q\ngot  %q", want, item.SelfLink)
+			}
+			if want := bucketName + "/" + item.Entity; item.ID != want {
+				t.Errorf("wrong id\nwant %q\ngot  %q", want, item.ID)
+			}
+		}
+	})
+}
+
 func TestServerClientBucketACLSurvivesBucketUpdate(t *testing.T) {
 	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
 		const bucketName = "acl-update-bucket"

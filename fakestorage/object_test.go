@@ -2090,6 +2090,142 @@ func TestServerClientObjectACLWithGeneration(t *testing.T) {
 	})
 }
 
+func TestServerObjectACLResourceFields(t *testing.T) {
+	const (
+		bucketName = "acl-bucket"
+		objectName = "dir/obj.txt"
+	)
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		server.CreateObject(Object{
+			ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "no-acl.txt", Generation: 1},
+			Content:     []byte("content"),
+		})
+		server.CreateObject(Object{
+			ObjectAttrs: ObjectAttrs{
+				BucketName: bucketName,
+				Name:       objectName,
+				Generation: 1234,
+				ACL: []storage.ACLRule{
+					{Entity: "user-someone@example.com", Role: storage.RoleReader},
+					{Entity: "domain-example.com", Role: storage.RoleReader},
+					{Entity: "project-owners-123", Role: storage.RoleOwner},
+				},
+			},
+			Content: []byte("content"),
+		})
+		client := server.HTTPClient()
+		get := func(t *testing.T, path string, v any) {
+			t.Helper()
+			resp, err := client.Get(server.URL() + path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("wrong status code for %s\nwant %d\ngot  %d", path, http.StatusOK, resp.StatusCode)
+			}
+			if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+				t.Fatal(err)
+			}
+		}
+		type accessControl struct {
+			Kind        string `json:"kind"`
+			ID          string `json:"id"`
+			SelfLink    string `json:"selfLink"`
+			Bucket      string `json:"bucket"`
+			Object      string `json:"object"`
+			Generation  string `json:"generation"`
+			Entity      string `json:"entity"`
+			Role        string `json:"role"`
+			Email       string `json:"email"`
+			Domain      string `json:"domain"`
+			ProjectTeam *struct {
+				ProjectNumber string `json:"projectNumber"`
+				Team          string `json:"team"`
+			} `json:"projectTeam"`
+		}
+		checkEntry := func(t *testing.T, ac accessControl) {
+			t.Helper()
+			if ac.Kind != "storage#objectAccessControl" {
+				t.Errorf("wrong kind for %s: %q", ac.Entity, ac.Kind)
+			}
+			if want := bucketName + "/" + objectName + "/1234/" + ac.Entity; ac.ID != want {
+				t.Errorf("wrong id\nwant %q\ngot  %q", want, ac.ID)
+			}
+			if want := "/storage/v1/b/acl-bucket/o/dir%2Fobj.txt/acl/" + url.PathEscape(ac.Entity); !strings.HasSuffix(ac.SelfLink, want) {
+				t.Errorf("wrong selfLink\nwant suffix %q\ngot  %q", want, ac.SelfLink)
+			}
+			if ac.Bucket != bucketName || ac.Object != objectName || ac.Generation != "1234" {
+				t.Errorf("wrong bucket, object or generation: %q %q %q", ac.Bucket, ac.Object, ac.Generation)
+			}
+			switch ac.Entity {
+			case "user-someone@example.com":
+				if ac.Email != "someone@example.com" {
+					t.Errorf("wrong email %q", ac.Email)
+				}
+			case "domain-example.com":
+				if ac.Domain != "example.com" {
+					t.Errorf("wrong domain %q", ac.Domain)
+				}
+			case "project-owners-123":
+				if ac.ProjectTeam == nil || ac.ProjectTeam.ProjectNumber != "123" || ac.ProjectTeam.Team != "owners" {
+					t.Errorf("wrong project team %+v", ac.ProjectTeam)
+				}
+			}
+			if ac.Entity != "project-owners-123" && ac.ProjectTeam != nil {
+				t.Errorf("unexpected project team for %s: %+v", ac.Entity, ac.ProjectTeam)
+			}
+		}
+		aclPath := "/storage/v1/b/" + bucketName + "/o/" + url.PathEscape(objectName) + "/acl"
+
+		var list struct {
+			Kind  string          `json:"kind"`
+			Items []accessControl `json:"items"`
+		}
+		get(t, aclPath, &list)
+		if list.Kind != "storage#objectAccessControls" {
+			t.Errorf("wrong list kind %q", list.Kind)
+		}
+		if len(list.Items) != 3 {
+			t.Fatalf("wrong number of entries\nwant 3\ngot  %d", len(list.Items))
+		}
+		for _, ac := range list.Items {
+			checkEntry(t, ac)
+		}
+
+		var single accessControl
+		get(t, aclPath+"/"+url.PathEscape("user-someone@example.com"), &single)
+		checkEntry(t, single)
+
+		var obj struct {
+			ACL []accessControl `json:"acl"`
+		}
+		get(t, "/storage/v1/b/"+bucketName+"/o/"+url.PathEscape(objectName), &obj)
+		for _, ac := range obj.ACL {
+			checkEntry(t, ac)
+		}
+
+		var empty struct {
+			Items *[]accessControl `json:"items"`
+		}
+		get(t, "/storage/v1/b/"+bucketName+"/o/no-acl.txt/acl", &empty)
+		if empty.Items == nil || len(*empty.Items) != 0 {
+			t.Errorf("an object with no ACL should list an empty items array, got %v", empty.Items)
+		}
+
+		rules, err := server.Client().Bucket(bucketName).Object(objectName).ACL().List(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, rule := range rules {
+			if rule.Entity == "user-someone@example.com" && rule.Email != "someone@example.com" {
+				t.Errorf("wrong email from the client %q", rule.Email)
+			}
+		}
+	})
+}
+
 func TestServerClientObjectSetAclPrivate(t *testing.T) {
 	objs := []Object{
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/public-to-private.jpg"}},
@@ -2422,6 +2558,7 @@ func TestServerClientObjectProjection(t *testing.T) {
 			ObjectAttrs: ObjectAttrs{
 				BucketName: bucketName,
 				Name:       objectName,
+				Generation: 1234,
 				ACL: []storage.ACLRule{
 					{Entity: "user-1", Role: "OWNER"},
 					{Entity: "user-2", Role: "READER"},
@@ -2488,8 +2625,8 @@ func TestServerClientObjectProjection(t *testing.T) {
 
 		url := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o/%s", bucketName, objectName)
 		fullACL := []objectAccessControl{
-			{Bucket: bucketName, Object: objectName, Entity: "user-1", Role: "OWNER", Etag: "RVRhZw==", Kind: "storage#objectAccessControl"},
-			{Bucket: bucketName, Object: objectName, Entity: "user-2", Role: "READER", Etag: "RVRhZw==", Kind: "storage#objectAccessControl"},
+			{Bucket: bucketName, Object: objectName, Generation: 1234, Entity: "user-1", Role: "OWNER", Etag: "RVRhZw==", Kind: "storage#objectAccessControl", ID: "some-bucket/data.txt/1234/user-1", SelfLink: "/storage/v1/b/some-bucket/o/data.txt/acl/user-1"},
+			{Bucket: bucketName, Object: objectName, Generation: 1234, Entity: "user-2", Role: "READER", Etag: "RVRhZw==", Kind: "storage#objectAccessControl", ID: "some-bucket/data.txt/1234/user-2", SelfLink: "/storage/v1/b/some-bucket/o/data.txt/acl/user-2"},
 		}
 
 		t.Run("full projection", func(t *testing.T) {
