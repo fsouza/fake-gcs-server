@@ -2090,6 +2090,73 @@ func TestServerClientObjectACLWithGeneration(t *testing.T) {
 	})
 }
 
+func TestServerClientObjectSetACLKeepsOtherEntries(t *testing.T) {
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName: "some-bucket",
+				Name:       "shared.txt",
+				ACL:        []storage.ACLRule{{Entity: "user-owner@example.com", Role: storage.RoleOwner}},
+			},
+			Content: []byte("content"),
+		},
+	}
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		ctx := context.Background()
+		acl := server.Client().Bucket("some-bucket").Object("shared.txt").ACL()
+		roles := func(t *testing.T) map[storage.ACLEntity]storage.ACLRole {
+			t.Helper()
+			rules, err := acl.List(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := make(map[storage.ACLEntity]storage.ACLRole, len(rules))
+			for _, rule := range rules {
+				got[rule.Entity] = rule.Role
+			}
+			return got
+		}
+
+		if err := acl.Set(ctx, storage.AllUsers, storage.RoleReader); err != nil {
+			t.Fatal(err)
+		}
+		want := map[storage.ACLEntity]storage.ACLRole{
+			"user-owner@example.com": storage.RoleOwner,
+			storage.AllUsers:         storage.RoleReader,
+		}
+		if got := roles(t); !reflect.DeepEqual(got, want) {
+			t.Errorf("wrong ACL after adding an entry\nwant %v\ngot  %v", want, got)
+		}
+
+		if err := acl.Set(ctx, storage.AllUsers, storage.RoleWriter); err != nil {
+			t.Fatal(err)
+		}
+		want[storage.AllUsers] = storage.RoleWriter
+		if got := roles(t); !reflect.DeepEqual(got, want) {
+			t.Errorf("wrong ACL after changing an entry\nwant %v\ngot  %v", want, got)
+		}
+
+		// ObjectAccessControls: insert takes the entity from the body.
+		req, err := http.NewRequest(http.MethodPost, server.URL()+"/storage/v1/b/some-bucket/o/shared.txt/acl", strings.NewReader(`{"entity":"group-team@example.com","role":"READER"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := server.HTTPClient().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("wrong status code\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+		}
+		want["group-team@example.com"] = storage.RoleReader
+		if got := roles(t); !reflect.DeepEqual(got, want) {
+			t.Errorf("wrong ACL after inserting an entry\nwant %v\ngot  %v", want, got)
+		}
+	})
+}
+
 func TestServerClientObjectSetAclPrivate(t *testing.T) {
 	objs := []Object{
 		{ObjectAttrs: ObjectAttrs{BucketName: "some-bucket", Name: "img/public-to-private.jpg"}},
