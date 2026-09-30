@@ -943,6 +943,8 @@ func (s *Server) getObjectACL(r *http.Request) jsonResponse {
 }
 
 func (s *Server) setObjectACL(r *http.Request) jsonResponse {
+	vars := unescapeMuxVars(mux.Vars(r))
+
 	obj, errResponse := s.objectForACLRequest(r)
 	if errResponse != nil {
 		return *errResponse
@@ -961,13 +963,23 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 			errorMessage: err.Error(),
 		}
 	}
+	// ObjectAccessControls: update (PUT .../acl/{entity}) names the entity in
+	// the path.
+	if entity := vars["entity"]; entity != "" {
+		data.Entity = entity
+	}
 
+	// ObjectAccessControls: insert and update set the entry of one entity;
+	// the entries of the other entities stay.
 	entity := storage.ACLEntity(data.Entity)
 	role := storage.ACLRole(data.Role)
-	obj.ACL = []storage.ACLRule{{
-		Entity: entity,
-		Role:   role,
-	}}
+	acl := make([]storage.ACLRule, 0, len(obj.ACL)+1)
+	for _, rule := range obj.ACL {
+		if rule.Entity != entity {
+			acl = append(acl, rule)
+		}
+	}
+	obj.ACL = append(acl, storage.ACLRule{Entity: entity, Role: role})
 
 	obj, err := s.createObject(obj, backend.NoConditions{})
 	if err != nil {
