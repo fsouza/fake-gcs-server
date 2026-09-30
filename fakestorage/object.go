@@ -886,7 +886,7 @@ func (s *Server) listObjectACL(r *http.Request) jsonResponse {
 	}
 	defer obj.Close()
 
-	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs)}
+	return jsonResponse{data: newACLListResponse(obj.ObjectAttrs, urlhelper.GetBaseURL(r))}
 }
 
 func (s *Server) deleteObjectACL(r *http.Request) jsonResponse {
@@ -928,15 +928,7 @@ func (s *Server) getObjectACL(r *http.Request) jsonResponse {
 
 	for _, aclRule := range obj.ObjectAttrs.ACL {
 		if entity == string(aclRule.Entity) {
-			oac := &objectAccessControl{
-				Bucket: obj.BucketName,
-				Entity: string(aclRule.Entity),
-				Object: obj.Name,
-				Role:   string(aclRule.Role),
-				Etag:   "RVRhZw==",
-				Kind:   "storage#objectAccessControl",
-			}
-			return jsonResponse{data: oac}
+			return jsonResponse{data: newObjectAccessControl(obj.ObjectAttrs, aclRule, urlhelper.GetBaseURL(r))}
 		}
 	}
 	return jsonResponse{status: http.StatusNotFound}
@@ -979,14 +971,7 @@ func (s *Server) setObjectACL(r *http.Request) jsonResponse {
 	// entry, not a list.  Returning a list yields a response with no
 	// top-level "role", which makes strongly-typed clients such as the
 	// Google Cloud Storage Java SDK fail to decode the ACL role.
-	return jsonResponse{data: &objectAccessControl{
-		Bucket: obj.BucketName,
-		Entity: string(entity),
-		Object: obj.Name,
-		Role:   string(role),
-		Etag:   "RVRhZw==",
-		Kind:   "storage#objectAccessControl",
-	}}
+	return jsonResponse{data: newObjectAccessControl(obj.ObjectAttrs, storage.ACLRule{Entity: entity, Role: role}, urlhelper.GetBaseURL(r))}
 }
 
 func (s *Server) rewriteObject(r *http.Request) jsonResponse {

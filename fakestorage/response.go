@@ -7,6 +7,7 @@ package fakestorage
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -119,22 +120,19 @@ func newListObjectsResponse(response ListResponse, externalURL string) listRespo
 // objectAccessControl is copied from the Google SDK to avoid direct
 // dependency.
 type objectAccessControl struct {
-	Bucket      string `json:"bucket,omitempty"`
-	Domain      string `json:"domain,omitempty"`
-	Email       string `json:"email,omitempty"`
-	Entity      string `json:"entity,omitempty"`
-	EntityID    string `json:"entityId,omitempty"`
-	Etag        string `json:"etag,omitempty"`
-	Generation  int64  `json:"generation,omitempty,string"`
-	ID          string `json:"id,omitempty"`
-	Kind        string `json:"kind,omitempty"`
-	Object      string `json:"object,omitempty"`
-	ProjectTeam struct {
-		ProjectNumber string `json:"projectNumber,omitempty"`
-		Team          string `json:"team,omitempty"`
-	} `json:"projectTeam,omitempty"`
-	Role     string `json:"role,omitempty"`
-	SelfLink string `json:"selfLink,omitempty"`
+	Bucket      string       `json:"bucket,omitempty"`
+	Domain      string       `json:"domain,omitempty"`
+	Email       string       `json:"email,omitempty"`
+	Entity      string       `json:"entity,omitempty"`
+	EntityID    string       `json:"entityId,omitempty"`
+	Etag        string       `json:"etag,omitempty"`
+	Generation  int64        `json:"generation,omitempty,string"`
+	ID          string       `json:"id,omitempty"`
+	Kind        string       `json:"kind,omitempty"`
+	Object      string       `json:"object,omitempty"`
+	ProjectTeam *projectTeam `json:"projectTeam,omitempty"`
+	Role        string       `json:"role,omitempty"`
+	SelfLink    string       `json:"selfLink,omitempty"`
 }
 
 type objectRetention struct {
@@ -180,7 +178,7 @@ func newProjectedObjectResponse(obj ObjectAttrs, externalURL string, projection 
 }
 
 func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
-	acl := getAccessControlsListFromObject(obj)
+	acl := getAccessControlsListFromObject(obj, externalURL)
 	storageClass := obj.StorageClass
 	if storageClass == "" {
 		storageClass = "STANDARD"
@@ -225,38 +223,65 @@ func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
 }
 
 type aclListResponse struct {
+	Kind  string                 `json:"kind"`
 	Items []*objectAccessControl `json:"items"`
 }
 
-func newACLListResponse(obj ObjectAttrs) aclListResponse {
-	if len(obj.ACL) == 0 {
-		return aclListResponse{}
+func newACLListResponse(obj ObjectAttrs, externalURL string) aclListResponse {
+	return aclListResponse{
+		Kind:  "storage#objectAccessControls",
+		Items: getAccessControlsListFromObject(obj, externalURL),
 	}
-	return aclListResponse{Items: getAccessControlsListFromObject(obj)}
 }
 
-func getAccessControlsListFromObject(obj ObjectAttrs) []*objectAccessControl {
+func getAccessControlsListFromObject(obj ObjectAttrs, externalURL string) []*objectAccessControl {
 	aclItems := make([]*objectAccessControl, len(obj.ACL))
 	for idx, aclRule := range obj.ACL {
-		aclItems[idx] = &objectAccessControl{
-			Bucket: obj.BucketName,
-			Entity: string(aclRule.Entity),
-			Object: obj.Name,
-			Role:   string(aclRule.Role),
-			Etag:   "RVRhZw==",
-			Kind:   "storage#objectAccessControl",
-		}
+		aclItems[idx] = newObjectAccessControl(obj, aclRule, externalURL)
 	}
 	return aclItems
 }
 
+func newObjectAccessControl(obj ObjectAttrs, rule storage.ACLRule, externalURL string) *objectAccessControl {
+	entity := string(rule.Entity)
+	oac := &objectAccessControl{
+		Kind:        "storage#objectAccessControl",
+		ID:          fmt.Sprintf("%s/%s/%d/%s", obj.BucketName, obj.Name, obj.Generation, entity),
+		SelfLink:    fmt.Sprintf("%s/storage/v1/b/%s/o/%s/acl/%s", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name), url.PathEscape(entity)),
+		Bucket:      obj.BucketName,
+		Object:      obj.Name,
+		Generation:  obj.Generation,
+		Entity:      entity,
+		EntityID:    rule.EntityID,
+		Email:       rule.Email,
+		Domain:      rule.Domain,
+		ProjectTeam: (*projectTeam)(rule.ProjectTeam),
+		Role:        string(rule.Role),
+		Etag:        "RVRhZw==",
+	}
+	// A rule set through the API carries only the entity and the role; GCS
+	// fills in what the entity names.
+	switch {
+	case oac.Email == "" && (strings.HasPrefix(entity, "user-") || strings.HasPrefix(entity, "group-")) && strings.Contains(entity, "@"):
+		_, oac.Email, _ = strings.Cut(entity, "-")
+	case oac.Domain == "" && strings.HasPrefix(entity, "domain-"):
+		oac.Domain = strings.TrimPrefix(entity, "domain-")
+	case oac.ProjectTeam == nil && strings.HasPrefix(entity, "project-"):
+		if team, number, ok := strings.Cut(strings.TrimPrefix(entity, "project-"), "-"); ok {
+			oac.ProjectTeam = &projectTeam{ProjectNumber: number, Team: team}
+		}
+	}
+	return oac
+}
+
 type bucketAccessControl struct {
-	Bucket string `json:"bucket,omitempty"`
-	Entity string `json:"entity,omitempty"`
-	Role   string `json:"role,omitempty"`
-	Etag   string `json:"etag,omitempty"`
-	ID     string `json:"id,omitempty"`
-	Kind   string `json:"kind,omitempty"`
+	Bucket   string `json:"bucket,omitempty"`
+	Entity   string `json:"entity,omitempty"`
+	Role     string `json:"role,omitempty"`
+	Etag     string `json:"etag,omitempty"`
+	ID       string `json:"id,omitempty"`
+	Kind     string `json:"kind,omitempty"`
+	SelfLink string `json:"selfLink,omitempty"`
 }
 
 type bucketACLListResponse struct {
@@ -264,21 +289,22 @@ type bucketACLListResponse struct {
 	Items []*bucketAccessControl `json:"items"`
 }
 
-func newBucketAccessControl(bucketName string, rule storage.ACLRule) *bucketAccessControl {
+func newBucketAccessControl(bucketName string, rule storage.ACLRule, externalURL string) *bucketAccessControl {
 	return &bucketAccessControl{
-		Bucket: bucketName,
-		Entity: string(rule.Entity),
-		Role:   string(rule.Role),
-		Etag:   "RVRhZw==",
-		ID:     bucketName + "/" + string(rule.Entity),
-		Kind:   "storage#bucketAccessControl",
+		Bucket:   bucketName,
+		Entity:   string(rule.Entity),
+		Role:     string(rule.Role),
+		Etag:     "RVRhZw==",
+		ID:       bucketName + "/" + string(rule.Entity),
+		Kind:     "storage#bucketAccessControl",
+		SelfLink: fmt.Sprintf("%s/storage/v1/b/%s/acl/%s", externalURL, url.PathEscape(bucketName), url.PathEscape(string(rule.Entity))),
 	}
 }
 
-func newBucketACLListResponse(bucket backend.Bucket) bucketACLListResponse {
+func newBucketACLListResponse(bucket backend.Bucket, externalURL string) bucketACLListResponse {
 	items := make([]*bucketAccessControl, len(bucket.ACL))
 	for idx, rule := range bucket.ACL {
-		items[idx] = newBucketAccessControl(bucket.Name, rule)
+		items[idx] = newBucketAccessControl(bucket.Name, rule, externalURL)
 	}
 	return bucketACLListResponse{
 		Kind:  "storage#bucketAccessControls",
