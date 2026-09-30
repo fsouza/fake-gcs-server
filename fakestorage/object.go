@@ -1419,8 +1419,10 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 	}
 	defer backendObj.Close()
 
+	obj := fromBackendObjects([]backend.StreamingObject{backendObj})[0]
+
 	s.triggerEvent(&backendObj, notification.EventMetadata, nil)
-	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, urlhelper.GetBaseURL(r))}
 }
 
 func (s *Server) updateObject(r *http.Request) jsonResponse {
@@ -1490,8 +1492,10 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	}
 	defer backendObj.Close()
 
+	obj := fromBackendObjects([]backend.StreamingObject{backendObj})[0]
+
 	s.triggerEvent(&backendObj, notification.EventMetadata, nil)
-	return jsonResponse{data: fromBackendObjects([]backend.StreamingObject{backendObj})[0]}
+	return jsonResponse{data: newObjectResponse(obj.ObjectAttrs, urlhelper.GetBaseURL(r))}
 }
 
 func (s *Server) composeObject(r *http.Request) jsonResponse {

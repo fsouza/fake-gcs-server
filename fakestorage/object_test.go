@@ -2248,6 +2248,106 @@ func TestObjectPatchWithMethodOverrideHeader(t *testing.T) {
 	})
 }
 
+func TestServerClientObjectUpdateReturnsObjectResource(t *testing.T) {
+	const (
+		bucketName = "some-bucket"
+		objectName = "items/data.txt"
+	)
+	objs := []Object{
+		{
+			ObjectAttrs: ObjectAttrs{
+				BucketName:  bucketName,
+				Name:        objectName,
+				ContentType: "text/plain",
+			},
+			Content: []byte("some nice content"),
+		},
+	}
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		objHandle := server.Client().Bucket(bucketName).Object(objectName)
+		updated, err := objHandle.Update(context.TODO(), storage.ObjectAttrsToUpdate{ContentType: "text/html"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		attrs, err := objHandle.Attrs(context.TODO())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if updated.ContentType != "text/html" {
+			t.Errorf("wrong content type\nwant %q\ngot  %q", "text/html", updated.ContentType)
+		}
+		if updated.Created.IsZero() || !updated.Created.Equal(attrs.Created) {
+			t.Errorf("wrong creation time\nwant %v\ngot  %v", attrs.Created, updated.Created)
+		}
+		if !strings.HasSuffix(updated.MediaLink, "/download/storage/v1/b/some-bucket/o/items%2Fdata.txt?alt=media") {
+			t.Errorf("wrong media link %q", updated.MediaLink)
+		}
+		if updated.Metageneration != attrs.Metageneration {
+			t.Errorf("wrong metageneration\nwant %d\ngot  %d", attrs.Metageneration, updated.Metageneration)
+		}
+		if !updated.CustomTime.IsZero() {
+			t.Errorf("unexpected custom time %v", updated.CustomTime)
+		}
+	})
+}
+
+func TestObjectUpdateResponsesAreObjectResources(t *testing.T) {
+	runServersTest(t, runServersOptions{}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "bucket"})
+		server.CreateObject(Object{
+			ObjectAttrs: ObjectAttrs{BucketName: "bucket", Name: "obj"},
+			Content:     []byte("content"),
+		})
+
+		tests := []struct {
+			name     string
+			method   string
+			override string
+		}{
+			{name: "PUT", method: http.MethodPut},
+			{name: "PATCH", method: http.MethodPatch},
+			{name: "POST with X-HTTP-Method-Override", method: http.MethodPost, override: "PATCH"},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				req, err := http.NewRequest(test.method, server.URL()+"/storage/v1/b/bucket/o/obj", strings.NewReader(`{"contentType":"text/html"}`))
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Header.Set("Content-Type", "application/json")
+				if test.override != "" {
+					req.Header.Set("X-HTTP-Method-Override", test.override)
+				}
+				resp, err := server.HTTPClient().Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("wrong status code\nwant %d\ngot  %d", http.StatusOK, resp.StatusCode)
+				}
+				var body map[string]any
+				if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+					t.Fatal(err)
+				}
+				if body["kind"] != "storage#object" {
+					t.Errorf("wrong kind\nwant %q\ngot  %v", "storage#object", body["kind"])
+				}
+				for _, field := range []string{"id", "selfLink", "mediaLink", "timeCreated", "metageneration"} {
+					if _, ok := body[field]; !ok {
+						t.Errorf("response has no %q field: %v", field, body)
+					}
+				}
+				for _, field := range []string{"created", "deleted"} {
+					if _, ok := body[field]; ok {
+						t.Errorf("response has %q, which is not a field of the object resource", field)
+					}
+				}
+			})
+		}
+	})
+}
+
 func TestServerClientObjectPatchCacheControl(t *testing.T) {
 	const (
 		bucketName   = "some-bucket"
