@@ -251,15 +251,16 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, err
 	}
 
-	var activeGeneration int64
+	var activeGeneration, existingMetageneration int64
 	existingObj, err := s.getObject(obj.BucketName, obj.Name)
 	if err != nil {
 		activeGeneration = 0
 	} else {
 		activeGeneration = existingObj.Generation
+		existingMetageneration = existingObj.Metageneration
 	}
 
-	if !conditions.ConditionsMet(activeGeneration) {
+	if !conditions.ConditionsMet(activeGeneration, existingMetageneration) {
 		return StreamingObject{}, PreConditionFailed
 	}
 

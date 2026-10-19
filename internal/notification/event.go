@@ -172,6 +172,8 @@ type gcsEvent struct {
 	Name            string            `json:"name"`
 	Bucket          string            `json:"bucket"`
 	Generation      int64             `json:"generation,string,omitempty"`
+	Metageneration  int64             `json:"metageneration,string,omitempty"`
+	Etag            string            `json:"etag,omitempty"`
 	ContentType     string            `json:"contentType"`
 	ContentEncoding string            `json:"contentEncoding,omitempty"`
 	Created         string            `json:"timeCreated,omitempty"`
@@ -214,6 +216,8 @@ func generateEventWithAttrs(o *backend.StreamingObject, eventType EventType, pay
 		Name:            o.Name,
 		Bucket:          o.BucketName,
 		Generation:      o.Generation,
+		Metageneration:  o.Metageneration,
+		Etag:            o.Etag,
 		ContentType:     o.ContentType,
 		ContentEncoding: o.ContentEncoding,
 		Created:         o.Created,

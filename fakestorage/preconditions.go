@@ -13,12 +13,6 @@ import (
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 )
 
-// objectMetageneration is the metageneration every object reports; see
-// newObjectResponse. Nothing here revises an object's metadata without
-// minting a new one, so the value never moves and a condition naming any
-// other value cannot hold.
-const objectMetageneration = 1
-
 // preconditions holds the ifGenerationMatch family a request may name. GCS
 // evaluates them against the object the request addresses and answers 412
 // when one does not hold, generation zero standing for an object that is not
@@ -37,10 +31,10 @@ func (p preconditions) empty() bool {
 }
 
 // ConditionsMet reports whether every condition holds for an object of the
-// given generation, zero meaning none. It satisfies backend.Conditions, so
+// given generation and metageneration, zero generation meaning none. It satisfies backend.Conditions, so
 // the paths that create an object can hand it down and have it answered where
 // the object is published rather than a moment beforehand.
-func (p preconditions) ConditionsMet(activeGeneration int64) bool {
+func (p preconditions) ConditionsMet(activeGeneration, activeMetageneration int64) bool {
 	if p.ifGenerationMatch != nil && *p.ifGenerationMatch != activeGeneration {
 		return false
 	}
@@ -51,10 +45,14 @@ func (p preconditions) ConditionsMet(activeGeneration int64) bool {
 		// An object that is not there has no metadata to have a generation of.
 		return true
 	}
-	if p.ifMetagenerationMatch != nil && *p.ifMetagenerationMatch != objectMetageneration {
+	if activeMetageneration == 0 {
+		// Backends that don't track metageneration (filesystem) report 1.
+		activeMetageneration = 1
+	}
+	if p.ifMetagenerationMatch != nil && *p.ifMetagenerationMatch != activeMetageneration {
 		return false
 	}
-	if p.ifMetagenerationNotMatch != nil && *p.ifMetagenerationNotMatch == objectMetageneration {
+	if p.ifMetagenerationNotMatch != nil && *p.ifMetagenerationNotMatch == activeMetageneration {
 		return false
 	}
 	return true
@@ -100,12 +98,13 @@ func (s *Server) checkPreconditions(r *http.Request, bucketName, objectName stri
 	if conditions.empty() {
 		return nil
 	}
-	var generation int64
+	var generation, metageneration int64
 	if obj, err := s.backend.GetObject(bucketName, objectName); err == nil {
 		generation = obj.Generation
+		metageneration = obj.Metageneration
 		obj.Close()
 	}
-	if !conditions.ConditionsMet(generation) {
+	if !conditions.ConditionsMet(generation, metageneration) {
 		response := errToJsonResponse(backend.PreConditionFailed)
 		return &response
 	}

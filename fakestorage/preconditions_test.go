@@ -310,6 +310,9 @@ func assertSameConditions(t *testing.T, want, got preconditions) {
 	}
 }
 
+// objectMetageneration is the metageneration of an object that was never patched.
+const objectMetageneration = 1
+
 func TestPreconditionsConditionsMet(t *testing.T) {
 	value := func(v int64) *int64 { return &v }
 	tests := []struct {
@@ -337,7 +340,7 @@ func TestPreconditionsConditionsMet(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := test.conditions.ConditionsMet(test.generation); got != test.want {
+			if got := test.conditions.ConditionsMet(test.generation, objectMetageneration); got != test.want {
 				t.Errorf("wrong answer for generation %d\nwant %v\ngot  %v", test.generation, test.want, got)
 			}
 		})

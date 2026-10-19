@@ -55,18 +55,18 @@ const (
 var gsutilBoundary = regexp.MustCompile(`boundary='([^']*[()<>@,;:"/\[\]?= ]+[^']*)'`)
 
 type multipartMetadata struct {
-	ContentType        string            `json:"contentType"`
-	ContentEncoding    string            `json:"contentEncoding"`
-	ContentDisposition string            `json:"contentDisposition"`
-	ContentLanguage    string            `json:"contentLanguage"`
-	CacheControl       string            `json:"cacheControl"`
-	CustomTime         time.Time         `json:"customTime,omitempty"`
-	Name               string            `json:"name"`
-	StorageClass       string            `json:"storageClass"`
-	Md5Hash            string            `json:"md5Hash"`
-	Crc32c             string            `json:"crc32c"`
-	Metadata           map[string]string `json:"metadata"`
-	Retention          *jsonRetention    `json:"retention,omitempty"`
+	ContentType        string         `json:"contentType"`
+	ContentEncoding    string         `json:"contentEncoding"`
+	ContentDisposition string         `json:"contentDisposition"`
+	ContentLanguage    string         `json:"contentLanguage"`
+	CacheControl       string         `json:"cacheControl"`
+	CustomTime         time.Time      `json:"customTime,omitempty"`
+	Name               string         `json:"name"`
+	StorageClass       string         `json:"storageClass"`
+	Md5Hash            string         `json:"md5Hash"`
+	Crc32c             string         `json:"crc32c"`
+	Metadata           customMetadata `json:"metadata"`
+	Retention          *jsonRetention `json:"retention,omitempty"`
 }
 
 func convertJsonRetentionToStorage(jr *jsonRetention) *storage.ObjectRetention {
@@ -89,19 +89,19 @@ type contentRange struct {
 
 // resumableUploadBody is the JSON body for body-based resumable uploads (e.g. gcloud CLI).
 type resumableUploadBody struct {
-	Bucket             string            `json:"bucket"`
-	Name               string            `json:"name"`
-	ContentType        string            `json:"contentType"`
-	CacheControl       string            `json:"cacheControl"`
-	ContentEncoding    string            `json:"contentEncoding"`
-	ContentDisposition string            `json:"contentDisposition"`
-	ContentLanguage    string            `json:"contentLanguage"`
-	StorageClass       string            `json:"storageClass"`
-	CustomTime         string            `json:"customTime"` // RFC3339
-	Md5Hash            string            `json:"md5Hash"`
-	Crc32c             string            `json:"crc32c"`
-	Metadata           map[string]string `json:"metadata"`
-	PredefinedACL      string            `json:"predefinedAcl"`
+	Bucket             string         `json:"bucket"`
+	Name               string         `json:"name"`
+	ContentType        string         `json:"contentType"`
+	CacheControl       string         `json:"cacheControl"`
+	ContentEncoding    string         `json:"contentEncoding"`
+	ContentDisposition string         `json:"contentDisposition"`
+	ContentLanguage    string         `json:"contentLanguage"`
+	StorageClass       string         `json:"storageClass"`
+	CustomTime         string         `json:"customTime"` // RFC3339
+	Md5Hash            string         `json:"md5Hash"`
+	Crc32c             string         `json:"crc32c"`
+	Metadata           customMetadata `json:"metadata"`
+	PredefinedACL      string         `json:"predefinedAcl"`
 }
 
 // resumableUploadEntry holds the in-progress object for a resumable upload

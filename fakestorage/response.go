@@ -7,6 +7,7 @@ package fakestorage
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -219,7 +220,7 @@ func newObjectResponse(obj ObjectAttrs, externalURL string) objectResponse {
 		Generation:              obj.Generation,
 		SelfLink:                fmt.Sprintf("%s/storage/v1/b/%s/o/%s", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
 		MediaLink:               fmt.Sprintf("%s/download/storage/v1/b/%s/o/%s?alt=media", externalURL, url.PathEscape(obj.BucketName), url.PathEscape(obj.Name)),
-		Metageneration:          "1",
+		Metageneration:          strconv.FormatInt(max(obj.Metageneration, 1), 10),
 		Retention:               retention,
 	}
 }

@@ -5,6 +5,7 @@
 package backend
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -53,7 +54,14 @@ func (bm *bucketInMemory) addObject(obj Object) Object {
 	if obj.StorageClass == "" {
 		obj.StorageClass = "STANDARD"
 	}
+	// A write without a generation creates a new version, which always starts
+	// at metageneration 1; metadata updates keep the generation and arrive
+	// here with an already-incremented metageneration.
+	newVersion := obj.Generation == 0
 	obj.Generation = getNewGenerationIfZero(obj.Generation)
+	if newVersion || obj.Metageneration == 0 {
+		obj.Metageneration = 1
+	}
 	// A write that names an existing generation is a metadata update
 	// (PatchObject, ACL changes) rather than a new version: it replaces
 	// that generation in place wherever it lives, archiving nothing.
@@ -77,6 +85,12 @@ func (bm *bucketInMemory) addObject(obj Object) Object {
 	}
 
 	return obj
+}
+
+// metadataEtag derives a new etag for a metadata update. Like in Cloud
+// Storage, the etag changes whenever the metageneration does.
+func metadataEtag(generation, metageneration int64) string {
+	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d/%d", generation, metageneration)))
 }
 
 func getNewGenerationIfZero(generation int64) int64 {
@@ -143,16 +157,16 @@ func findObject(obj Object, objectList []Object, matchGeneration bool) int {
 	return -1
 }
 
-// findLastObjectGeneration looks for an object in the given list and return the index where it
-// was found, or -1 if the object doesn't exist.
-func findLastObjectGeneration(obj Object, objectList []Object) int64 {
-	highScore := int64(0)
+// findLastObjectVersion returns the generation and metageneration of the
+// newest version of obj in the given list, or zeros if the object doesn't exist.
+func findLastObjectVersion(obj Object, objectList []Object) (generation, metageneration int64) {
 	for _, o := range objectList {
-		if obj.IDNoGen() == o.IDNoGen() && o.Generation > highScore {
-			highScore = o.Generation
+		if obj.IDNoGen() == o.IDNoGen() && o.Generation > generation {
+			generation = o.Generation
+			metageneration = o.Metageneration
 		}
 	}
-	return highScore
+	return generation, metageneration
 }
 
 // NewStorageMemory creates an instance of StorageMemory.
@@ -264,8 +278,8 @@ func (s *storageMemory) CreateObject(obj StreamingObject, conditions Conditions)
 		bucketInMemory = newBucketInMemory(obj.BucketName, false, BucketAttrs{})
 	}
 	bufferedObj, err := obj.BufferedObject()
-	currentGeneration := findLastObjectGeneration(bufferedObj, bucketInMemory.activeObjects)
-	if !conditions.ConditionsMet(currentGeneration) {
+	currentGeneration, currentMetageneration := findLastObjectVersion(bufferedObj, bucketInMemory.activeObjects)
+	if !conditions.ConditionsMet(currentGeneration, currentMetageneration) {
 		return StreamingObject{}, PreConditionFailed
 	}
 	if err != nil {
@@ -386,6 +400,8 @@ func (s *storageMemory) PatchObject(bucketName, objectName string, attrsToUpdate
 	}
 
 	obj.patch(attrsToUpdate)
+	obj.Metageneration++
+	obj.Etag = metadataEtag(obj.Generation, obj.Metageneration)
 	s.CreateObject(obj, NoConditions{})
 	return obj, nil
 }
@@ -401,6 +417,8 @@ func (s *storageMemory) UpdateObject(bucketName, objectName string, attrsToUpdat
 		obj.Metadata = map[string]string{}
 	}
 	obj.patch(attrsToUpdate)
+	obj.Metageneration++
+	obj.Etag = metadataEtag(obj.Generation, obj.Metageneration)
 	s.CreateObject(obj, NoConditions{})
 	return obj, nil
 }
@@ -456,6 +474,7 @@ func (s *storageMemory) ComposeObject(bucketName string, objectNames []string, d
 	// Compose creates a new generation rather than reusing the
 	// destination's, matching Cloud Storage.
 	dest.Generation = 0
+	dest.Metageneration = 0
 
 	result, err := s.CreateObject(dest.StreamingObject(), NoConditions{})
 	if err != nil {
