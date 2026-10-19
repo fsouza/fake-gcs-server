@@ -8,12 +8,12 @@ package backend
 import "cloud.google.com/go/storage"
 
 type Conditions interface {
-	ConditionsMet(activeGeneration int64) bool
+	ConditionsMet(activeGeneration, activeMetageneration int64) bool
 }
 
 type NoConditions struct{}
 
-func (NoConditions) ConditionsMet(int64) bool {
+func (NoConditions) ConditionsMet(int64, int64) bool {
 	return true
 }
 

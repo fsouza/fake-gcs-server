@@ -34,6 +34,7 @@ type ObjectAttrs struct {
 	Updated              string
 	CustomTime           string
 	Generation           int64
+	Metageneration       int64
 	RetentionMode        string
 	RetentionRetainUntil string
 }

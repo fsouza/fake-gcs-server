@@ -3137,3 +3137,145 @@ func TestRetentionLocked(t *testing.T) {
 		t.Errorf("Expected RetainUntil %v, got %v", retainUntil, retrieved.Retention.RetainUntil)
 	}
 }
+
+func TestObjectMetagenerationLifecycle(t *testing.T) {
+	const (
+		bucketName = "some-bucket"
+		objectName = "data.txt"
+	)
+	objs := []Object{{
+		ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: objectName},
+		Content:     []byte("v1"),
+	}}
+	runServersTest(t, runServersOptions{objs: objs}, func(t *testing.T, server *Server) {
+		ctx := context.TODO()
+		client := server.Client()
+		obj := client.Bucket(bucketName).Object(objectName)
+
+		created, err := obj.Attrs(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if created.Metageneration != 1 {
+			t.Fatalf("new object: want metageneration 1, got %d", created.Metageneration)
+		}
+
+		// Metadata updates keep the generation and bump the metageneration.
+		previousEtag := created.Etag
+		for want := int64(2); want <= 3; want++ {
+			updated, err := obj.Update(ctx, storage.ObjectAttrsToUpdate{Metadata: map[string]string{"k": fmt.Sprint(want)}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if updated.Generation != created.Generation {
+				t.Errorf("update changed generation: want %d, got %d", created.Generation, updated.Generation)
+			}
+			if updated.Metageneration != want {
+				t.Errorf("update: want metageneration %d, got %d", want, updated.Metageneration)
+			}
+			if updated.Etag == "" || updated.Etag == previousEtag {
+				t.Errorf("update should change the etag, got %q (previous %q)", updated.Etag, previousEtag)
+			}
+			previousEtag = updated.Etag
+		}
+
+		// Preconditions are evaluated against the real metageneration.
+		if _, err := obj.If(storage.Conditions{MetagenerationMatch: 3}).Update(ctx, storage.ObjectAttrsToUpdate{ContentType: "text/plain"}); err != nil {
+			t.Errorf("ifMetagenerationMatch=3 should hold: %v", err)
+		}
+		if _, err := obj.If(storage.Conditions{MetagenerationMatch: 3}).Update(ctx, storage.ObjectAttrsToUpdate{ContentType: "text/html"}); err == nil {
+			t.Error("ifMetagenerationMatch=3 should fail once the metageneration is 4")
+		}
+
+		// Overwriting the content creates a new generation, back at metageneration 1.
+		w := obj.NewWriter(ctx)
+		if _, err := w.Write([]byte("v2")); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		overwritten, err := obj.Attrs(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if overwritten.Generation == created.Generation {
+			t.Error("overwrite should create a new generation")
+		}
+		if overwritten.Metageneration != 1 {
+			t.Errorf("overwrite: want metageneration 1, got %d", overwritten.Metageneration)
+		}
+	})
+}
+
+func TestCustomMetadataAcceptsScalars(t *testing.T) {
+	const (
+		bucketName = "some-bucket"
+		objectName = "x.png"
+	)
+	runServersTest(t, runServersOptions{objs: []Object{{ObjectAttrs: ObjectAttrs{BucketName: bucketName, Name: "seed"}}}}, func(t *testing.T, server *Server) {
+		ctx := context.TODO()
+		obj := server.Client().Bucket(bucketName).Object(objectName)
+
+		post := func(url, contentType string, body string) {
+			t.Helper()
+			resp, err := server.HTTPClient().Post(url, contentType, strings.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				b, _ := io.ReadAll(resp.Body)
+				t.Fatalf("%s: status %d: %s", url, resp.StatusCode, b)
+			}
+		}
+
+		// multipart upload with numeric and boolean values
+		const boundary = "xyz"
+		multipart := "--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" +
+			`{"name":"` + objectName + `","metadata":{"width":612,"best-quality":true,"ratio":1.5,"name":"p1"}}` +
+			"\r\n--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nx\r\n--" + boundary + "--\r\n"
+		post(server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=multipart", "multipart/related; boundary="+boundary, multipart)
+
+		attrs, err := obj.Attrs(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]string{"width": "612", "best-quality": "true", "ratio": "1.5", "name": "p1"}
+		if !reflect.DeepEqual(attrs.Metadata, want) {
+			t.Errorf("upload metadata\nwant %v\ngot  %v", want, attrs.Metadata)
+		}
+
+		// PATCH with a number
+		req, err := http.NewRequest(http.MethodPatch, server.URL()+"/storage/v1/b/"+bucketName+"/o/"+objectName, strings.NewReader(`{"metadata":{"page-num":2}}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := server.HTTPClient().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("patch: status %d", resp.StatusCode)
+		}
+		attrs, err = obj.Attrs(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if attrs.Metadata["page-num"] != "2" || attrs.Metadata["width"] != "612" {
+			t.Errorf("patch metadata: got %v", attrs.Metadata)
+		}
+
+		// nested values are still rejected
+		resp, err = server.HTTPClient().Post(server.URL()+"/upload/storage/v1/b/"+bucketName+"/o?uploadType=multipart", "multipart/related; boundary="+boundary,
+			strings.NewReader(strings.Replace(multipart, `"width":612`, `"width":{"a":1}`, 1)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			t.Error("object-valued metadata should be rejected")
+		}
+	})
+}

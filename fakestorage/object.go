@@ -53,8 +53,10 @@ type ObjectAttrs struct {
 	Deleted    time.Time
 	CustomTime time.Time
 	Generation int64
-	Metadata   map[string]string
-	Retention  *storage.ObjectRetention
+	// Metageneration starts at 1 and is incremented on every metadata update.
+	Metageneration int64
+	Metadata       map[string]string
+	Retention      *storage.ObjectRetention
 }
 
 func (o *ObjectAttrs) id() string {
@@ -80,6 +82,7 @@ type jsonObject struct {
 	Deleted            time.Time         `json:"deleted,omitempty"`
 	CustomTime         time.Time         `json:"customTime,omitempty"`
 	Generation         int64             `json:"generation,omitempty,string"`
+	Metageneration     int64             `json:"metageneration,omitempty,string"`
 	Metadata           map[string]string `json:"metadata,omitempty"`
 	Retention          *jsonRetention    `json:"retention,omitempty"`
 }
@@ -109,6 +112,7 @@ func (o ObjectAttrs) MarshalJSON() ([]byte, error) {
 		Deleted:            o.Deleted,
 		CustomTime:         o.CustomTime,
 		Generation:         o.Generation,
+		Metageneration:     o.Metageneration,
 		Metadata:           o.Metadata,
 	}
 	temp.ACL = make([]aclRule, len(o.ACL))
@@ -146,6 +150,7 @@ func (o *ObjectAttrs) UnmarshalJSON(data []byte) error {
 	o.Updated = temp.Updated
 	o.Deleted = temp.Deleted
 	o.Generation = temp.Generation
+	o.Metageneration = temp.Metageneration
 	o.Metadata = temp.Metadata
 	o.CustomTime = temp.CustomTime
 	o.ACL = make([]storage.ACLRule, len(temp.ACL))
@@ -489,6 +494,7 @@ func toBackendObjects(objects []StreamingObject) []backend.StreamingObject {
 				Updated:              getCurrentIfZero(o.Updated).Format(timestampFormat),
 				CustomTime:           o.CustomTime.Format(timestampFormat),
 				Generation:           o.Generation,
+				Metageneration:       o.Metageneration,
 				Metadata:             o.Metadata,
 				RetentionMode:        retentionMode,
 				RetentionRetainUntil: retentionRetainUntil,
@@ -527,6 +533,7 @@ func bufferedObjectsToBackendObjects(objects []Object) []backend.StreamingObject
 				Updated:              getCurrentIfZero(o.Updated).Format(timestampFormat),
 				CustomTime:           o.CustomTime.Format(timestampFormat),
 				Generation:           o.Generation,
+				Metageneration:       o.Metageneration,
 				Metadata:             o.Metadata,
 				Crc32c:               o.Crc32c,
 				Md5Hash:              o.Md5Hash,
@@ -571,6 +578,7 @@ func fromBackendObjects(objects []backend.StreamingObject) []StreamingObject {
 				Updated:            convertTimeWithoutError(o.Updated),
 				CustomTime:         convertTimeWithoutError(o.CustomTime),
 				Generation:         o.Generation,
+				Metageneration:     o.Metageneration,
 				Metadata:           o.Metadata,
 				Retention:          retention,
 			},
@@ -609,6 +617,7 @@ func fromBackendObjectsAttrs(objectAttrs []backend.ObjectAttrs) []ObjectAttrs {
 			Updated:            convertTimeWithoutError(o.Updated),
 			CustomTime:         convertTimeWithoutError(o.CustomTime),
 			Generation:         o.Generation,
+			Metageneration:     o.Metageneration,
 			Metadata:           o.Metadata,
 			Retention:          retention,
 		})
@@ -1012,7 +1021,7 @@ func (s *Server) rewriteObject(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
 	}
-	if !sourceConditions.ConditionsMet(obj.Generation) {
+	if !sourceConditions.ConditionsMet(obj.Generation, obj.Metageneration) {
 		return errToJsonResponse(backend.PreConditionFailed)
 	}
 	destinationConditions, err := parsePreconditions(r.URL.Query(), "")
@@ -1368,8 +1377,8 @@ func (s *Server) patchObject(r *http.Request) jsonResponse {
 		ContentDisposition string
 		ContentLanguage    string
 		CacheControl       string
-		StorageClass       string            `json:"storageClass"`
-		Metadata           map[string]string `json:"metadata"`
+		StorageClass       string         `json:"storageClass"`
+		Metadata           customMetadata `json:"metadata"`
 		CustomTime         string
 		Acl                []acls
 		Retention          *jsonRetention `json:"retention"`
@@ -1438,12 +1447,12 @@ func (s *Server) updateObject(r *http.Request) jsonResponse {
 	}
 
 	var payload struct {
-		Metadata           map[string]string `json:"metadata"`
-		ContentType        string            `json:"contentType"`
-		ContentDisposition string            `json:"contentDisposition"`
-		ContentLanguage    string            `json:"contentLanguage"`
-		CacheControl       string            `json:"cacheControl"`
-		StorageClass       string            `json:"storageClass"`
+		Metadata           customMetadata `json:"metadata"`
+		ContentType        string         `json:"contentType"`
+		ContentDisposition string         `json:"contentDisposition"`
+		ContentLanguage    string         `json:"contentLanguage"`
+		CacheControl       string         `json:"cacheControl"`
+		StorageClass       string         `json:"storageClass"`
 		CustomTime         string
 		Acl                []acls
 		Retention          *jsonRetention `json:"retention"`
@@ -1511,7 +1520,7 @@ func (s *Server) composeObject(r *http.Request) jsonResponse {
 			ContentLanguage    string
 			CacheControl       string
 			StorageClass       string `json:"storageClass"`
-			Metadata           map[string]string
+			Metadata           customMetadata
 		}
 	}
 
