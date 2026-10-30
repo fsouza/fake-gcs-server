@@ -322,12 +322,30 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 
 	objects := []ObjectAttrs{}
 	bucketPath := filepath.Join(s.rootDir, url.PathEscape(bucketName))
-	if err := filepath.Walk(bucketPath, func(path string, info fs.FileInfo, err error) error {
+	walkRoot := bucketPath
+	if dir := filepath.Dir(prefix); prefix != "" && dir != "." && filepath.IsLocal(dir) {
+		walkRoot = filepath.Join(bucketPath, dir)
+	}
+
+	if _, err := os.Lstat(bucketPath); err != nil {
+		return nil, err
+	}
+	if walkRoot != bucketPath {
+		if _, err := os.Lstat(walkRoot); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return objects, nil
+			}
+			return nil, err
+		}
+	}
+
+	if err := filepath.Walk(walkRoot, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		objName, _ := filepath.Rel(bucketPath, path)
+		objName = filepath.ToSlash(objName)
 		if s.mh.isSpecialFile(info.Name()) {
 			return nil
 		}
