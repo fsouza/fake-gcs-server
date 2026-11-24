@@ -149,7 +149,10 @@ func NewServerWithOptions(options Options) (*Server, error) {
 		handlers.AllowedHeaders(allowedHeaders),
 		handlers.AllowedOrigins([]string{"*"}),
 		handlers.AllowCredentials(),
-		handlers.ExposedHeaders([]string{"Location"}),
+		// Range is how a browser resuming an upload learns how much the
+		// server holds; the X-Goog-Upload ones are the upload protocol
+		// gcloud and the C++ SDK speak.
+		handlers.ExposedHeaders([]string{"Location", "Range", "X-Goog-Upload-URL", "X-Goog-Upload-Status"}),
 	)
 
 	s.handler = cors(s.handler)
