@@ -107,14 +107,32 @@ type resumableUploadBody struct {
 // resumableUploadEntry holds the in-progress object for a resumable upload
 // session along with state supplied when the session was initiated but only
 // applied when the upload is finalized: generation preconditions (e.g.
-// ifGenerationMatch) and any client-declared MD5/CRC32C checksums. GCS sends
-// both on the initiating request, but the object is only created on finalize,
-// so they must be carried across both requests.
+// ifGenerationMatch), any client-declared MD5/CRC32C checksums, and the size
+// declared in X-Upload-Content-Length. GCS sends them on the initiating
+// request, but the object is only created on finalize, so they must be
+// carried across every request of the session.
 type resumableUploadEntry struct {
 	obj            Object
 	conditions     preconditions
 	declaredMd5    string
 	declaredCrc32c string
+	// declaredSize is the X-Upload-Content-Length of the initiating request,
+	// or -1 when it declared none.
+	declaredSize int64
+}
+
+// declaredUploadSize reads the X-Upload-Content-Length an initiating request
+// carries, -1 when it carries none.
+func declaredUploadSize(r *http.Request) (int64, error) {
+	header := r.Header.Get("X-Upload-Content-Length")
+	if header == "" {
+		return -1, nil
+	}
+	size, err := strconv.ParseInt(header, 10, 64)
+	if err != nil || size < 0 {
+		return 0, fmt.Errorf("invalid X-Upload-Content-Length: %q", header)
+	}
+	return size, nil
 }
 
 // checkDeclaredChecksums verifies any client-declared MD5/CRC32C checksum
@@ -232,13 +250,17 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 	if err != nil {
 		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
 	}
+	declaredSize, err := declaredUploadSize(r)
+	if err != nil {
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+	}
 
 	// Generate upload ID and store the object for later resumable upload chunks
 	uploadID, err := generateUploadID()
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions, declaredMd5: body.Md5Hash, declaredCrc32c: body.Crc32c})
+	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions, declaredMd5: body.Md5Hash, declaredCrc32c: body.Crc32c, declaredSize: declaredSize})
 
 	// Create response headers
 	header := make(http.Header)
@@ -651,11 +673,15 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 			Retention:          convertJsonRetentionToStorage(metadata.Retention),
 		},
 	}
+	declaredSize, err := declaredUploadSize(r)
+	if err != nil {
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+	}
 	uploadID, err := generateUploadID()
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions, declaredMd5: metadata.Md5Hash, declaredCrc32c: metadata.Crc32c})
+	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions, declaredMd5: metadata.Md5Hash, declaredCrc32c: metadata.Crc32c, declaredSize: declaredSize})
 	header := make(http.Header)
 	location := fmt.Sprintf(
 		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
@@ -701,10 +727,20 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 // The server collects the content, analyzes the "Content-Range", and returns a
 // "308 Permanent Redirect" response if more chunks are expected, and a
 // "200 OK" response if the upload is complete (the Go client also accepts a
-// "201 Created" response). The "Range" header in the response should be set to
-// the size of the content received so far, such as:
+// "201 Created" response). The "Range" header of a 308 is the content held so
+// far, its end inclusive, and is left out while nothing is held; after 2000
+// bytes:
 //
-//	Range: bytes 0-2000
+//	Range: bytes=0-1999
+//
+// A request whose "Content-Range" is "bytes */<total>" and whose body is empty
+// asks how much the server holds. It is answered with a 308 and the session
+// goes on, unless the server already holds <total> bytes, which is how a
+// streaming upload whose size is a multiple of its chunk ends.
+//
+// A chunk is refused with a 400, as GCS refuses it, when its body is not the
+// size its "Content-Range" says, or when the upload's total differs from the
+// X-Upload-Content-Length its session was initiated with.
 //
 // The client (such as the Go client) can send a header "X-Guploader-No-308" if
 // it can't process a native "308 Permanent Redirect". The in-process response
@@ -724,8 +760,35 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
+	var parsed contentRange
+	ranged := false
+	if header := r.Header.Get("Content-Range"); header != "" {
+		parsed, err = parseContentRange(header)
+		if err != nil {
+			return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
+		}
+		ranged = true
+	}
+	if ranged && isStatusQuery(parsed, content, len(obj.Content)) {
+		return incompleteUpload(r, obj, len(obj.Content))
+	}
+	if err := checkChunk(parsed, ranged, len(content), len(obj.Content), entry.declaredSize); err != nil {
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
+	}
 	commit := true
-	status := http.StatusOK
+	if ranged && parsed.KnownRange {
+		// Middle of streaming request, or any part of chunked request:
+		// complete if the range covers the known total.
+		commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
+	}
+	held := int64(len(obj.Content) + len(content))
+	if commit && entry.declaredSize >= 0 && held != entry.declaredSize {
+		s.uploads.Delete(uploadID)
+		return jsonResponse{
+			status:       http.StatusBadRequest,
+			errorMessage: fmt.Sprintf("upload of %d bytes, declared as %d by X-Upload-Content-Length", held, entry.declaredSize),
+		}
+	}
 	obj.Content = append(obj.Content, content...)
 	obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
 	obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
@@ -736,54 +799,82 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	} else if obj.ContentType == "" {
 		obj.ContentType = "application/octet-stream"
 	}
-	responseHeader := make(http.Header)
-	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
-		parsed, err := parseContentRange(contentRange)
-		if err != nil {
-			return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
-		}
-		if parsed.KnownRange {
-			// Middle of streaming request, or any part of chunked request
-			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", parsed.End))
-			// Complete if the range covers the known total
-			commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
-		} else {
-			// End of a streaming request
-			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", len(obj.Content)))
-		}
+	if !commit {
+		// Whatever the session was initiated with is kept for the chunks
+		// still to come: its preconditions, checksums and size.
+		entry.obj = obj
+		s.uploads.Store(uploadID, entry)
+		return incompleteUpload(r, obj, len(obj.Content))
 	}
-	if commit {
-		if err := checkDeclaredChecksums(entry.declaredMd5, entry.declaredCrc32c, obj.Md5Hash, obj.Crc32c); err != nil {
-			s.uploads.Delete(uploadID)
-			return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
-		}
+	if err := checkDeclaredChecksums(entry.declaredMd5, entry.declaredCrc32c, obj.Md5Hash, obj.Crc32c); err != nil {
 		s.uploads.Delete(uploadID)
-		streamingObject, err := s.createObject(obj.StreamingObject(), entry.conditions)
-		if err != nil {
-			return errToJsonResponse(err)
-		}
-		defer streamingObject.Close()
-		obj, err = streamingObject.BufferedObject()
-		if err != nil {
-			return errToJsonResponse(err)
-		}
-	} else {
-		if _, no308 := r.Header["X-Guploader-No-308"]; no308 {
-			// Go client
-			responseHeader.Set("X-Http-Status-Code-Override", "308")
-		} else {
-			// Python client
-			status = http.StatusPermanentRedirect
-		}
-		s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: entry.conditions})
+		return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
 	}
+	s.uploads.Delete(uploadID)
+	streamingObject, err := s.createObject(obj.StreamingObject(), entry.conditions)
+	if err != nil {
+		return errToJsonResponse(err)
+	}
+	defer streamingObject.Close()
+	obj, err = streamingObject.BufferedObject()
+	if err != nil {
+		return errToJsonResponse(err)
+	}
+	responseHeader := make(http.Header)
 	if r.Header.Get("X-Goog-Upload-Command") == "upload, finalize" {
 		responseHeader.Set("X-Goog-Upload-Status", "final")
 	}
 	return jsonResponse{
-		status: status,
+		status: http.StatusOK,
 		data:   newObjectResponse(obj.ObjectAttrs, urlhelper.GetBaseURL(r)),
 		header: responseHeader,
+	}
+}
+
+// isStatusQuery reports whether a request with no body and a "Content-Range"
+// of "bytes */<total>" asks how much is held, rather than ending a streaming
+// upload whose last chunk was already sent.
+func isStatusQuery(parsed contentRange, content []byte, held int) bool {
+	return !parsed.KnownRange && parsed.KnownTotal && len(content) == 0 && parsed.Total != held
+}
+
+// checkChunk refuses a chunk whose body is not the size of its range, or
+// whose total differs from the size the session was initiated with.
+func checkChunk(parsed contentRange, ranged bool, received, held int, declaredSize int64) error {
+	if !ranged {
+		return nil
+	}
+	if parsed.KnownRange && parsed.End-parsed.Start+1 != received {
+		return fmt.Errorf(
+			"there were %d byte(s) in the request body; there should have been %d byte(s) according to the Content-Range header",
+			received, parsed.End-parsed.Start+1)
+	}
+	if parsed.KnownTotal && declaredSize >= 0 && int64(parsed.Total) != declaredSize {
+		return fmt.Errorf("the Content-Range total %d differs from the X-Upload-Content-Length %d", parsed.Total, declaredSize)
+	}
+	return nil
+}
+
+// incompleteUpload answers a chunk that leaves the upload incomplete, or a
+// status query, with a 308 and the range held so far.
+func incompleteUpload(r *http.Request, obj Object, held int) jsonResponse {
+	header := make(http.Header)
+	if held > 0 {
+		header.Set("Range", fmt.Sprintf("bytes=0-%d", held-1))
+	}
+	status := http.StatusPermanentRedirect
+	if _, no308 := r.Header["X-Guploader-No-308"]; no308 {
+		// Go client
+		header.Set("X-Http-Status-Code-Override", "308")
+		status = http.StatusOK
+	}
+	if r.Header.Get("X-Goog-Upload-Command") == "upload, finalize" {
+		header.Set("X-Goog-Upload-Status", "final")
+	}
+	return jsonResponse{
+		status: status,
+		data:   newObjectResponse(obj.ObjectAttrs, urlhelper.GetBaseURL(r)),
+		header: header,
 	}
 }
 
