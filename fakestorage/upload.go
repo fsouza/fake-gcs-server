@@ -18,11 +18,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/backend"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
+	"github.com/fsouza/fake-gcs-server/internal/spill"
 	"github.com/fsouza/fake-gcs-server/internal/urlhelper"
 	"github.com/gorilla/mux"
 )
@@ -110,11 +112,46 @@ type resumableUploadBody struct {
 // ifGenerationMatch) and any client-declared MD5/CRC32C checksums. GCS sends
 // both on the initiating request, but the object is only created on finalize,
 // so they must be carried across both requests.
+//
+// Server.Stop removes the temporary files of uploads that never finished.
 type resumableUploadEntry struct {
 	obj            Object
 	conditions     preconditions
 	declaredMd5    string
 	declaredCrc32c string
+
+	// mu serializes the requests that send content for the upload.
+	mu      sync.Mutex
+	content *spill.Buffer
+	done    bool // finalized: the upload is gone
+}
+
+func newResumableUploadEntry(obj Object, conditions preconditions, declaredMd5, declaredCrc32c string) *resumableUploadEntry {
+	return &resumableUploadEntry{
+		obj:            obj,
+		conditions:     conditions,
+		declaredMd5:    declaredMd5,
+		declaredCrc32c: declaredCrc32c,
+		content:        spill.New("", spill.DefaultLimit),
+	}
+}
+
+// write appends chunk to the content. A chunk that fails part way adds nothing.
+func (e *resumableUploadEntry) write(chunk io.Reader) error {
+	size := e.content.Size()
+	if _, err := e.content.ReadFrom(chunk); err != nil {
+		_ = e.content.Truncate(size)
+		return err
+	}
+	return nil
+}
+
+func (e *resumableUploadEntry) checksums() (md5Hash, crc32c string, err error) {
+	hasher := checksum.NewStreamingHasher()
+	if _, err := io.Copy(hasher, e.content.Reader()); err != nil {
+		return "", "", err
+	}
+	return hasher.EncodedMd5Hash(), hasher.EncodedCrc32cChecksum(), nil
 }
 
 // checkDeclaredChecksums verifies any client-declared MD5/CRC32C checksum
@@ -238,7 +275,7 @@ func (s *Server) handleBodyBasedResumableUpload(r *http.Request, body *resumable
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions, declaredMd5: body.Md5Hash, declaredCrc32c: body.Crc32c})
+	s.uploads.Store(uploadID, newResumableUploadEntry(obj, conditions, body.Md5Hash, body.Crc32c))
 
 	// Create response headers
 	header := make(http.Header)
@@ -655,7 +692,7 @@ func (s *Server) resumableUpload(bucketName string, r *http.Request) jsonRespons
 	if err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
-	s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: conditions, declaredMd5: metadata.Md5Hash, declaredCrc32c: metadata.Crc32c})
+	s.uploads.Store(uploadID, newResumableUploadEntry(obj, conditions, metadata.Md5Hash, metadata.Crc32c))
 	header := make(http.Header)
 	location := fmt.Sprintf(
 		"%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s&upload_id=%s",
@@ -716,26 +753,24 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	if !ok {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	entry := rawObj.(resumableUploadEntry)
-	obj := entry.obj
-	// TODO: stream upload file content to and from disk (when using the FS
-	// backend, at least) instead of loading the entire content into memory.
-	content, err := loadContent(r.Body)
-	if err != nil {
+	entry := rawObj.(*resumableUploadEntry)
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.done {
+		return jsonResponse{status: http.StatusNotFound}
+	}
+	if err := entry.write(r.Body); err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
 	commit := true
 	status := http.StatusOK
-	obj.Content = append(obj.Content, content...)
-	obj.Crc32c = checksum.EncodedCrc32cChecksum(obj.Content)
-	obj.Md5Hash = checksum.EncodedMd5Hash(obj.Content)
-	obj.Etag = obj.Md5Hash
 	contentTypeHeader := r.Header.Get(contentTypeHeader)
 	if contentTypeHeader != "" {
-		obj.ContentType = contentTypeHeader
-	} else if obj.ContentType == "" {
-		obj.ContentType = "application/octet-stream"
+		entry.obj.ContentType = contentTypeHeader
+	} else if entry.obj.ContentType == "" {
+		entry.obj.ContentType = "application/octet-stream"
 	}
+	obj := entry.obj
 	responseHeader := make(http.Header)
 	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
 		parsed, err := parseContentRange(contentRange)
@@ -749,24 +784,28 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 			commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
 		} else {
 			// End of a streaming request
-			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", len(obj.Content)))
+			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", entry.content.Size()))
 		}
 	}
 	if commit {
+		s.uploads.Delete(uploadID)
+		entry.done = true
+		defer entry.content.Close()
+		md5Hash, crc32c, err := entry.checksums()
+		if err != nil {
+			return errToJsonResponse(err)
+		}
+		obj.Md5Hash, obj.Crc32c, obj.Etag = md5Hash, crc32c, md5Hash
 		if err := checkDeclaredChecksums(entry.declaredMd5, entry.declaredCrc32c, obj.Md5Hash, obj.Crc32c); err != nil {
-			s.uploads.Delete(uploadID)
 			return jsonResponse{status: http.StatusBadRequest, errorMessage: err.Error()}
 		}
-		s.uploads.Delete(uploadID)
-		streamingObject, err := s.createObject(obj.StreamingObject(), entry.conditions)
+		content := StreamingObject{ObjectAttrs: obj.ObjectAttrs, Content: noopSeekCloser{entry.content.Reader()}}
+		streamingObject, err := s.createObject(content, entry.conditions)
 		if err != nil {
 			return errToJsonResponse(err)
 		}
 		defer streamingObject.Close()
-		obj, err = streamingObject.BufferedObject()
-		if err != nil {
-			return errToJsonResponse(err)
-		}
+		obj = Object{ObjectAttrs: streamingObject.ObjectAttrs}
 	} else {
 		if _, no308 := r.Header["X-Guploader-No-308"]; no308 {
 			// Go client
@@ -775,7 +814,6 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 			// Python client
 			status = http.StatusPermanentRedirect
 		}
-		s.uploads.Store(uploadID, resumableUploadEntry{obj: obj, conditions: entry.conditions})
 	}
 	if r.Header.Get("X-Goog-Upload-Command") == "upload, finalize" {
 		responseHeader.Set("X-Goog-Upload-Status", "final")

@@ -471,6 +471,18 @@ func (s *Server) Stop() {
 		s.ts.Close()
 	}
 	s.notificationRegistry.Close()
+	// Remove the temporary files of uploads that were never finished.
+	s.uploads.Range(func(id, value any) bool {
+		entry := value.(*resumableUploadEntry)
+		entry.mu.Lock()
+		if !entry.done {
+			entry.done = true
+			_ = entry.content.Close()
+		}
+		entry.mu.Unlock()
+		s.uploads.Delete(id)
+		return true
+	})
 }
 
 // URL returns the server URL.

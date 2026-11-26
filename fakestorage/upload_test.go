@@ -15,6 +15,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -2126,5 +2127,78 @@ func TestServerClientSimpleUploadIfGenerationMatch(t *testing.T) {
 	}
 	if string(obj.Content) != "v4" {
 		t.Fatalf("content after successful conditional write: want %q, got %q", "v4", string(obj.Content))
+	}
+}
+
+func TestServerResumableUploadDeclaredMd5(t *testing.T) {
+	const bucketName = "testbucket"
+
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		client := server.HTTPClient()
+		for _, tc := range []struct {
+			declared string
+			status   int
+		}{
+			{checksum.EncodedMd5Hash([]byte("abcdef")), http.StatusOK},
+			{checksum.EncodedMd5Hash([]byte("abcxyz")), http.StatusBadRequest},
+		} {
+			body := fmt.Sprintf(`{"name":"obj","md5Hash":%q}`, tc.declared)
+			resp, err := client.Post(fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=resumable", server.URL(), bucketName), "application/json", strings.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = resp.Body.Close()
+			uploadURL := resp.Header.Get("Location")
+			for _, chunk := range []struct{ body, contentRange string }{
+				{"abc", "bytes 0-2/6"},
+				{"def", "bytes 3-5/6"},
+			} {
+				req, err := http.NewRequest(http.MethodPut, uploadURL, strings.NewReader(chunk.body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Header.Set("Content-Range", chunk.contentRange)
+				if resp, err = client.Do(req); err != nil {
+					t.Fatal(err)
+				}
+				_ = resp.Body.Close()
+			}
+			if resp.StatusCode != tc.status {
+				t.Errorf("declared MD5 %s: status %d, want %d", tc.declared, resp.StatusCode, tc.status)
+			}
+		}
+	})
+}
+
+func TestServerStopRemovesUnfinishedUploads(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp) // os.TempDir on Unix
+	t.Setenv("TMP", tmp)    // os.TempDir on Windows
+
+	server := NewServer(nil)
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "testbucket"})
+	client := server.HTTPClient()
+	resp, err := client.Post(server.URL()+"/upload/storage/v1/b/testbucket/o?uploadType=resumable&name=obj", "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	req, err := http.NewRequest(http.MethodPut, resp.Header.Get("Location"), bytes.NewReader(make([]byte, 2<<20)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Range", "bytes 0-2097151/4194304")
+	if resp, err = client.Do(req); err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if entries, _ := os.ReadDir(tmp); len(entries) == 0 {
+		t.Fatal("upload didn't spill to a temporary file")
+	}
+
+	server.Stop()
+	if entries, _ := os.ReadDir(tmp); len(entries) != 0 {
+		t.Errorf("temporary files left after Stop: %v", entries)
 	}
 }
