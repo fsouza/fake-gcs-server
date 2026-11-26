@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-const metadataSuffix = ".metadata"
+// metadataSuffix can't end an object's path; see objectRelPath.
+const metadataSuffix = "%m"
 
 type metadataFile struct{}
 
