@@ -76,6 +76,51 @@ func TestGetAttributes(t *testing.T) {
 	}
 }
 
+func TestStorageFSPatchObjectKeepsContent(t *testing.T) {
+	root := t.TempDir()
+	s, err := NewStorageFS(nil, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := s.CreateObject(StreamingObject{
+		ObjectAttrs: ObjectAttrs{BucketName: "bucket", Name: "object"},
+		Content:     noopSeekCloser{bytes.NewReader([]byte("content"))},
+	}, NoConditions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = created.Close()
+	path := filepath.Join(root, "bucket", "object")
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	patched, err := s.PatchObject("bucket", "object", ObjectAttrs{ContentType: "text/plain"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = patched.Close()
+	if patched.Generation == created.Generation {
+		t.Error("patch kept the generation")
+	}
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(before, after) {
+		t.Error("patch rewrote the content file")
+	}
+	got, err := s.GetObject("bucket", "object")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer got.Close()
+	if got.ContentType != "text/plain" || got.Generation != patched.Generation {
+		t.Errorf("stored attributes: content type %q, generation %d; want %q, %d", got.ContentType, got.Generation, "text/plain", patched.Generation)
+	}
+}
+
 // On Windows, TestStorageFSReplaceWhileOpen needs openFile and rename.
 func TestStorageFSReplaceWhileOpen(t *testing.T) {
 	const small, large = 10, 3 << 20

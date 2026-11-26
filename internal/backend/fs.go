@@ -446,30 +446,40 @@ func (s *storageFS) DeleteObjectWithGeneration(bucketName, objectName string, ge
 }
 
 func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
-	obj, err := s.GetObject(bucketName, objectName)
-	if err != nil {
-		return StreamingObject{}, err
-	}
-	defer obj.Close()
-
-	obj.patch(attrsToUpdate)
-	obj.Generation = 0 // reset generation id
-	return s.CreateObject(obj, NoConditions{})
+	return s.updateAttrs(bucketName, objectName, func(obj *StreamingObject) {
+		obj.patch(attrsToUpdate)
+	})
 }
 
 func (s *storageFS) UpdateObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
-	obj, err := s.GetObject(bucketName, objectName)
+	return s.updateAttrs(bucketName, objectName, func(obj *StreamingObject) {
+		if attrsToUpdate.Metadata != nil {
+			obj.Metadata = map[string]string{}
+		}
+		obj.patch(attrsToUpdate)
+	})
+}
+
+// updateAttrs leaves the content file alone, so it can't undo a concurrent
+// write of new content.
+func (s *storageFS) updateAttrs(bucketName, objectName string, update func(*StreamingObject)) (StreamingObject, error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	obj, err := s.getObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
-	defer obj.Close()
-
-	if attrsToUpdate.Metadata != nil {
-		obj.Metadata = map[string]string{}
+	update(&obj)
+	obj.Generation = time.Now().UnixNano() / 1000
+	encoded, err := json.Marshal(obj.ObjectAttrs)
+	if err == nil {
+		err = s.mh.write(filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName), encoded)
 	}
-	obj.patch(attrsToUpdate)
-	obj.Generation = 0 // reset generation id
-	return s.CreateObject(obj, NoConditions{})
+	if err != nil {
+		obj.Close()
+		return StreamingObject{}, err
+	}
+	return obj, nil
 }
 
 type concatenatedContent struct {
