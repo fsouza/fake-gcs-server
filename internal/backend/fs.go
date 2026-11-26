@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -32,10 +33,14 @@ import (
 //
 //	|- bucket1
 //	\- bucket2
-//	  |- object1
-//	  \- object2
+//	  |- photos%
+//	  |  \- a.jpg
+//	  \- %h
+//	     |- <sha256 of a long name>
+//	     \- <sha256 of a long name>%n
 //
-// Bucket and object names are url path escaped, so there's no special meaning of forward slashes.
+// Bucket names are url path escaped. Object names are escaped as objectRelPath
+// describes.
 type storageFS struct {
 	rootDir string
 	mtx     sync.RWMutex
@@ -64,6 +69,9 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 	}
 
 	s := &storageFS{rootDir: rootDir, mh: mh}
+	if err := s.migrateObjectPaths(); err != nil {
+		return nil, err
+	}
 	for _, o := range objects {
 		obj, err := s.CreateObject(o, NoConditions{})
 		if err != nil {
@@ -263,15 +271,14 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, PreConditionFailed
 	}
 
-	path := filepath.Join(s.rootDir, url.PathEscape(obj.BucketName), obj.Name)
+	path, hashed := s.objectPath(obj.BucketName, obj.Name)
 	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return StreamingObject{}, err
 	}
-
-	// Nothing to do if this operation only creates directories
-	if strings.HasSuffix(obj.Name, "/") {
-		// TODO: populate Crc32c, Md5Hash, and Etag
-		return StreamingObject{obj.ObjectAttrs, noopSeekCloser{bytes.NewReader([]byte{})}}, nil
+	if hashed {
+		if err := writeFile(path+nameSuffix, []byte(obj.Name), 0o600); err != nil {
+			return StreamingObject{}, err
+		}
 	}
 
 	var buf bytes.Buffer
@@ -322,22 +329,21 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 
 	objects := []ObjectAttrs{}
 	bucketPath := filepath.Join(s.rootDir, url.PathEscape(bucketName))
-	if err := filepath.Walk(bucketPath, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
+	if err := filepath.WalkDir(bucketPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
 			return err
 		}
-
-		objName, _ := filepath.Rel(bucketPath, path)
-		if s.mh.isSpecialFile(info.Name()) {
-			return nil
-		}
-		if info.IsDir() {
+		objName, ok := s.objectName(bucketPath, path)
+		if !ok {
 			return nil
 		}
 		if prefix != "" && !strings.HasPrefix(objName, prefix) {
 			return nil
 		}
 		objAttrs, err := s.getObjectAttrs(bucketName, objName)
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, xattr.ENOATTR) {
+			return nil // the write or delete of the object didn't finish
+		}
 		if err != nil {
 			return err
 		}
@@ -346,6 +352,7 @@ func (s *storageFS) ListObjects(bucketName string, prefix string, versions bool)
 	}); err != nil {
 		return nil, err
 	}
+	slices.SortFunc(objects, func(a, b ObjectAttrs) int { return strings.Compare(a.Name, b.Name) })
 	return objects, nil
 }
 
@@ -376,10 +383,163 @@ func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, e
 	}
 
 	obj := StreamingObject{ObjectAttrs: attrs}
-	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
+	path, _ := s.objectPath(bucketName, objectName)
 	err = openObjectAndSetSize(&obj, path)
 
 	return obj, err
+}
+
+// objectPath returns the path of the file that holds an object's content, and
+// whether it is in hashedDir.
+func (s *storageFS) objectPath(bucketName, objectName string) (string, bool) {
+	rel, hashed := objectRelPath(objectName)
+	return filepath.Join(s.rootDir, url.PathEscape(bucketName), rel), hashed
+}
+
+// objectName returns the name of the object whose content is in the file at
+// path, in the bucket directory bucketPath. It reports false for the other
+// files there.
+func (s *storageFS) objectName(bucketPath, path string) (string, bool) {
+	rel, err := filepath.Rel(bucketPath, path)
+	if err != nil || s.mh.isSpecialFile(rel) {
+		return "", false
+	}
+	if dir, file := filepath.Split(rel); filepath.Clean(dir) == hashedDir {
+		if strings.Contains(file, "%") {
+			return "", false
+		}
+		name, err := os.ReadFile(path + nameSuffix)
+		return string(name), err == nil
+	}
+	return objectNameFromRelPath(rel)
+}
+
+// Earlier versions stored each object under its name as a path, with its
+// metadata in a file ending in oldMetadataSuffix. migrateObjectPaths moves the
+// objects of such a root to objectPath and writes layoutFile, so it runs once.
+// It first moves every bucket directory into migrationDir, so that no new path
+// overwrites an old one, and marks that with migratingFile, so a migration that
+// stops part way continues on the next start. None of these names can be a
+// bucket directory, since url.PathEscape follows a "%" with two hex digits.
+const (
+	layoutFile        = "%layout"
+	migrationDir      = "%old"
+	migratingFile     = "%migrating"
+	oldMetadataSuffix = ".metadata"
+)
+
+func (s *storageFS) migrateObjectPaths() error {
+	if _, err := os.Stat(filepath.Join(s.rootDir, layoutFile)); !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	oldRoot := filepath.Join(s.rootDir, migrationDir)
+	if _, err := os.Stat(filepath.Join(s.rootDir, migratingFile)); errors.Is(err, fs.ErrNotExist) {
+		entries, err := os.ReadDir(s.rootDir)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(oldRoot, 0o700); err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if entry.IsDir() && entry.Name() != migrationDir {
+				if err := os.Rename(filepath.Join(s.rootDir, entry.Name()), filepath.Join(oldRoot, entry.Name())); err != nil {
+					return err
+				}
+			}
+		}
+		if err := writeFile(filepath.Join(s.rootDir, migratingFile), nil, 0o600); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	buckets, err := os.ReadDir(oldRoot)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	for _, bucket := range buckets {
+		if err := s.migrateBucket(filepath.Join(oldRoot, bucket.Name()), bucket.Name()); err != nil {
+			return fmt.Errorf("failed to move the objects of bucket %s to their new paths: %w", bucket.Name(), err)
+		}
+	}
+	if err := os.Remove(oldRoot); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	if err := writeFile(filepath.Join(s.rootDir, layoutFile), nil, 0o600); err != nil {
+		return err
+	}
+	return os.Remove(filepath.Join(s.rootDir, migratingFile))
+}
+
+// migrateBucket moves the objects in oldPath, a bucket directory in the layout
+// of earlier versions, to objectPath. The metadata goes before the content, so
+// a move that stops part way leaves no object without its metadata.
+func (s *storageFS) migrateBucket(oldPath, dirName string) error {
+	bucketName, err := url.PathUnescape(dirName)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(s.rootDir, url.PathEscape(bucketName)), 0o700); err != nil {
+		return err
+	}
+	_, metadataInFiles := s.mh.(metadataFile)
+	exists := func(path string) bool {
+		_, err := os.Lstat(path)
+		return err == nil
+	}
+	// An object can be named "x.metadata", with its metadata in
+	// "x.metadata.metadata", so a name ending in ".metadata" is only metadata
+	// if it has none of its own and belongs to an object.
+	isMetadata := func(path string) bool {
+		return metadataInFiles && strings.HasSuffix(path, oldMetadataSuffix) &&
+			!exists(path+oldMetadataSuffix) && exists(strings.TrimSuffix(path, oldMetadataSuffix))
+	}
+	var dirs []string
+	err = filepath.WalkDir(oldPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			dirs = append(dirs, path)
+			return nil
+		}
+		if !exists(path) || isMetadata(path) {
+			return nil // moved, or to be moved, with its object
+		}
+		rel, err := filepath.Rel(oldPath, path)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(rel)
+		dst, hashed := s.objectPath(bucketName, name)
+		if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+			return err
+		}
+		if hashed {
+			if err := writeFile(dst+nameSuffix, []byte(name), 0o600); err != nil {
+				return err
+			}
+		}
+		if metadataInFiles && isMetadata(path+oldMetadataSuffix) {
+			if err := os.Rename(path+oldMetadataSuffix, dst+metadataSuffix); err != nil {
+				return err
+			}
+		}
+		return os.Rename(path, dst)
+	})
+	if err != nil {
+		return err
+	}
+	// Every file is moved, so the directories are empty. Removing them with
+	// os.Remove rather than os.RemoveAll keeps any file this missed.
+	for i := len(dirs) - 1; i >= 0; i-- {
+		if err := os.Remove(dirs[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func openObjectAndSetSize(obj *StreamingObject, path string) error {
@@ -395,7 +555,7 @@ func openObjectAndSetSize(obj *StreamingObject, path string) error {
 }
 
 func (s *storageFS) getObjectAttrs(bucketName, objectName string) (ObjectAttrs, error) {
-	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
+	path, _ := s.objectPath(bucketName, objectName)
 	encoded, err := s.mh.read(path)
 	if err != nil {
 		return ObjectAttrs{}, err
@@ -411,7 +571,7 @@ func (s *storageFS) getObjectAttrs(bucketName, objectName string) (ObjectAttrs, 
 		return ObjectAttrs{}, fmt.Errorf("failed to stat: %w", err)
 	}
 
-	attrs.Name = filepath.ToSlash(objectName)
+	attrs.Name = objectName
 	attrs.BucketName = bucketName
 	attrs.Size = info.Size()
 	return attrs, nil
@@ -424,11 +584,27 @@ func (s *storageFS) DeleteObject(bucketName, objectName string) error {
 	if objectName == "" {
 		return errors.New("can't delete object with empty name")
 	}
-	path := filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName)
+	path, hashed := s.objectPath(bucketName, objectName)
+	// The metadata goes first: an object without it isn't listed.
 	if err := s.mh.remove(path); err != nil {
 		return err
 	}
-	return os.Remove(path)
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	if hashed {
+		if err := os.Remove(path + nameSuffix); err != nil {
+			return err
+		}
+	}
+	// Remove the directories the object leaves empty.
+	bucketPath := filepath.Join(s.rootDir, url.PathEscape(bucketName))
+	for dir := filepath.Dir(path); dir != bucketPath; dir = filepath.Dir(dir) {
+		if os.Remove(dir) != nil {
+			break
+		}
+	}
+	return nil
 }
 
 // DeleteObjectWithGeneration deletes a specific generation of an object.
@@ -537,5 +713,8 @@ func (s *storageFS) DeleteAllFiles() error {
 	if err := os.RemoveAll(s.rootDir); err != nil {
 		return err
 	}
-	return os.MkdirAll(s.rootDir, 0o700)
+	if err := os.MkdirAll(s.rootDir, 0o700); err != nil {
+		return err
+	}
+	return writeFile(filepath.Join(s.rootDir, layoutFile), nil, 0o600)
 }

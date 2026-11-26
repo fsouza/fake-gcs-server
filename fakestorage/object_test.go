@@ -1456,6 +1456,49 @@ func TestServerClientListAfterCreate(t *testing.T) {
 	}
 }
 
+// The filesystem backend used to drop objects whose name ends in "/".
+func TestServerClientDirectoryMarkers(t *testing.T) {
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		ctx := context.Background()
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: "some-bucket"})
+		bucket := server.Client().Bucket("some-bucket")
+
+		// https://github.com/fsouza/fake-gcs-server/issues/1953
+		for _, name := range []string{"my-folder/", "other-folder/", "files/file.txt"} {
+			if err := bucket.Object(name).NewWriter(ctx).Close(); err != nil {
+				t.Fatalf("writing %q: %v", name, err)
+			}
+		}
+
+		// https://github.com/fsouza/fake-gcs-server/issues/1295
+		attrs, err := bucket.Object("my-folder/").Attrs(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if attrs.Name != "my-folder/" || attrs.Size != 0 {
+			t.Errorf("wrong attrs: name %q, size %d", attrs.Name, attrs.Size)
+		}
+
+		// https://github.com/fsouza/fake-gcs-server/issues/1683
+		var prefixes []string
+		iter := bucket.Objects(ctx, &storage.Query{Delimiter: "/"})
+		for {
+			obj, err := iter.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			prefixes = append(prefixes, obj.Prefix)
+		}
+		expected := []string{"files/", "my-folder/", "other-folder/"}
+		if !reflect.DeepEqual(prefixes, expected) {
+			t.Errorf("wrong prefixes\nwant %q\ngot  %q", expected, prefixes)
+		}
+	})
+}
+
 func TestObjectStoragePagination(t *testing.T) {
 	runServersTest(t, runServersOptions{objs: getObjectsForListTests()}, func(t *testing.T, server *Server) {
 		server.CreateBucketWithOpts(CreateBucketOpts{Name: "empty-bucket"})
