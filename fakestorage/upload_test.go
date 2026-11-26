@@ -2239,6 +2239,11 @@ func TestServerResumableUploadChunkOffsets(t *testing.T) {
 			{"def", "bytes 3-5/9", incomplete, "bytes=0-5"},
 			{"xyz", "bytes 9-11/12", http.StatusBadRequest, ""},   // leaves a gap
 			{"XYZ", "bytes 0-2/9", incomplete, "bytes=0-5"},       // all received: ignored
+			{"ab", "bytes 0-1/2", http.StatusBadRequest, ""},      // final, but 6 bytes received
+			{"", "bytes */9", incomplete, "bytes=0-5"},            // status
+			{"", "bytes */*", incomplete, "bytes=0-5"},            // status
+			{"defghij", "bytes 3-9/9", http.StatusBadRequest, ""}, // 10 bytes, total 9
+			{"", "bytes */*", incomplete, "bytes=0-5"},            // not stored
 			{"XYZghi", "bytes 3-8/9", http.StatusOK, "bytes=0-8"}, // XYZ received: ignored
 		} {
 			resp := do(http.MethodPut, uploadURL, chunk.body, chunk.contentRange)

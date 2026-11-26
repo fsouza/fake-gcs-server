@@ -804,10 +804,23 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 		// As GCS does, even if this chunk was resent and ends earlier.
 		responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", size-1))
 	}
-	if parsed.KnownRange {
+	switch {
+	case parsed.KnownRange:
 		// Middle of a streaming request, or any part of a chunked request.
 		// Complete if the range covers the known total.
 		commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
+	case rangeHeader != "" && parsed.Start < 0:
+		// Until all N bytes are there, "bytes */N", like "bytes */*", asks
+		// for the upload's status.
+		commit = parsed.KnownTotal && size == int64(parsed.Total)
+	}
+	if commit && parsed.KnownTotal && size != int64(parsed.Total) {
+		// Keep the upload as it was, so the client can resend.
+		_ = entry.content.Truncate(received)
+		return jsonResponse{
+			errorMessage: fmt.Sprintf("received %d bytes, but Content-Range declares a total of %d", size, parsed.Total),
+			status:       http.StatusBadRequest,
+		}
 	}
 	if commit {
 		s.uploads.Delete(uploadID)
