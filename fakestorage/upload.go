@@ -136,9 +136,17 @@ func newResumableUploadEntry(obj Object, conditions preconditions, declaredMd5, 
 	}
 }
 
-// write appends chunk to the content. A chunk that fails part way adds nothing.
-func (e *resumableUploadEntry) write(chunk io.Reader) error {
+// write appends the part of chunk past the content received so far. chunk
+// starts at start, which is not past it. Like GCS, it ignores bytes it already
+// has, so a chunk resent after a lost response changes nothing.
+func (e *resumableUploadEntry) write(chunk io.Reader, start int64) error {
 	size := e.content.Size()
+	if _, err := io.CopyN(io.Discard, chunk, size-start); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil // the chunk ends within the bytes received
+		}
+		return err
+	}
 	if _, err := e.content.ReadFrom(chunk); err != nil {
 		_ = e.content.Truncate(size)
 		return err
@@ -759,7 +767,26 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	if entry.done {
 		return jsonResponse{status: http.StatusNotFound}
 	}
-	if err := entry.write(r.Body); err != nil {
+	rangeHeader := r.Header.Get("Content-Range")
+	var parsed contentRange
+	if rangeHeader != "" {
+		var err error
+		if parsed, err = parseContentRange(rangeHeader); err != nil {
+			return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
+		}
+	}
+	received := entry.content.Size()
+	start := received
+	if rangeHeader != "" && parsed.Start >= 0 {
+		if int64(parsed.Start) > received {
+			return jsonResponse{
+				errorMessage: fmt.Sprintf("chunk starts at %d, after the %d bytes received", parsed.Start, received),
+				status:       http.StatusBadRequest,
+			}
+		}
+		start = int64(parsed.Start)
+	}
+	if err := entry.write(r.Body, start); err != nil {
 		return jsonResponse{errorMessage: err.Error()}
 	}
 	commit := true
@@ -772,20 +799,15 @@ func (s *Server) uploadFileContent(r *http.Request) jsonResponse {
 	}
 	obj := entry.obj
 	responseHeader := make(http.Header)
-	if contentRange := r.Header.Get("Content-Range"); contentRange != "" {
-		parsed, err := parseContentRange(contentRange)
-		if err != nil {
-			return jsonResponse{errorMessage: err.Error(), status: http.StatusBadRequest}
-		}
-		if parsed.KnownRange {
-			// Middle of streaming request, or any part of chunked request
-			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", parsed.End))
-			// Complete if the range covers the known total
-			commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
-		} else {
-			// End of a streaming request
-			responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", entry.content.Size()))
-		}
+	size := entry.content.Size()
+	if rangeHeader != "" && size > 0 {
+		// As GCS does, even if this chunk was resent and ends earlier.
+		responseHeader.Set("Range", fmt.Sprintf("bytes=0-%d", size-1))
+	}
+	if parsed.KnownRange {
+		// Middle of a streaming request, or any part of a chunked request.
+		// Complete if the range covers the known total.
+		commit = parsed.KnownTotal && (parsed.End+1 >= parsed.Total)
 	}
 	if commit {
 		s.uploads.Delete(uploadID)

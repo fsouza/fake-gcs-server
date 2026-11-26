@@ -2202,3 +2202,60 @@ func TestServerStopRemovesUnfinishedUploads(t *testing.T) {
 		t.Errorf("temporary files left after Stop: %v", entries)
 	}
 }
+
+func TestServerResumableUploadChunkOffsets(t *testing.T) {
+	const bucketName = "testbucket"
+
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		client := server.HTTPClient()
+		do := func(method, url, body, contentRange string) *http.Response {
+			req, err := http.NewRequest(method, url, strings.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if contentRange != "" {
+				req.Header.Set("Content-Range", contentRange)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			return resp
+		}
+
+		resp := do(http.MethodPost, fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=testobj", server.URL(), bucketName), "", "")
+		uploadURL := resp.Header.Get("Location")
+		const incomplete = http.StatusPermanentRedirect
+		for _, chunk := range []struct {
+			body, contentRange string
+			status             int
+			received           string // Range in the response
+		}{
+			{"abc", "bytes 0-2/9", incomplete, "bytes=0-2"},
+			{"abc", "bytes 0-2/9", incomplete, "bytes=0-2"},
+			{"def", "bytes 3-5/9", incomplete, "bytes=0-5"},
+			{"xyz", "bytes 9-11/12", http.StatusBadRequest, ""},   // leaves a gap
+			{"XYZ", "bytes 0-2/9", incomplete, "bytes=0-5"},       // all received: ignored
+			{"XYZghi", "bytes 3-8/9", http.StatusOK, "bytes=0-8"}, // XYZ received: ignored
+		} {
+			resp := do(http.MethodPut, uploadURL, chunk.body, chunk.contentRange)
+			if resp.StatusCode != chunk.status {
+				t.Errorf("chunk %q at %s: status %d, want %d", chunk.body, chunk.contentRange, resp.StatusCode, chunk.status)
+			}
+			if got := resp.Header.Get("Range"); got != chunk.received {
+				t.Errorf("chunk %q at %s: Range %q, want %q", chunk.body, chunk.contentRange, got, chunk.received)
+			}
+		}
+
+		obj, err := server.GetObject(bucketName, "testobj")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(obj.Content) != "abcdefghi" {
+			t.Errorf("content %q, want %q", obj.Content, "abcdefghi")
+		}
+	})
+}
