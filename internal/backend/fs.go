@@ -21,6 +21,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/fsouza/fake-gcs-server/internal/checksum"
+	"github.com/fsouza/fake-gcs-server/internal/spill"
 	"github.com/pkg/xattr"
 )
 
@@ -49,6 +50,9 @@ func NewStorageFS(objects []StreamingObject, rootDir string) (Storage, error) {
 	}
 	err := os.MkdirAll(rootDir, 0o700)
 	if err != nil {
+		return nil, err
+	}
+	if err := removeStaleTempFiles(filepath.Join(rootDir, tmpDirName)); err != nil {
 		return nil, err
 	}
 
@@ -109,7 +113,7 @@ func (s *storageFS) ListBuckets() ([]Bucket, error) {
 	}
 	buckets := []Bucket{}
 	for _, info := range infos {
-		if info.IsDir() {
+		if info.IsDir() && info.Name() != tmpDirName {
 			unescaped, err := url.PathUnescape(info.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to unescape object name %s: %w", info.Name(), err)
@@ -244,6 +248,25 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 	// filesystem backend and handle generations outside of the backends.
 	obj.Generation = time.Now().UnixNano() / 1000
 
+	// Outside the lock, so a large or slow write doesn't block other requests.
+	content := spill.New(filepath.Join(s.rootDir, tmpDirName), spill.DefaultLimit)
+	defer content.Close()
+	if !strings.HasSuffix(obj.Name, "/") {
+		hasher := checksum.NewStreamingHasher()
+		if _, err := content.ReadFrom(io.TeeReader(obj.Content, hasher)); err != nil {
+			return StreamingObject{}, err
+		}
+		if obj.Crc32c == "" {
+			obj.Crc32c = hasher.EncodedCrc32cChecksum()
+		}
+		if obj.Md5Hash == "" {
+			obj.Md5Hash = hasher.EncodedMd5Hash()
+		}
+		if obj.Etag == "" {
+			obj.Etag = obj.Md5Hash
+		}
+	}
+
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	err := s.createBucket(obj.BucketName, BucketAttrs{VersioningEnabled: false})
@@ -274,23 +297,6 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{obj.ObjectAttrs, noopSeekCloser{bytes.NewReader([]byte{})}}, nil
 	}
 
-	var buf bytes.Buffer
-	hasher := checksum.NewStreamingHasher()
-	objectContent := io.TeeReader(obj.Content, hasher)
-
-	if _, err = io.Copy(&buf, objectContent); err != nil {
-		return StreamingObject{}, err
-	}
-
-	if obj.Crc32c == "" {
-		obj.Crc32c = hasher.EncodedCrc32cChecksum()
-	}
-	if obj.Md5Hash == "" {
-		obj.Md5Hash = hasher.EncodedMd5Hash()
-	}
-	if obj.Etag == "" {
-		obj.Etag = obj.Md5Hash
-	}
 	if obj.StorageClass == "" {
 		obj.StorageClass = "STANDARD"
 	}
@@ -301,7 +307,7 @@ func (s *storageFS) CreateObject(obj StreamingObject, conditions Conditions) (St
 		return StreamingObject{}, err
 	}
 
-	if err := writeFile(path, buf.Bytes(), 0o600); err != nil {
+	if err := writeContent(path, content, 0o600); err != nil {
 		return StreamingObject{}, err
 	}
 
@@ -382,6 +388,56 @@ func (s *storageFS) getObject(bucketName, objectName string) (StreamingObject, e
 	return obj, err
 }
 
+// tmpDirName holds the content of objects being written. No bucket maps to it,
+// because url.PathEscape always follows a "%" with two hex digits.
+const tmpDirName = "%tmp"
+
+// removeStaleTempFiles creates dir and deletes files left in it by writes that
+// didn't finish. Files newer than a day may belong to another server sharing
+// the root.
+func removeStaleTempFiles(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err == nil && time.Since(info.ModTime()) > 24*time.Hour {
+			_ = os.RemoveAll(filepath.Join(dir, entry.Name()))
+		}
+	}
+	return nil
+}
+
+// writeContent stores content at path. Content that spilled to a temporary
+// file is renamed into place rather than copied.
+func writeContent(path string, content *spill.Buffer, perm os.FileMode) error {
+	if data, ok := content.Bytes(); ok {
+		return writeFile(path, data, perm)
+	}
+	name, err := content.TakeFile()
+	if err != nil {
+		return err
+	}
+	if err := os.Chmod(name, perm); err != nil {
+		return err
+	}
+	err = rename(name, path)
+	if !isCrossDevice(err) {
+		return err
+	}
+	// The bucket directory is on another filesystem, a mount point for example.
+	f, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return replaceFile(path, f, perm)
+}
+
 func openObjectAndSetSize(obj *StreamingObject, path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -446,30 +502,40 @@ func (s *storageFS) DeleteObjectWithGeneration(bucketName, objectName string, ge
 }
 
 func (s *storageFS) PatchObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
-	obj, err := s.GetObject(bucketName, objectName)
-	if err != nil {
-		return StreamingObject{}, err
-	}
-	defer obj.Close()
-
-	obj.patch(attrsToUpdate)
-	obj.Generation = 0 // reset generation id
-	return s.CreateObject(obj, NoConditions{})
+	return s.updateAttrs(bucketName, objectName, func(obj *StreamingObject) {
+		obj.patch(attrsToUpdate)
+	})
 }
 
 func (s *storageFS) UpdateObject(bucketName, objectName string, attrsToUpdate ObjectAttrs) (StreamingObject, error) {
-	obj, err := s.GetObject(bucketName, objectName)
+	return s.updateAttrs(bucketName, objectName, func(obj *StreamingObject) {
+		if attrsToUpdate.Metadata != nil {
+			obj.Metadata = map[string]string{}
+		}
+		obj.patch(attrsToUpdate)
+	})
+}
+
+// updateAttrs leaves the content file alone, so it can't undo a concurrent
+// write of new content.
+func (s *storageFS) updateAttrs(bucketName, objectName string, update func(*StreamingObject)) (StreamingObject, error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	obj, err := s.getObject(bucketName, objectName)
 	if err != nil {
 		return StreamingObject{}, err
 	}
-	defer obj.Close()
-
-	if attrsToUpdate.Metadata != nil {
-		obj.Metadata = map[string]string{}
+	update(&obj)
+	obj.Generation = time.Now().UnixNano() / 1000
+	encoded, err := json.Marshal(obj.ObjectAttrs)
+	if err == nil {
+		err = s.mh.write(filepath.Join(s.rootDir, url.PathEscape(bucketName), objectName), encoded)
 	}
-	obj.patch(attrsToUpdate)
-	obj.Generation = 0 // reset generation id
-	return s.CreateObject(obj, NoConditions{})
+	if err != nil {
+		obj.Close()
+		return StreamingObject{}, err
+	}
+	return obj, nil
 }
 
 type concatenatedContent struct {
@@ -537,5 +603,5 @@ func (s *storageFS) DeleteAllFiles() error {
 	if err := os.RemoveAll(s.rootDir); err != nil {
 		return err
 	}
-	return os.MkdirAll(s.rootDir, 0o700)
+	return os.MkdirAll(filepath.Join(s.rootDir, tmpDirName), 0o700)
 }

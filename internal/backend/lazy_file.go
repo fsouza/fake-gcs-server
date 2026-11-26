@@ -25,7 +25,7 @@ func newLazyReader(filename string) io.ReadSeekCloser {
 }
 
 func (r *lazyReader) open() {
-	r.f, r.err = os.Open(r.filename)
+	r.f, r.err = openFile(r.filename)
 }
 
 func (r *lazyReader) Read(p []byte) (int, error) {

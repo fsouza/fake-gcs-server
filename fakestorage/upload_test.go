@@ -15,6 +15,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -2127,4 +2128,139 @@ func TestServerClientSimpleUploadIfGenerationMatch(t *testing.T) {
 	if string(obj.Content) != "v4" {
 		t.Fatalf("content after successful conditional write: want %q, got %q", "v4", string(obj.Content))
 	}
+}
+
+func TestServerResumableUploadDeclaredMd5(t *testing.T) {
+	const bucketName = "testbucket"
+
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		client := server.HTTPClient()
+		for _, tc := range []struct {
+			declared string
+			status   int
+		}{
+			{checksum.EncodedMd5Hash([]byte("abcdef")), http.StatusOK},
+			{checksum.EncodedMd5Hash([]byte("abcxyz")), http.StatusBadRequest},
+		} {
+			body := fmt.Sprintf(`{"name":"obj","md5Hash":%q}`, tc.declared)
+			resp, err := client.Post(fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=resumable", server.URL(), bucketName), "application/json", strings.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = resp.Body.Close()
+			uploadURL := resp.Header.Get("Location")
+			for _, chunk := range []struct{ body, contentRange string }{
+				{"abc", "bytes 0-2/6"},
+				{"def", "bytes 3-5/6"},
+			} {
+				req, err := http.NewRequest(http.MethodPut, uploadURL, strings.NewReader(chunk.body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Header.Set("Content-Range", chunk.contentRange)
+				if resp, err = client.Do(req); err != nil {
+					t.Fatal(err)
+				}
+				_ = resp.Body.Close()
+			}
+			if resp.StatusCode != tc.status {
+				t.Errorf("declared MD5 %s: status %d, want %d", tc.declared, resp.StatusCode, tc.status)
+			}
+		}
+	})
+}
+
+func TestServerStopRemovesUnfinishedUploads(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp) // os.TempDir on Unix
+	t.Setenv("TMP", tmp)    // os.TempDir on Windows
+
+	server := NewServer(nil)
+	server.CreateBucketWithOpts(CreateBucketOpts{Name: "testbucket"})
+	client := server.HTTPClient()
+	resp, err := client.Post(server.URL()+"/upload/storage/v1/b/testbucket/o?uploadType=resumable&name=obj", "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	req, err := http.NewRequest(http.MethodPut, resp.Header.Get("Location"), bytes.NewReader(make([]byte, 2<<20)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Range", "bytes 0-2097151/4194304")
+	if resp, err = client.Do(req); err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if entries, _ := os.ReadDir(tmp); len(entries) == 0 {
+		t.Fatal("upload didn't spill to a temporary file")
+	}
+
+	server.Stop()
+	if entries, _ := os.ReadDir(tmp); len(entries) != 0 {
+		t.Errorf("temporary files left after Stop: %v", entries)
+	}
+}
+
+func TestServerResumableUploadChunkOffsets(t *testing.T) {
+	const bucketName = "testbucket"
+
+	runServersTest(t, runServersOptions{enableFSBackend: true}, func(t *testing.T, server *Server) {
+		server.CreateBucketWithOpts(CreateBucketOpts{Name: bucketName})
+		client := server.HTTPClient()
+		do := func(method, url, body, contentRange string) *http.Response {
+			req, err := http.NewRequest(method, url, strings.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if contentRange != "" {
+				req.Header.Set("Content-Range", contentRange)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			return resp
+		}
+
+		resp := do(http.MethodPost, fmt.Sprintf("%s/upload/storage/v1/b/%s/o?uploadType=resumable&name=testobj", server.URL(), bucketName), "", "")
+		uploadURL := resp.Header.Get("Location")
+		const incomplete = http.StatusPermanentRedirect
+		for _, chunk := range []struct {
+			body, contentRange string
+			status             int
+			received           string // Range in the response
+		}{
+			{"abc", "bytes 0-2/9", incomplete, "bytes=0-2"},
+			{"abc", "bytes 0-2/9", incomplete, "bytes=0-2"},
+			{"def", "bytes 3-5/9", incomplete, "bytes=0-5"},
+			{"xyz", "bytes 9-11/12", http.StatusBadRequest, ""},   // leaves a gap
+			{"XYZ", "bytes 0-2/9", incomplete, "bytes=0-5"},       // all received: ignored
+			{"ab", "bytes 0-1/2", http.StatusBadRequest, ""},      // final, but 6 bytes received
+			{"", "bytes */9", incomplete, "bytes=0-5"},            // status
+			{"", "bytes */*", incomplete, "bytes=0-5"},            // status
+			{"defghij", "bytes 3-9/9", http.StatusBadRequest, ""}, // 10 bytes, total 9
+			{"", "bytes */*", incomplete, "bytes=0-5"},            // not stored
+			{"XYZghi", "bytes 3-8/9", http.StatusOK, "bytes=0-8"}, // XYZ received: ignored
+		} {
+			resp := do(http.MethodPut, uploadURL, chunk.body, chunk.contentRange)
+			if resp.StatusCode != chunk.status {
+				t.Errorf("chunk %q at %s: status %d, want %d", chunk.body, chunk.contentRange, resp.StatusCode, chunk.status)
+			}
+			if got := resp.Header.Get("Range"); got != chunk.received {
+				t.Errorf("chunk %q at %s: Range %q, want %q", chunk.body, chunk.contentRange, got, chunk.received)
+			}
+		}
+
+		obj, err := server.GetObject(bucketName, "testobj")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(obj.Content) != "abcdefghi" {
+			t.Errorf("content %q, want %q", obj.Content, "abcdefghi")
+		}
+	})
 }
