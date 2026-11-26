@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -74,6 +75,52 @@ func TestGetAttributes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewStorageFSRemovesStaleTempFiles(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, tmpDirName)
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	stale, fresh := filepath.Join(dir, "stale"), filepath.Join(dir, "fresh")
+	for _, name := range []string{stale, fresh} {
+		if err := os.WriteFile(name, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := time.Now().Add(-25 * time.Hour)
+	if err := os.Chtimes(stale, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewStorageFS(nil, root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Errorf("stale temporary file still exists: %v", err)
+	}
+	if _, err := os.Stat(fresh); err != nil {
+		t.Errorf("fresh temporary file removed: %v", err)
+	}
+}
+
+func TestStorageFSLargeObjectAfterDeleteAllFiles(t *testing.T) {
+	s, err := NewStorageFS(nil, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteAllFiles(); err != nil {
+		t.Fatal(err)
+	}
+	obj := StreamingObject{
+		ObjectAttrs: ObjectAttrs{BucketName: "bucket", Name: "object"},
+		Content:     noopSeekCloser{bytes.NewReader(make([]byte, 2<<20))},
+	}
+	created, err := s.CreateObject(obj, NoConditions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = created.Close()
 }
 
 func TestStorageFSPatchObjectKeepsContent(t *testing.T) {

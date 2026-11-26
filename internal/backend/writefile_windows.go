@@ -107,3 +107,7 @@ func posixRename(from, to string) error {
 	copy(unsafe.Slice(&info.FileName[0], len(toName)), toName)
 	return windows.SetFileInformationByHandle(h, windows.FileRenameInfoEx, (*byte)(unsafe.Pointer(&buf[0])), uint32(size))
 }
+
+func isCrossDevice(err error) bool {
+	return errors.Is(err, windows.ERROR_NOT_SAME_DEVICE)
+}
