@@ -219,3 +219,181 @@ func TestObjectNamesRandom(t *testing.T) {
 		}
 	}
 }
+
+// TestMigrateObjectPaths opens roots written by earlier versions, which stored
+// each object under its name as a path, and checks that their objects are found:
+// in a root no migration has started on, and in one where a migration stopped
+// after moving some objects.
+func TestMigrateObjectPaths(t *testing.T) {
+	t.Parallel()
+
+	probe, err := NewStorageFS(nil, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mh := probe.(*storageFS).mh
+	// "a/b" moves to a%/b, where the old layout has "a%/b".
+	names := []string{"Upper/File.txt", "a%/b", "a/b", "dir/file", "dir/sub/file", "top", strings.Repeat("abcdefghi/", 60) + "f"}
+	writeOld := func(t *testing.T, bucketPath, name string) {
+		t.Helper()
+		path := filepath.Join(bucketPath, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(name), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := json.Marshal(ObjectAttrs{BucketName: "bucket", Name: name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := mh.(metadataFile); ok {
+			err = os.WriteFile(path+oldMetadataSuffix, encoded, 0o600)
+		} else {
+			err = mh.write(path, encoded)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	check := func(t *testing.T, root string) {
+		t.Helper()
+		storage, err := NewStorageFS(nil, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		objects, err := storage.ListObjects("bucket", "", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var listed []string
+		for _, o := range objects {
+			listed = append(listed, o.Name)
+		}
+		want := slices.Sorted(slices.Values(names))
+		if diff := cmp.Diff(want, listed); diff != "" {
+			t.Errorf("listed objects (-want +got):\n%s", diff)
+		}
+		for _, name := range names {
+			obj, err := storage.GetObject("bucket", name)
+			if err != nil {
+				t.Fatalf("getting %q: %v", name, err)
+			}
+			content, err := io.ReadAll(obj.Content)
+			obj.Close()
+			if err != nil || string(content) != name {
+				t.Errorf("%q has content %q (%v)", name, content, err)
+			}
+		}
+		for _, name := range []string{migrationDir, migratingFile, filepath.Join("bucket", "dir")} {
+			if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
+				t.Errorf("%s is still there: %v", name, err)
+			}
+		}
+
+		// A root emptied by DeleteAllFiles isn't migrated again.
+		if err := storage.DeleteAllFiles(); err != nil {
+			t.Fatal(err)
+		}
+		obj, err := storage.CreateObject(StreamingObject{
+			ObjectAttrs: ObjectAttrs{BucketName: "bucket", Name: "a/b"},
+			Content:     noopSeekCloser{bytes.NewReader(nil)},
+		}, NoConditions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		obj.Close()
+		if storage, err = NewStorageFS(nil, root); err != nil {
+			t.Fatal(err)
+		}
+		if obj, err := storage.GetObject("bucket", "a/b"); err != nil {
+			t.Errorf("after DeleteAllFiles and a restart: %v", err)
+		} else {
+			obj.Close()
+		}
+	}
+
+	t.Run("not started", func(t *testing.T) {
+		root := t.TempDir()
+		for _, name := range names {
+			writeOld(t, filepath.Join(root, "bucket"), name)
+		}
+		check(t, root)
+	})
+
+	t.Run("stopped part way", func(t *testing.T) {
+		root := t.TempDir()
+		storage := &storageFS{rootDir: root, mh: mh}
+		for _, name := range names[1:] {
+			writeOld(t, filepath.Join(root, migrationDir, "bucket"), name)
+		}
+		if err := os.WriteFile(filepath.Join(root, migratingFile), nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		// names[0] was moved before the migration stopped.
+		obj, err := storage.CreateObject(StreamingObject{
+			ObjectAttrs: ObjectAttrs{BucketName: "bucket", Name: names[0]},
+			Content:     noopSeekCloser{bytes.NewReader([]byte(names[0]))},
+		}, NoConditions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		obj.Close()
+		check(t, root)
+	})
+}
+
+// TestMigrateObjectPathsMetadataFiles migrates a root with metadata in files,
+// where objects named "x.metadata" have theirs in "x.metadata.metadata".
+func TestMigrateObjectPathsMetadataFiles(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	names := []string{"dir/file", "dir/x.metadata", "foo", "plain.metadata", "y.metadata.metadata"}
+	for _, name := range names {
+		path := filepath.Join(root, "bucket", filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(name), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := json.Marshal(ObjectAttrs{BucketName: "bucket", Name: name, ContentType: "text/" + name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path+oldMetadataSuffix, encoded, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	storage := &storageFS{rootDir: root, mh: metadataFile{}}
+	if err := storage.migrateObjectPaths(); err != nil {
+		t.Fatal(err)
+	}
+	objects, err := storage.ListObjects("bucket", "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var listed []string
+	for _, o := range objects {
+		listed = append(listed, o.Name)
+		if o.ContentType != "text/"+o.Name {
+			t.Errorf("%q has content type %q, want the metadata written for it", o.Name, o.ContentType)
+		}
+	}
+	if diff := cmp.Diff(names, listed); diff != "" {
+		t.Errorf("listed objects (-want +got):\n%s", diff)
+	}
+	for _, name := range names {
+		obj, err := storage.GetObject("bucket", name)
+		if err != nil {
+			t.Fatalf("getting %q: %v", name, err)
+		}
+		content, err := io.ReadAll(obj.Content)
+		obj.Close()
+		if err != nil || string(content) != name {
+			t.Errorf("%q has content %q (%v)", name, content, err)
+		}
+	}
+}
